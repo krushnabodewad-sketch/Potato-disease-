@@ -32,7 +32,7 @@ REMEDIES = {
     'Potato___healthy': {
         'title': 'निरोगी बटाटा पान (Healthy Leaf)',
         'type': 'निरोगी',
-        'cure': 'पीक निरोगी आहे. कोणत्याही रासायनिक फवारणीची गरज नाही.'
+        'cure': 'पीक पूर्णपणे निरोगी आहे! कोणत्याही रासायनिक फवारणीची गरज नाही; अनावश्यक खर्च टाळा.'
     }
 }
 
@@ -52,10 +52,20 @@ if uploaded_file is not None and model_ready:
     st.image(image, caption="निवडलेले पान", use_container_width=True)
     
     with st.spinner("AI मॉडेल विश्लेषण करत आहे..."):
+        # Image Resizing
         img_resized = image.resize((224, 224))
-        img_array = np.expand_dims(np.array(img_resized) / 255.0, axis=0)
+        img_raw = np.array(img_resized, dtype=np.float32)
+        
+        # MobileNetV2 Preprocessing [-1, 1]
+        img_preprocessed = tf.keras.applications.mobilenet_v2.preprocess_input(img_raw)
+        img_array = np.expand_dims(img_preprocessed, axis=0)
         
         predictions = model.predict(img_array)[0]
+        
+        # Softmax खात्रीसाठी (जर मॉडेल logits देत असेल तर)
+        if np.sum(predictions) > 1.05 or np.sum(predictions) < 0.95:
+            predictions = tf.nn.softmax(predictions).numpy()
+            
         predicted_idx = int(np.argmax(predictions))
         confidence = float(predictions[predicted_idx]) * 100
         
@@ -69,6 +79,12 @@ if uploaded_file is not None and model_ready:
             st.error(f"### आढळलेला रोग: {info['title']}")
             
         st.metric(label="अचूकता (Confidence Rate)", value=f"{confidence:.2f}%")
+        
+        # तिन्ही क्लासचे टक्केवारी विश्लेषण (जजेससाठी उत्तम)
+        with st.expander("सर्व वर्गांचे सविस्तर विश्लेषण (Class Probabilities)"):
+            st.write(f"🌿 **निरोगी (Healthy):** {float(predictions[2])*100:.2f}%")
+            st.write(f"🍂 **अगाती करपा (Early Blight):** {float(predictions[0])*100:.2f}%")
+            st.write(f"🥀 **लेट ब्लाइट (Late Blight):** {float(predictions[1])*100:.2f}%")
+
         st.subheader("💡 शिफारस केलेले कृषी उपाय:")
         st.info(info['cure'])
-      
