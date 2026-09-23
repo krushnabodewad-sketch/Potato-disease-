@@ -53,9 +53,10 @@ if uploaded_file is not None and model_ready:
     st.image(image, caption="निवडलेले पान", use_container_width=True)
     
     with st.spinner("AI मॉडेल विश्लेषण करत आहे..."):
-        # Image Resizing to 224x224
-        img_resized = image.resize((224, 224))
+                # Image Resizing to 256x256 (PlantVillage Standard)
+        img_resized = image.resize((256, 256))
         img_array = np.array(img_resized, dtype=np.float32)
+
         
         # मूळ ट्रेनिंग प्रमाणे [0, 1] रेंज नॉर्मलायझेशन
         img_array = img_array / 255.0
