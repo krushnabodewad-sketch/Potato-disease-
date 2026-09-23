@@ -72,6 +72,14 @@ if uploaded_file is not None and model_ready:
         confidence = float(predictions[predicted_idx]) * 100
         
         predicted_label = CLASS_NAMES[predicted_idx]
+                # जर फरक खूप कमी असेल किंवा रोगाचा स्कोअर 50% पेक्षा कमी असेल तर निरोगी दाखवा
+        if predicted_idx != 2 and (confidence < 50.0 or abs(predictions[predicted_idx] - predictions[2]) < 0.08):
+            predicted_idx = 2
+            confidence = float(predictions[2]) * 100
+
+        predicted_label = CLASS_NAMES[predicted_idx]
+        info = REMEDIES[predicted_label]
+        
         info = REMEDIES[predicted_label]
         
         st.divider()
