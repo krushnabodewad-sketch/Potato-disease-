@@ -7,7 +7,7 @@ st.set_page_config(page_title="AI बटाटा रोग ओळख", page_ico
 
 @st.cache_resource
 def load_disease_model():
-    return tf.keras.models.load_model('potato_disease_model.h5')
+    return tf.keras.models.load_model('potato_disease_model (1).h5')
 
 try:
     model = load_disease_model()
