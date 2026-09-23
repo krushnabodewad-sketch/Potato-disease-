@@ -16,6 +16,7 @@ except Exception as e:
     model_ready = False
     st.error("मॉडेल लोड होऊ शकले नाही. कृपया मॉडेल फाईल तपासा.")
 
+# PlantVillage मानक क्लास क्रम
 CLASS_NAMES = ['Potato___Early_blight', 'Potato___Late_blight', 'Potato___healthy']
 
 REMEDIES = {
@@ -52,17 +53,17 @@ if uploaded_file is not None and model_ready:
     st.image(image, caption="निवडलेले पान", use_container_width=True)
     
     with st.spinner("AI मॉडेल विश्लेषण करत आहे..."):
-        # Image Resizing
+        # Image Resizing to 224x224
         img_resized = image.resize((224, 224))
-        img_raw = np.array(img_resized, dtype=np.float32)
+        img_array = np.array(img_resized, dtype=np.float32)
         
-        # MobileNetV2 Preprocessing [-1, 1]
-        img_preprocessed = tf.keras.applications.mobilenet_v2.preprocess_input(img_raw)
-        img_array = np.expand_dims(img_preprocessed, axis=0)
+        # मूळ ट्रेनिंग प्रमाणे [0, 1] रेंज नॉर्मलायझेशन
+        img_array = img_array / 255.0
+        img_batch = np.expand_dims(img_array, axis=0)
         
-        predictions = model.predict(img_array)[0]
+        predictions = model.predict(img_batch)[0]
         
-        # Softmax खात्रीसाठी (जर मॉडेल logits देत असेल तर)
+        # जर आउटपुट लॉजिट्स असतील तर सॉफ्टमॅक्स लागू करणे
         if np.sum(predictions) > 1.05 or np.sum(predictions) < 0.95:
             predictions = tf.nn.softmax(predictions).numpy()
             
@@ -80,11 +81,11 @@ if uploaded_file is not None and model_ready:
             
         st.metric(label="अचूकता (Confidence Rate)", value=f"{confidence:.2f}%")
         
-        # तिन्ही क्लासचे टक्केवारी विश्लेषण (जजेससाठी उत्तम)
         with st.expander("सर्व वर्गांचे सविस्तर विश्लेषण (Class Probabilities)"):
-            st.write(f"🌿 **निरोगी (Healthy):** {float(predictions[2])*100:.2f}%")
             st.write(f"🍂 **अगाती करपा (Early Blight):** {float(predictions[0])*100:.2f}%")
             st.write(f"🥀 **लेट ब्लाइट (Late Blight):** {float(predictions[1])*100:.2f}%")
+            st.write(f"🌿 **निरोगी (Healthy):** {float(predictions[2])*100:.2f}%")
 
         st.subheader("💡 शिफारस केलेले कृषी उपाय:")
         st.info(info['cure'])
+        
