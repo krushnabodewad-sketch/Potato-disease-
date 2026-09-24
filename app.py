@@ -47,12 +47,6 @@ html, body, [class*="css"] { font-family:'Plus Jakarta Sans','Mukta',sans-serif;
 .kai-status { display:inline-flex; align-items:center; gap:8px; margin-top:12px; color:var(--mint); font-size:0.85rem; }
 .kai-dot { width:8px; height:8px; border-radius:50%; background:#4ADE80; box-shadow:0 0 0 4px rgba(74,222,128,0.25); }
 
-.kai-disclaimer {
-    background: #ecfdf5; border: 1px solid #a7f3d0; border-left: 4px solid var(--emerald);
-    border-radius: 12px; padding: 10px 16px; margin-bottom: 1.4rem;
-    font-size: 0.88rem; color: #065f46;
-}
-
 .kai-card { background:#fff; border:1px solid var(--border); border-radius:18px; padding:1.5rem; box-shadow:0 10px 25px -5px rgba(0,0,0,0.05); margin-bottom:1.2rem; }
 .kai-pill-row { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:8px; }
 .kai-pill { display:inline-flex; align-items:center; padding:6px 14px; border-radius:999px; font-size:0.9rem; font-weight:600; background:var(--mint); color:var(--forest); border:1px solid #A7F3D0; }
@@ -62,7 +56,6 @@ html, body, [class*="css"] { font-family:'Plus Jakarta Sans','Mukta',sans-serif;
 .kai-severity.healthy { background:var(--green-bg); color:#15803D; }
 .kai-severity.moderate { background:var(--amber-bg); color:#B45309; }
 .kai-severity.critical { background:var(--red-bg); color:#B91C1C; }
-.kai-severity.unknown { background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; }
 
 .kai-gauge-wrap { display:flex; align-items:center; gap:20px; }
 .kai-gauge-num { font-size:2rem; font-weight:800; color:var(--forest); line-height:1; }
@@ -108,10 +101,6 @@ st.markdown("""
     <span class="kai-badge">Avishkar Research Convention 2026</span>
   </div>
   <div class="kai-status"><span class="kai-dot"></span> Deep Learning Engine Active</div>
-</div>
-
-<div class="kai-disclaimer">
-  📢 <b>प्रकल्प मर्यादा (Scope):</b> हे मॉडेल केवळ <b>🥔 बटाटा (Potato)</b>, <b>🌱 सोयाबीन (Soybean)</b> आणि <b>☁️ कापूस (Cotton)</b> या ३ पिकांसाठी प्रशिक्षित आहे. इतर पिकांचे पान (उदा. टोमॅटो, गहू, मिरची) दिल्यास सिस्टीम त्याला नाकारेल.
 </div>
 """, unsafe_allow_html=True)
 
@@ -225,14 +214,16 @@ TREATMENTS = {
 }
 
 # ============================================================
-# INPUT & CONTROLS
+# INPUT SECTION
 # ============================================================
+st.markdown('<p class="kai-section-label">पान अपलोड करा · Upload Leaf Sample</p>', unsafe_allow_html=True)
+
 with st.container():
     st.markdown('<div class="kai-card">', unsafe_allow_html=True)
     c1, c2 = st.columns([1, 1])
     with c1:
         crop_mode = st.selectbox(
-            "🌾 पीक निवडा (Auto-detect किंवा थेट निवडा):",
+            "🌾 पीक निवडा (Auto किंवा मॅन्युअल):",
             ("🤖 ऑटो-डिटेक्ट (Auto-Detect Mode)", "🥔 बटाटा (Potato)", "🌱 सोयाबीन (Soybean)", "☁️ कापूस (Cotton)")
         )
     with c2:
@@ -245,7 +236,7 @@ with st.container():
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================================
-# SMART INFERENCE & OUT-OF-SCOPE FILTER
+# INFERENCE WITH HARDCODED OUT-OF-SCOPE REJECTION
 # ============================================================
 if uploaded_file is not None and models_ready:
     img = Image.open(uploaded_file).convert('RGB')
@@ -276,27 +267,32 @@ if uploaded_file is not None and models_ready:
     idx_c = int(np.argmax(preds_c))
     conf_c = float(preds_c[idx_c])
 
-    # २. कॉम्प्युटर व्हिजन दातेरीपणा (Tomato Serrated Edge Test)
-    # टोमॅटोच्या पानात सूक्ष्म दातेरी खाचा (Serrations) आणि तीव्र हिरवा-निळा रंग असतो
-    gray = np.array(img.convert('L'))
-    gradient_x = np.abs(gray[:, :-1] - gray[:, 1:])
-    high_texture = np.mean(gradient_x) > 28.0  # टोमॅटोच्या दातेरी कडांचा इंडेक्स
+    # २. कॉम्प्युटर व्हिजन - टोमॅटो / अनोळखी वनस्पती तपासणी
+    r_chan, g_chan, b_chan = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
+    mean_r, mean_g, mean_b = np.mean(r_chan), np.mean(g_chan), np.mean(b_chan)
     
-    # जर ऑटो-डिटेक्ट सुरू असेल आणि टोमॅटोसारखे इतर पान आले असेल:
-    is_unknown_leaf = False
-    if crop_mode == "🤖 ऑटो-डिटेक्ट (Auto-Detect Mode)":
-        # जर पान बटाटा करपा दाखवत आहे, पण त्यावर टोमॅटोसारख्या दातेरी कडा आहेत व कापूस/सोयाबीन पूर्ण 0 आहेत
-        if idx_p == 0 and conf_p > 0.90 and high_texture and conf_c < 0.05 and conf_s < 0.05:
-            is_unknown_leaf = True
+    # टोमॅटोच्या पानाचा विशेष स्पेक्ट्रल रेशो:
+    # बटाट्याचे पान पिवळसर-हिरवे असते (Red जास्त), तर टोमॅटोचे पान गडद हिरवे/Cyan असते (Blue & Green जास्त)
+    cyan_green_ratio = (mean_g - mean_r) / (mean_b + 1e-5)
+    is_tomato_spectral = (cyan_green_ratio > 0.20 and mean_b > 65.0)
 
-    if is_unknown_leaf:
+    # जर ऑटो-डिटेक्ट सुरू असेल आणि टोमॅटोचे पान बटाटा करपा म्हणून पकडले जात असेल:
+    is_out_of_scope = False
+    if crop_mode == "🤖 ऑटो-डिटेक्ट (Auto-Detect Mode)":
+        if is_tomato_spectral and idx_p == 0:
+            is_out_of_scope = True
+
+    # ३. रिझल्ट दाखवणे किंवा ब्लॉक करणे
+    if is_out_of_scope:
         st.markdown("""
-        <div class="kai-card" style="border: 2px solid #fca5a5; background: #fff5f5;">
-            <div class="kai-severity unknown">⚠️ अनोळखी पीक / Out of Scope Plant</div>
-            <h3 style="color: #b91c1c; margin: 10px 0 6px 0;">हे पान टोमॅटो किंवा इतर वनस्पतीचे वाटते!</h3>
-            <p style="color: #4b5563; font-size: 0.95rem; line-height: 1.6;">
-                टोमॅटो आणि बटाटा हे दोन्ही <b>Solanaceae</b> कुळातील असल्याने बुरशीची लक्षणे सारखी दिसतात. <br>
-                परंतु हे ॲप सध्या केवळ <b>बटाटा, सोयाबीन व कापूस</b> या ३ पिकांसाठी प्रमाणित आहे. कृपया योग्य पीक निवडा किंवा ठरवून दिलेल्या ३ पिकांची पाने अपलोड करा.
+        <div class="kai-card" style="border: 2px solid #ef4444; background: #fef2f2;">
+            <div style="display:inline-block; background:#fee2e2; color:#b91c1c; font-weight:800; padding:6px 14px; border-radius:8px; font-size:13px; margin-bottom:10px;">
+                ⚠️ अनोळखी पीक / OUT OF SCOPE PLANT DETECTED
+            </div>
+            <h3 style="color:#991b1b; margin:0 0 8px 0; font-size:1.25rem;">हे पान टोमॅटो किंवा इतर वनस्पतीचे आहे!</h3>
+            <p style="color:#374151; font-size:0.95rem; line-height:1.6; margin:0;">
+                टोमॅटो आणि बटाटा हे दोन्ही <b>Solanaceae</b> कुळातील असल्याने बुरशीची लक्षणे (Early Blight) सारखीच दिसतात. <br>
+                परंतु हे मॉडेल सध्या केवळ <b>बटाटा, सोयाबीन आणि कापूस</b> या ३ पिकांसाठी प्रशिक्षित आहे. इतर पिकांसाठी खते अथवा औषध शिफारस केली जाणार नाही.
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -352,7 +348,7 @@ if uploaded_file is not None and models_ready:
         tips_text = info['tips']
         sev_class = 'healthy' if ('सुरक्षित' in sev_text or 'Healthy' in sev_text) else ('moderate' if 'मध्यम' in sev_text else 'critical')
 
-        # निकाल कार्ड
+        # निकाल हेडर
         st.markdown(f"""
         <div class="kai-card">
         <div class="kai-pill-row">
@@ -376,6 +372,7 @@ if uploaded_file is not None and models_ready:
         """, unsafe_allow_html=True)
 
         # संभाव्यता विवरण
+        st.markdown('<p class="kai-section-label">संभाव्यता विश्लेषण · Probability Distribution</p>', unsafe_allow_html=True)
         st.markdown('<div class="kai-card">', unsafe_allow_html=True)
         order = np.argsort(current_preds)[::-1]
         for i in order:
@@ -394,7 +391,8 @@ if uploaded_file is not None and models_ready:
             """, unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # सल्ला व औषधोपचार
+        # सल्ला व औषधोपचार कार्ड्स
+        st.markdown('<p class="kai-section-label">उपचार सल्ला · Treatment Advisory</p>', unsafe_allow_html=True)
         adv_col1, adv_col2 = st.columns(2)
         with adv_col1:
             st.markdown(f"""
@@ -415,36 +413,8 @@ if uploaded_file is not None and models_ready:
             </div>
             """, unsafe_allow_html=True)
 
-        # स्वच्छ UTF-8 अहवाल डाउनलोड
+        # अहवाल डाउनलोड
         st.markdown("<br>", unsafe_allow_html=True)
         report_text = f"""\ufeff========================================================
                  कृषी-AI : पीक रोग निदान अहवाल
-========================================================
-तारीख व वेळ : {datetime.now().strftime('%d-%m-%Y %I:%M %p')}
-प्रकल्प      : आविष्कार संशोधन परिषद (Avishkar 2026)
-
-[१] प्राथमिक तपासणी:
---------------------------------------------------------
-• ओळखलेले पीक  : {crop_name}
-• मुख्य निदान    : {diagnosed_label}
-• मॉडेल अचूकता  : {final_conf:.2f}%
-• धोका पातळी    : {sev_text}
-
-[२] रासायनिक उपाय (Chemical Treatment):
---------------------------------------------------------
-• औषध / खत      : {fertilizer_text}
-• फवारणी प्रमाण  : {dose_text}
-
-[३] जैविक व सेंद्रिय व्यवस्थापन (Organic Solutions):
---------------------------------------------------------
-• सेंद्रिय घटक    : {bio_text}
-• तज्ज्ञ सल्ला    : {tips_text}
-========================================================
-टीप: हा संगणकीय अहवाल कृषी-AI डीप लर्निंग व्हिजनद्वारे तयार करण्यात आला आहे.
-"""
-        st.download_button(
-            label="📥 निदान अहवाल डाउनलोड करा (Download Report)",
-            data=report_text.encode('utf-8-sig'),
-            file_name=f"krushi_ai_report_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-            mime="text/plain; charset=utf-8",
-        )
+==========
