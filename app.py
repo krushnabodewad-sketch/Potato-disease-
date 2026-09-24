@@ -225,7 +225,7 @@ st.markdown(
 )
 
 # ============================================================
-# LOAD MODELS  (unchanged filenames / logic)
+# LOAD MODELS
 # ============================================================
 @st.cache_resource
 def load_all_models():
@@ -328,15 +328,12 @@ TREATMENTS = {
     }
 }
 
-
 def severity_class(severity_text: str) -> str:
-    """Map a Marathi/English severity string to a badge style."""
     if 'सुरक्षित' in severity_text or 'Healthy' in severity_text:
         return 'healthy'
     if 'मध्यम' in severity_text and 'तीव्र' not in severity_text:
         return 'moderate'
     return 'critical'
-
 
 # ============================================================
 # INPUT SECTION
@@ -352,7 +349,7 @@ with st.container():
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================================
-# INFERENCE + RESULTS  (ML logic unchanged)
+# INFERENCE + RESULTS
 # ============================================================
 if uploaded_file is not None:
     img = Image.open(uploaded_file).convert('RGB')
@@ -432,7 +429,7 @@ if uploaded_file is not None:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Confidence meter (gradient bar acting as gauge)
+    # Confidence meter
     st.markdown(
         f"""
         <div class="kai-gauge-wrap">
@@ -495,36 +492,4 @@ if uploaded_file is not None:
         st.markdown(
             f"""
             <div class="kai-adv-card kai-adv-bio">
-              <div class="kai-adv-title">🌿 सेंद्रिय उपाय (Organic / Bio Alternative)</div>
-              <div class="kai-adv-row"><b>सेंद्रिय उपाय:</b> {bio_text}</div>
-              <div class="kai-adv-row"><b>व्यवस्थापन सल्ला:</b> {tips_text}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    # ---------------- EXPORT REPORT ----------------
-    st.markdown("<br>", unsafe_allow_html=True)
-    report_text = f"""कृषी-AI (Krushi-AI) — निदान अहवाल / Diagnostic Report
-Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}
-
-Crop: {crop_name}
-Diagnosis: {diagnosed_label}
-Confidence: {final_conf:.2f}%
-Severity: {sev_text}
-
-Chemical Treatment (औषध): {fertilizer_text}
-Dose (प्रमाण/डोस): {dose_text}
-
-Organic Alternative (सेंद्रिय उपाय): {bio_text}
-Management Tip (व्यवस्थापन सल्ला): {tips_text}
-
---
-Avishkar Research Convention 2026 | कृषी-AI Smart Agro Diagnostics
-"""
-    st.download_button(
-        label="📥 निदान अहवाल डाउनलोड करा (Download Report)",
-        data=report_text,
-        file_name=f"krushi_ai_report_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-        mime="text/plain",
-    )
+         
