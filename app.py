@@ -50,7 +50,7 @@ st.markdown("""
 <div class="kai-hero">
     <div style="font-size: 11px; font-weight: 800; letter-spacing: 1px; color: #a7f3d0; margin-bottom: 4px;">AVISHKAR RESEARCH CONVENTION 2026</div>
     <h2 style="margin: 0; font-size: 1.6rem; font-weight: 800;">🌿 कृषी-AI : स्मार्ट पीक रोग निदान प्रणाली</h2>
-    <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #d1fae5;">Deep Learning Crop Vision Engine with Explainable AI (XAI)</p>
+    <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #d1fae5;">Deep Learning Crop Vision Engine (Potato • Soybean • Cotton)</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -181,14 +181,14 @@ TREATMENTS = {
     }
 }
 
-# 5. Input Controls
+# 5. Input Controls (पीक निवड डीफॉल्ट ठेवली आहे जेणेकरून क्रॉस-प्रेडिक्शन होणार नाही)
 with st.container():
     st.markdown('<div class="kai-card">', unsafe_allow_html=True)
     c1, c2 = st.columns([1, 1])
     with c1:
         crop_mode = st.selectbox(
-            "🌾 पीक निवडा (Auto किंवा मॅन्युअल):",
-            ("🤖 ऑटो-डिटेक्ट (Auto-Detect Mode)", "☁️ कापूस (Cotton)", "🌱 सोयाबीन (Soybean)", "🥔 बटाटा (Potato)")
+            "🌾 पीक निवडा (Select Crop):",
+            ("🌱 सोयाबीन (Soybean)", "☁️ कापूस (Cotton)", "🥔 बटाटा (Potato)", "🤖 ऑटो-डिटेक्ट (Auto-Detect Mode)")
         )
     with c2:
         input_mode = st.radio("माध्यम निवडा:", ("गॅलरी (Upload)", "कॅमेरा (Camera)"), horizontal=True)
@@ -229,7 +229,7 @@ if uploaded_file is not None and models_ready:
     idx_c = int(np.argmax(preds_c))
     conf_c = float(preds_c[idx_c])
 
-    # 2. टोमॅटो / अनोळखी पीक फिल्टर (फक्त तेव्हाच सक्रिय होईल जेव्हा मॉडेल बटाटा करपा सांगत असेल)
+    # 2. Out-of-Scope Rejection (केवळ बटाट्यावरील टोमॅटो अडवण्यासाठी)
     gray = np.array(img.resize((150, 150)).convert('L'))
     white_lines = np.sum(gray > 200) / (150 * 150)
     r_c, g_c, b_c = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
@@ -237,9 +237,8 @@ if uploaded_file is not None and models_ready:
     cyan_ratio = (mean_g - mean_r) / (mean_b + 1e-5)
 
     is_out_of_scope = False
-    if crop_mode == "🤖 ऑटो-डिटेक्ट (Auto-Detect Mode)":
-        # जर बटाटा मॉडेल 98% पेक्षा जास्त सांगत आहे, पण पानात कापूस आणि सोयाबीन 0.01 पेक्षा कमी आहेत आणि पांढऱ्या रेषा किंवा cyan tint आहे
-        if idx_p == 0 and conf_p > 0.95 and (white_lines > 0.05 or (cyan_ratio > 0.18 and mean_b > 60.0)):
+    if "ऑटो" in crop_mode:
+        if idx_p == 0 and conf_p > 0.98 and (white_lines > 0.05 or (cyan_ratio > 0.18 and mean_b > 65.0)):
             is_out_of_scope = True
 
     if is_out_of_scope:
@@ -250,43 +249,42 @@ if uploaded_file is not None and models_ready:
             </div>
             <h3 style="color:#991b1b; margin:6px 0;">हे पान अधिकृत ३ पिकांमधील नाही!</h3>
             <p style="color:#374151; font-size:0.95rem; line-height: 1.6; margin:0;">
-                हे पान टोमॅटो, मिरची किंवा इतर वनस्पतीचे दिसते. <br>
+                हे पान टोमॅटो, मिरची किंवा इतर बाहेरील वनस्पतीचे दिसते. <br>
                 <b>कृषी-AI</b> सध्या केवळ <b>बटाटा, सोयाबीन आणि कापूस</b> या ३ पिकांसाठी प्रमाणित आहे.
             </p>
         </div>
         """, unsafe_allow_html=True)
     else:
-        # निष्पक्ष पीक निवड (Fair Multi-Model Decision)
-        if "कापूस" in crop_mode:
-            selected_crop = "cotton"
-        elif "सोयाबीन" in crop_mode:
+        # अचूक पीक वाटप (Explicit Crop Selection Priority)
+        if "सोयाबीन" in crop_mode:
             selected_crop = "soybean"
+        elif "कापूस" in crop_mode:
+            selected_crop = "cotton"
         elif "बटाटा" in crop_mode:
             selected_crop = "potato"
         else:
-            # ऑटो-डिटेक्ट: ज्या मॉडेलचा कॉन्फिडन्स सर्वात जास्त आहे ते पीक निवडले जाईल
-            # जर कापूस मॉडेलला ५०% पेक्षा जास्त खात्री असेल किंवा कापूस स्कोअर जास्त असेल:
-            if conf_c > conf_s and conf_c > conf_p:
-                selected_crop = "cotton"
-            elif conf_s > conf_c and conf_s > conf_p:
+            # ऑटो-डिटेक्ट: सोयाबीन कीटक प्रादुर्भावाला योग्य प्राधान्य
+            if idx_s in [0, 1] and conf_s > 0.50:
                 selected_crop = "soybean"
-            elif conf_p > conf_c and conf_p > conf_s:
+            elif idx_c in [0, 1] and conf_c > 0.60:
+                selected_crop = "cotton"
+            elif idx_p in [0, 1] and conf_p > 0.50:
                 selected_crop = "potato"
             else:
-                selected_crop = "cotton"
+                selected_crop = "soybean" if conf_s > conf_c else "cotton"
 
-        if selected_crop == "cotton":
-            crop_name = "☁️ कापूस (Cotton Leaf)"
-            diagnosed_label = COTTON_CLASSES[idx_c]
-            final_conf = conf_c * 100
-            current_classes = COTTON_CLASSES
-            current_preds = preds_c
-        elif selected_crop == "soybean":
+        if selected_crop == "soybean":
             crop_name = "🌱 सोयाबीन (Soybean Leaf)"
             diagnosed_label = SOYBEAN_CLASSES[idx_s]
             final_conf = conf_s * 100
             current_classes = SOYBEAN_CLASSES
             current_preds = preds_s
+        elif selected_crop == "cotton":
+            crop_name = "☁️ कापूस (Cotton Leaf)"
+            diagnosed_label = COTTON_CLASSES[idx_c]
+            final_conf = conf_c * 100
+            current_classes = COTTON_CLASSES
+            current_preds = preds_c
         else:
             crop_name = "🥔 बटाटा (Potato Leaf)"
             diagnosed_label = POTATO_CLASSES[idx_p]
@@ -304,7 +302,7 @@ if uploaded_file is not None and models_ready:
             <div style="font-weight: 800; font-size: 0.9rem; margin-bottom: 4px;">🌤️ प्रादेशिक हवामान आणि रोग जोखीम (Weather Correlation)</div>
             <div style="font-size: 0.88rem; line-height: 1.5;">
                 स्थानिक तापमान: <b>२८°C</b> | हवेतील आर्द्रता: <b>७६%</b> (दमट वातावरण)<br>
-                <b>सल्ला:</b> हवेतील जादा आर्द्रतेमुळे रोग वेगाने पसरू शकतात. औषध फवारणी पाऊस नसताना सकाळच्या वेळी करावी.
+                <b>सल्ला:</b> हवेतील दमट वातावरणामुळे कीड व रोगांचा प्रादुर्भाव वाढू शकतो. फवारणी पाऊस नसताना करावी.
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -344,7 +342,7 @@ if uploaded_file is not None and models_ready:
 
         # ४. XAI Attention Map
         with st.expander("🔬 AI अटेंशन हीटमॅप पहा (Explainable AI - XAI Attention Map)"):
-            st.markdown("<small style='color:#64748b;'>मॉडेलने पानावरील नेमक्या कोणत्या रोगट भागावर लक्ष केंद्रित केले ते खालील हीटमॅपमध्ये दिसते:</small>", unsafe_allow_html=True)
+            st.markdown("<small style='color:#64748b;'>मॉडेलने पानावरील नेमक्या कोणत्या भागावर लक्ष केंद्रित केले ते खालील हीटमॅपमध्ये दिसते:</small>", unsafe_allow_html=True)
             leaf_gray = np.array(resized_img.convert('L'), dtype=np.float32)
             leaf_grad = np.abs(leaf_gray - np.mean(leaf_gray))
             heatmap_norm = np.clip((leaf_grad / (np.max(leaf_grad) + 1e-5)) * 255.0, 0, 255).astype(np.uint8)
