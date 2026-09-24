@@ -402,4 +402,141 @@ input_method = st.radio(
 )
 
 def safe_widget(fn, *args, **kwargs):
-    """Call a Streamlit widget; on older Streamlit ver
+    """Call a Streamlit widget; on older Streamlit versions retry without newer kwargs."""
+    try:
+        return fn(*args, **kwargs)
+    except (TypeError, AttributeError):
+        kwargs.pop("label_visibility", None)
+        return fn(*args, **kwargs)
+
+
+image_source = None
+if input_method == "📁 फोटो अपलोड करा":
+    image_source = safe_widget(
+        st.file_uploader, "फोटो निवडा", type=["jpg", "jpeg", "png"], label_visibility="collapsed"
+    )
+else:
+    image_source = safe_widget(st.camera_input, "फोटो काढा", label_visibility="collapsed")
+
+with st.expander("⚙️ पीक स्वतः निवडा (ऐच्छिक)"):
+    crop_choice = st.selectbox(
+        "पीक",
+        ["🤖 स्वयंचलित ओळख (शिफारस)", "🥔 बटाटा", "☁️ कापूस", "🫘 सोयाबीन"],
+        label_visibility="collapsed",
+    )
+forced_map = {"🥔 बटाटा": "potato", "☁️ कापूस": "cotton", "🫘 सोयाबीन": "soybean"}
+forced_crop = forced_map.get(crop_choice)
+
+# =====================================================================
+# 9. UI: ANALYSIS & RESULTS
+# =====================================================================
+if image_source is not None and models_ready:
+    img = Image.open(image_source).convert("RGB")
+
+    st.markdown('<div class="sec"><div class="bar"></div><h3>२. तुमचा फोटो</h3></div>', unsafe_allow_html=True)
+    try:
+        st.image(img, use_container_width=True)
+    except TypeError:
+        st.image(img, use_column_width=True)
+
+    with st.spinner("🔍 AI फोटोचे विश्लेषण करत आहे…"):
+        part = get_part_and_features(img)
+        crop_key, probs, top_conf = run_ensemble(img, forced_crop)
+
+    crop = CROPS[crop_key]
+    classes = crop['classes']
+    remedies = crop['remedies']
+    idx = int(np.argmax(probs))
+    confidence = float(probs[idx]) * 100
+    info = remedies[classes[idx]]
+    healthy = info['type'] == 'निरोगी'
+
+    st.markdown('<div class="sec"><div class="bar"></div><h3>३. निदान</h3></div>', unsafe_allow_html=True)
+
+    st.markdown(html(f"""
+    <div class="pills">
+      <span class="pill crop">{crop['emoji']} {crop['label']} <small>पीक</small></span>
+      <span class="pill">{part} <small>भाग</small></span>
+    </div>
+    """), unsafe_allow_html=True)
+
+    tone = "ok" if healthy else "bad"
+    tag = "✅ " if healthy else "⚠️ "
+    st.markdown(html(f"""
+    <div class="result {tone}">
+      <div class="row">
+        <div>
+          <span class="status-tag">{tag}{info['type']} · {info['badge']}</span>
+          <h2>{info['title']}</h2>
+          <div class="sub">{'तुमचे पीक सुरक्षित दिसत आहे.' if healthy else 'त्वरित लक्ष देण्याची गरज आहे.'}</div>
+        </div>
+        <div class="metric">
+          <div class="num">{confidence:.1f}%</div>
+          <div class="cap">अचूकता (Confidence)</div>
+        </div>
+      </div>
+    </div>
+    """), unsafe_allow_html=True)
+
+    if confidence < 60:
+        st.markdown(
+            '<div class="note">💡 खात्री कमी आहे. जवळून, स्पष्ट व चांगल्या प्रकाशात दुसरा फोटो घेऊन पुन्हा तपासा, '
+            'किंवा वर "पीक स्वतः निवडा" वापरा.</div>',
+            unsafe_allow_html=True,
+        )
+
+    # --- Probability breakdown ---
+    st.markdown('<div class="sec"><div class="bar"></div><h3>संभाव्यता तपशील</h3></div>', unsafe_allow_html=True)
+    order = np.argsort(probs)[::-1]
+    bars = ""
+    for i in order:
+        pct = float(probs[i]) * 100
+        cls_info = remedies[classes[i]]
+        top = " top" if i == idx else ""
+        bad = " bad" if (i == idx and not healthy) else ""
+        bars += f"""
+        <div class="prob{top}{bad}">
+          <div class="lbl"><span>{cls_info['title']}</span><b>{pct:.1f}%</b></div>
+          <div class="track"><div class="fill" style="width:{max(pct, 1):.1f}%"></div></div>
+        </div>"""
+
+    scan = "".join(
+        f'<span class="{"win" if k == crop_key else ""}">{CROPS[k]["emoji"]} {CROPS[k]["label"]} {v * 100:.0f}%</span>'
+        for k, v in top_conf.items()
+    )
+    scan_title = "पीक जुळणी" if not forced_crop else "पीक (हाताने निवडलेले)"
+    st.markdown(html(f"""
+    <div class="probs">
+      {bars}
+      <div class="crop-scan"><span style="border:none;background:none;padding-left:0">{scan_title}:</span>{scan}</div>
+    </div>
+    """), unsafe_allow_html=True)
+
+    # --- Advisory ---
+    st.markdown('<div class="sec"><div class="bar"></div><h3>४. सल्ला व उपाययोजना</h3></div>', unsafe_allow_html=True)
+    cure_cls = "adv cure okc" if healthy else "adv cure"
+    cure_ico = "🌱" if healthy else "🧪"
+    st.markdown(html(f"""
+    <div class="{cure_cls}">
+      <div class="head"><div class="ico">{cure_ico}</div><h4>तात्काळ रासायनिक / जैविक उपाययोजना</h4></div>
+      <p>{info['cure']}</p>
+    </div>
+    <div class="adv care">
+      <div class="head"><div class="ico">🛡️</div><h4>शेत व्यवस्थापन व प्रतिबंधात्मक काळजी</h4></div>
+      <p>{info['prevention']}</p>
+    </div>
+    """), unsafe_allow_html=True)
+
+    st.markdown(
+        '<div class="note">📌 औषधांचे प्रमाण व फवारणी करण्यापूर्वी स्थानिक कृषी अधिकारी / कृषी विज्ञान केंद्राचा सल्ला घ्या.</div>',
+        unsafe_allow_html=True,
+    )
+
+elif image_source is None:
+    st.markdown(html("""
+    <div class="note" style="background:#fff;border-color:var(--line);color:var(--muted);text-align:center;margin-top:1rem;">
+      📸 सुरुवात करण्यासाठी वर फोटो अपलोड करा किंवा कॅमेऱ्याने काढा.
+    </div>
+    """), unsafe_allow_html=True)
+
+st.markdown('<div class="foot">🌾 कृषी-AI · शेतकऱ्यांसाठी स्वयंचलित पीक निदान · Avishkar Research Convention</div>', unsafe_allow_html=True)
