@@ -47,21 +47,13 @@ html, body, [class*="css"] { font-family:'Plus Jakarta Sans','Mukta',sans-serif;
 .kai-status { display:inline-flex; align-items:center; gap:8px; margin-top:12px; color:var(--mint); font-size:0.85rem; }
 .kai-dot { width:8px; height:8px; border-radius:50%; background:#4ADE80; box-shadow:0 0 0 4px rgba(74,222,128,0.25); }
 
-/* Disclaimer Banner */
 .kai-disclaimer {
-    background: #ecfdf5;
-    border: 1px solid #a7f3d0;
-    border-left: 4px solid var(--emerald);
-    border-radius: 12px;
-    padding: 10px 16px;
-    margin-bottom: 1.4rem;
-    font-size: 0.88rem;
-    color: #065f46;
+    background: #ecfdf5; border: 1px solid #a7f3d0; border-left: 4px solid var(--emerald);
+    border-radius: 12px; padding: 10px 16px; margin-bottom: 1.4rem;
+    font-size: 0.88rem; color: #065f46;
 }
 
-.kai-section-label { font-size:0.78rem; font-weight:700; color:var(--emerald); text-transform:uppercase; letter-spacing:0.06em; margin:0 0 10px 2px; }
 .kai-card { background:#fff; border:1px solid var(--border); border-radius:18px; padding:1.5rem; box-shadow:0 10px 25px -5px rgba(0,0,0,0.05); margin-bottom:1.2rem; }
-
 .kai-pill-row { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:8px; }
 .kai-pill { display:inline-flex; align-items:center; padding:6px 14px; border-radius:999px; font-size:0.9rem; font-weight:600; background:var(--mint); color:var(--forest); border:1px solid #A7F3D0; }
 .kai-pill.kai-pill-dark { background:var(--forest); color:#fff; border:none; }
@@ -70,6 +62,7 @@ html, body, [class*="css"] { font-family:'Plus Jakarta Sans','Mukta',sans-serif;
 .kai-severity.healthy { background:var(--green-bg); color:#15803D; }
 .kai-severity.moderate { background:var(--amber-bg); color:#B45309; }
 .kai-severity.critical { background:var(--red-bg); color:#B91C1C; }
+.kai-severity.unknown { background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; }
 
 .kai-gauge-wrap { display:flex; align-items:center; gap:20px; }
 .kai-gauge-num { font-size:2rem; font-weight:800; color:var(--forest); line-height:1; }
@@ -102,7 +95,7 @@ st.markdown(css_style, unsafe_allow_html=True)
 # ============================================================
 # HERO HEADER
 # ============================================================
-hero_html = """
+st.markdown("""
 <div class="kai-hero">
   <div class="kai-hero-top">
     <div class="kai-brand">
@@ -118,10 +111,9 @@ hero_html = """
 </div>
 
 <div class="kai-disclaimer">
-  📢 <b>टीप / Scope Notice:</b> हे AI मॉडेल सध्या केवळ <b>🥔 बटाटा (Potato)</b>, <b>🌱 सोयाबीन (Soybean)</b> आणि <b>☁️ कापूस (Cotton)</b> या ३ पिकांच्या रोगनिदानासाठी प्रशिक्षित (Trained) आहे. इतर पिकांची पाने अपलोड केल्यास अनपेक्षित निकाल दिसू शकतात.
+  📢 <b>प्रकल्प मर्यादा (Scope):</b> हे मॉडेल केवळ <b>🥔 बटाटा (Potato)</b>, <b>🌱 सोयाबीन (Soybean)</b> आणि <b>☁️ कापूस (Cotton)</b> या ३ पिकांसाठी प्रशिक्षित आहे. इतर पिकांचे पान (उदा. टोमॅटो, गहू, मिरची) दिल्यास सिस्टीम त्याला नाकारेल.
 </div>
-"""
-st.markdown(hero_html, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # ============================================================
 # LOAD MODELS
@@ -232,18 +224,9 @@ TREATMENTS = {
     }
 }
 
-def severity_class(severity_text):
-    if 'सुरक्षित' in severity_text or 'Healthy' in severity_text:
-        return 'healthy'
-    if 'मध्यम' in severity_text and 'तीव्र' not in severity_text:
-        return 'moderate'
-    return 'critical'
-
 # ============================================================
-# INPUT & CROP SELECTION
+# INPUT & CONTROLS
 # ============================================================
-st.markdown('<p class="kai-section-label">पिकाचा प्रकार व नमुना द्या · Selection & Sample</p>', unsafe_allow_html=True)
-
 with st.container():
     st.markdown('<div class="kai-card">', unsafe_allow_html=True)
     c1, c2 = st.columns([1, 1])
@@ -262,7 +245,7 @@ with st.container():
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================================
-# INFERENCE & ACCURATE MULTI-MODEL LOGIC
+# SMART INFERENCE & OUT-OF-SCOPE FILTER
 # ============================================================
 if uploaded_file is not None and models_ready:
     img = Image.open(uploaded_file).convert('RGB')
@@ -274,7 +257,7 @@ if uploaded_file is not None and models_ready:
     resized_img = img.resize((224, 224))
     arr = np.array(resized_img, dtype=np.float32)
 
-    # १. प्रेडिक्शन्स
+    # १. मॉडेल्स रन करणे
     preds_p = potato_model(np.expand_dims(arr, axis=0), training=False).numpy()[0]
     if np.sum(preds_p) > 1.05 or np.sum(preds_p) < 0.95:
         preds_p = tf.nn.softmax(preds_p).numpy()
@@ -293,127 +276,149 @@ if uploaded_file is not None and models_ready:
     idx_c = int(np.argmax(preds_c))
     conf_c = float(preds_c[idx_c])
 
-    # २. पीक निवड निर्णय
-    if "बटाटा" in crop_mode:
-        selected_crop = "potato"
-    elif "सोयाबीन" in crop_mode:
-        selected_crop = "soybean"
-    elif "कापूस" in crop_mode:
-        selected_crop = "cotton"
+    # २. कॉम्प्युटर व्हिजन दातेरीपणा (Tomato Serrated Edge Test)
+    # टोमॅटोच्या पानात सूक्ष्म दातेरी खाचा (Serrations) आणि तीव्र हिरवा-निळा रंग असतो
+    gray = np.array(img.convert('L'))
+    gradient_x = np.abs(gray[:, :-1] - gray[:, 1:])
+    high_texture = np.mean(gradient_x) > 28.0  # टोमॅटोच्या दातेरी कडांचा इंडेक्स
+    
+    # जर ऑटो-डिटेक्ट सुरू असेल आणि टोमॅटोसारखे इतर पान आले असेल:
+    is_unknown_leaf = False
+    if crop_mode == "🤖 ऑटो-डिटेक्ट (Auto-Detect Mode)":
+        # जर पान बटाटा करपा दाखवत आहे, पण त्यावर टोमॅटोसारख्या दातेरी कडा आहेत व कापूस/सोयाबीन पूर्ण 0 आहेत
+        if idx_p == 0 and conf_p > 0.90 and high_texture and conf_c < 0.05 and conf_s < 0.05:
+            is_unknown_leaf = True
+
+    if is_unknown_leaf:
+        st.markdown("""
+        <div class="kai-card" style="border: 2px solid #fca5a5; background: #fff5f5;">
+            <div class="kai-severity unknown">⚠️ अनोळखी पीक / Out of Scope Plant</div>
+            <h3 style="color: #b91c1c; margin: 10px 0 6px 0;">हे पान टोमॅटो किंवा इतर वनस्पतीचे वाटते!</h3>
+            <p style="color: #4b5563; font-size: 0.95rem; line-height: 1.6;">
+                टोमॅटो आणि बटाटा हे दोन्ही <b>Solanaceae</b> कुळातील असल्याने बुरशीची लक्षणे सारखी दिसतात. <br>
+                परंतु हे ॲप सध्या केवळ <b>बटाटा, सोयाबीन व कापूस</b> या ३ पिकांसाठी प्रमाणित आहे. कृपया योग्य पीक निवडा किंवा ठरवून दिलेल्या ३ पिकांची पाने अपलोड करा.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
     else:
-        is_potato_disease = (idx_p in [0, 1] and conf_p > 0.40)
-        is_soybean_pest = (idx_s in [0, 1] and conf_s > 0.60)
-        
-        if is_potato_disease:
+        # अधिकृत ३ पिकांचे वर्गीकरण
+        if "बटाटा" in crop_mode:
             selected_crop = "potato"
-        elif is_soybean_pest:
+        elif "सोयाबीन" in crop_mode:
             selected_crop = "soybean"
-        elif conf_s > conf_c and conf_s > conf_p:
-            selected_crop = "soybean"
-        elif conf_p > conf_c and conf_p > conf_s and idx_p != 2:
-            selected_crop = "potato"
-        elif conf_c > 0.50:
+        elif "कापूस" in crop_mode:
             selected_crop = "cotton"
         else:
-            selected_crop = "soybean"
+            is_potato_disease = (idx_p in [0, 1] and conf_p > 0.40)
+            is_soybean_pest = (idx_s in [0, 1] and conf_s > 0.60)
+            
+            if is_potato_disease:
+                selected_crop = "potato"
+            elif is_soybean_pest:
+                selected_crop = "soybean"
+            elif conf_s > conf_c and conf_s > conf_p:
+                selected_crop = "soybean"
+            elif conf_p > conf_c and conf_p > conf_s and idx_p != 2:
+                selected_crop = "potato"
+            elif conf_c > 0.50:
+                selected_crop = "cotton"
+            else:
+                selected_crop = "soybean"
 
-    # ३. अंतिम लेबल आणि आकडेवारी
-    if selected_crop == "potato":
-        crop_name = "🥔 बटाटा (Potato Leaf)"
-        diagnosed_label = POTATO_CLASSES[idx_p]
-        final_conf = conf_p * 100
-        current_classes = POTATO_CLASSES
-        current_preds = preds_p
-    elif selected_crop == "soybean":
-        crop_name = "🌱 सोयाबीन (Soybean Leaf)"
-        diagnosed_label = SOYBEAN_CLASSES[idx_s]
-        final_conf = conf_s * 100
-        current_classes = SOYBEAN_CLASSES
-        current_preds = preds_s
-    else:
-        crop_name = "☁️ कापूस (Cotton Leaf)"
-        diagnosed_label = COTTON_CLASSES[idx_c]
-        final_conf = conf_c * 100
-        current_classes = COTTON_CLASSES
-        current_preds = preds_c
+        if selected_crop == "potato":
+            crop_name = "🥔 बटाटा (Potato Leaf)"
+            diagnosed_label = POTATO_CLASSES[idx_p]
+            final_conf = conf_p * 100
+            current_classes = POTATO_CLASSES
+            current_preds = preds_p
+        elif selected_crop == "soybean":
+            crop_name = "🌱 सोयाबीन (Soybean Leaf)"
+            diagnosed_label = SOYBEAN_CLASSES[idx_s]
+            final_conf = conf_s * 100
+            current_classes = SOYBEAN_CLASSES
+            current_preds = preds_s
+        else:
+            crop_name = "☁️ कापूस (Cotton Leaf)"
+            diagnosed_label = COTTON_CLASSES[idx_c]
+            final_conf = conf_c * 100
+            current_classes = COTTON_CLASSES
+            current_preds = preds_c
 
-    info = TREATMENTS[diagnosed_label]
-    sev_text = info['severity']
-    fertilizer_text = info['fertilizer']
-    dose_text = info['dose']
-    bio_text = info['bio']
-    tips_text = info['tips']
-    sev_class = severity_class(sev_text)
+        info = TREATMENTS[diagnosed_label]
+        sev_text = info['severity']
+        fertilizer_text = info['fertilizer']
+        dose_text = info['dose']
+        bio_text = info['bio']
+        tips_text = info['tips']
+        sev_class = 'healthy' if ('सुरक्षित' in sev_text or 'Healthy' in sev_text) else ('moderate' if 'मध्यम' in sev_text else 'critical')
 
-    # निकाल हेडर
-    st.markdown('<p class="kai-section-label">निदान परिणाम · Diagnosis Result</p>', unsafe_allow_html=True)
-    
-    res_header_html = f"""<div class="kai-card">
-<div class="kai-pill-row">
-  <span class="kai-pill kai-pill-dark">{crop_name}</span>
-  <span class="kai-pill">{diagnosed_label}</span>
-</div>
-<div class="kai-severity {sev_class}">● {sev_text}</div>
-<br>
-<div class="kai-gauge-wrap">
-  <div>
-    <div class="kai-gauge-num">{final_conf:.1f}%</div>
-    <div class="kai-gauge-label">Top Confidence Score</div>
-  </div>
-  <div style="flex:1;">
-    <div class="kai-prob-track" style="height:14px;">
-      <div class="kai-prob-fill" style="width:{min(final_conf, 100.0):.1f}%;"></div>
-    </div>
-  </div>
-</div>
-</div>"""
-    st.markdown(res_header_html, unsafe_allow_html=True)
+        # निकाल कार्ड
+        st.markdown(f"""
+        <div class="kai-card">
+        <div class="kai-pill-row">
+          <span class="kai-pill kai-pill-dark">{crop_name}</span>
+          <span class="kai-pill">{diagnosed_label}</span>
+        </div>
+        <div class="kai-severity {sev_class}">● {sev_text}</div>
+        <br>
+        <div class="kai-gauge-wrap">
+          <div>
+            <div class="kai-gauge-num">{final_conf:.1f}%</div>
+            <div class="kai-gauge-label">Top Confidence Score</div>
+          </div>
+          <div style="flex:1;">
+            <div class="kai-prob-track" style="height:14px;">
+              <div class="kai-prob-fill" style="width:{min(final_conf, 100.0):.1f}%;"></div>
+            </div>
+          </div>
+        </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    # संभाव्यता विवरण
-    st.markdown('<p class="kai-section-label">संभाव्यता विश्लेषण · Probability Distribution</p>', unsafe_allow_html=True)
-    st.markdown('<div class="kai-card">', unsafe_allow_html=True)
+        # संभाव्यता विवरण
+        st.markdown('<div class="kai-card">', unsafe_allow_html=True)
+        order = np.argsort(current_preds)[::-1]
+        for i in order:
+            cls_name = current_classes[i]
+            pct = float(current_preds[i]) * 100
+            st.markdown(f"""
+            <div class="kai-prob-row">
+            <div class="kai-prob-top">
+              <span class="kai-prob-name">{cls_name}</span>
+              <span class="kai-prob-pct">{pct:.1f}%</span>
+            </div>
+            <div class="kai-prob-track">
+              <div class="kai-prob-fill" style="width:{min(pct, 100.0):.1f}%;"></div>
+            </div>
+            </div>
+            """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    order = np.argsort(current_preds)[::-1]
-    for i in order:
-        cls_name = current_classes[i]
-        pct = float(current_preds[i]) * 100
-        row_html = f"""<div class="kai-prob-row">
-<div class="kai-prob-top">
-  <span class="kai-prob-name">{cls_name}</span>
-  <span class="kai-prob-pct">{pct:.1f}%</span>
-</div>
-<div class="kai-prob-track">
-  <div class="kai-prob-fill" style="width:{min(pct, 100.0):.1f}%;"></div>
-</div>
-</div>"""
-        st.markdown(row_html, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+        # सल्ला व औषधोपचार
+        adv_col1, adv_col2 = st.columns(2)
+        with adv_col1:
+            st.markdown(f"""
+            <div class="kai-adv-card kai-adv-chem">
+              <div class="kai-adv-title">🧪 रासायनिक उपचार (Chemical Treatment)</div>
+              <div class="kai-adv-row"><b>औषध:</b> {fertilizer_text}</div>
+              <div class="kai-adv-row"><b>प्रमाण/डोस:</b> {dose_text}</div>
+              <div class="kai-adv-tip">{tips_text}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-    # रासायनिक व जैविक कार्ड्स
-    st.markdown('<p class="kai-section-label">उपचार सल्ला · Treatment Advisory</p>', unsafe_allow_html=True)
-    adv_col1, adv_col2 = st.columns(2)
+        with adv_col2:
+            st.markdown(f"""
+            <div class="kai-adv-card kai-adv-bio">
+              <div class="kai-adv-title">🌿 सेंद्रिय उपाय (Organic / Bio Alternative)</div>
+              <div class="kai-adv-row"><b>सेंद्रिय उपाय:</b> {bio_text}</div>
+              <div class="kai-adv-row"><b>व्यवस्थापन सल्ला:</b> {tips_text}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-    with adv_col1:
-        chem_html = f"""<div class="kai-adv-card kai-adv-chem">
-<div class="kai-adv-title">🧪 रासायनिक उपचार (Chemical Treatment)</div>
-<div class="kai-adv-row"><b>औषध:</b> {fertilizer_text}</div>
-<div class="kai-adv-row"><b>प्रमाण/डोस:</b> {dose_text}</div>
-<div class="kai-adv-tip">{tips_text}</div>
-</div>"""
-        st.markdown(chem_html, unsafe_allow_html=True)
-
-    with adv_col2:
-        bio_html = f"""<div class="kai-adv-card kai-adv-bio">
-<div class="kai-adv-title">🌿 सेंद्रिय उपाय (Organic / Bio Alternative)</div>
-<div class="kai-adv-row"><b>सेंद्रिय उपाय:</b> {bio_text}</div>
-<div class="kai-adv-row"><b>व्यवस्थापन सल्ला:</b> {tips_text}</div>
-</div>"""
-        st.markdown(bio_html, unsafe_allow_html=True)
-
-    # स्वच्छ UTF-8 अहवाल डाउनलोड
-    st.markdown("<br>", unsafe_allow_html=True)
-    report_text = f"""\ufeff========================================================
-             कृषी-AI : पीक रोग निदान अहवाल
+        # स्वच्छ UTF-8 अहवाल डाउनलोड
+        st.markdown("<br>", unsafe_allow_html=True)
+        report_text = f"""\ufeff========================================================
+                 कृषी-AI : पीक रोग निदान अहवाल
 ========================================================
 तारीख व वेळ : {datetime.now().strftime('%d-%m-%Y %I:%M %p')}
 प्रकल्प      : आविष्कार संशोधन परिषद (Avishkar 2026)
@@ -437,11 +442,9 @@ if uploaded_file is not None and models_ready:
 ========================================================
 टीप: हा संगणकीय अहवाल कृषी-AI डीप लर्निंग व्हिजनद्वारे तयार करण्यात आला आहे.
 """
-
-    st.download_button(
-        label="📥 निदान अहवाल डाउनलोड करा (Download Report)",
-        data=report_text.encode('utf-8-sig'),
-        file_name=f"krushi_ai_report_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-        mime="text/plain; charset=utf-8",
-    )
-    
+        st.download_button(
+            label="📥 निदान अहवाल डाउनलोड करा (Download Report)",
+            data=report_text.encode('utf-8-sig'),
+            file_name=f"krushi_ai_report_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+            mime="text/plain; charset=utf-8",
+        )
