@@ -1,3 +1,7 @@
+streamlit
+tensorflow
+pillow
+numpy
 streamlit>=1.39
 google-generativeai
 Pillow
