@@ -5,7 +5,7 @@ import numpy as np
 import streamlit.components.v1 as components
 
 # 1. Page Config
-st.set_page_config(page_title="Krushi-AI : Smart Agro Diagnostics", page_icon="🌿", layout="wide")
+st.set_page_config(page_title="कृषी-AI : Smart Agro Diagnostics", page_icon="🌿", layout="wide")
 
 # 2. Styling
 st.markdown("""
@@ -207,7 +207,7 @@ def run_diagnostic(model, classes, crop_name, uploaded_file, is_scaled=True):
     sev_cls = 'sev-healthy' if 'सुरक्षित' in sev_text else ('sev-mod' if 'मध्यम' in sev_text else 'sev-crit')
 
     # Weather
-    st.markdown(f"""
+    st.markdown("""
     <div class="weather-card">
         <div style="font-weight: 800; font-size: 0.9rem; margin-bottom: 4px;">🌤️ प्रादेशिक हवामान आणि रोग जोखीम (Weather Correlation)</div>
         <div style="font-size: 0.88rem; line-height: 1.5;">
@@ -308,7 +308,7 @@ def run_diagnostic(model, classes, crop_name, uploaded_file, is_scaled=True):
     </div>
     """, unsafe_allow_html=True)
 
-# 6. Main Navigation Tabs (Diagnostic + Leaf Botany Reference)
+# 6. Main Navigation Tabs
 tab_cotton, tab_soybean, tab_potato, tab_botany = st.tabs([
     "☁️ कापूस (Cotton)", 
     "🌱 सोयाबीन (Soybean)", 
@@ -348,10 +348,10 @@ with tab_potato:
         else:
             run_diagnostic(potato_model, POTATO_CLASSES, "🥔 बटाटा (Potato Leaf)", p_file, is_scaled=False)
 
-# TAB 4: शास्त्रीय पान रचना व ओळख मार्गदर्शक (Morphology & Dimensions Data)
+# TAB 4: Leaf Morphology & Botany Guide
 with tab_botany:
     st.markdown("### 🌿 तिन्ही पिकांमधील पानाच्या रचनेचा शास्त्रीय फरक (Botanical Features)")
-    st.markdown("<p style='color:#64748b; font-size:0.95rem;'>कॉम्प्युटर व्हिजन आणि वनस्पतीशास्त्राच्या आधारे पानांचा प्रकार, रंग, पोत आणि आकारमानातील तुलना खालीलप्रमाणे आहे:</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#64748b; font-size:0.95rem;'>कॉम्प्युटर व्हिजन आणि वनस्पतीशास्त्राच्या आधारे पानांचा प्रकार, रंग, पोत आणि आकारमानातील तुलना:</p>", unsafe_allow_html=True)
     
     col_b1, col_b2, col_b3 = st.columns(3)
     
@@ -359,13 +359,12 @@ with tab_botany:
         st.markdown("""
         <div class="morph-box" style="border-top: 4px solid #064E3B;">
             <h4 style="color:#064E3B; margin-top:0;">🥔 बटाटा (Potato Leaf)</h4>
-            <p><b>पानाचा प्रकार:</b> संयुक्त पान (Pinnately Compound) - एका दांड्यावर अनेक उप-पाने.</p>
-            <p><b>आकार व कडा:</b> लंबगोलाकार/अंडाकृती (Ovate), कडा पूर्णपणे गुळगुळीत (Entire).</p>
-            <p><b>रंग:</b> गडद हिरवा ते पिवळसर-हिरवा (Yellowish-Dark Green).</p>
+            <p><b>पानाचा प्रकार:</b> संयुक्त पान (Pinnately Compound) - दांड्यावर अनेक उप-पाने.</p>
+            <p><b>आकार व कडा:</b> लंबगोलाकार/अंडाकृती (Ovate), अखंड गुळगुळीत कडा.</p>
+            <p><b>रंग:</b> गडद हिरवा ते पिवळसर-हिरवा.</p>
             <p><b>पोत:</b> जाडसर, मांसल, विशिष्ट गंधयुक्त.</p>
             <p><b>शिरांची रचना:</b> Pinnate (मध्यशिर जाळीदार रचना).</p>
-            <p><b>आकारमान:</b> संपूर्ण लांबी १५-२५ सें.मी., उप-पान रुंदी ३-६ सें.मी.</p>
-            <p style="color:#b45309; font-size:0.85rem;"><b>टोमॅटोशी फरक:</b> टोमॅटोच्या कडा करवतीसारख्या दातेरी (Serrated) असतात, बटाट्याच्या गुळगुळीत असतात.</p>
+            <p><b>आकारमान:</b> लांबी १५-२५ सें.मी., उप-पान रुंदी ३-६ सें.मी.</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -375,11 +374,10 @@ with tab_botany:
             <h4 style="color:#059669; margin-top:0;">☁️ कापूस (Cotton Leaf)</h4>
             <p><b>पानाचा प्रकार:</b> साधे पान (Simple Lobed Leaf).</p>
             <p><b>आकार व कडा:</b> तळहातासारखा पंजा (Palmate), ३ ते ५ खोल खाचा (Lobes).</p>
-            <p><b>रंग:</b> गडद ते काळसर हिरवा (Dull / Dark Green).</p>
+            <p><b>रंग:</b> गडद ते काळसर हिरवा (Dull Dark Green).</p>
             <p><b>पोत:</b> चिवट, कातडीसारखा (Leathery), उंचवट्यासारख्या शिरा.</p>
             <p><b>शिरांची रचना:</b> Palmate (एकाच तळापासून ३-५ मुख्य शिरा).</p>
-            <p><b>आकारमान:</b> लांबी ८-१६ सें.मी., रुंदी ७-१५ सें.मी. (विस्तृत रुंद).</p>
-            <p style="color:#059669; font-size:0.85rem;"><b>मुख्य ओळख:</b> पानावरील पंजासारखे ३-५ लोब्स स्पष्ट दिसतात.</p>
+            <p><b>आकारमान:</b> लांबी ८-१६ सें.मी., रुंदी ७-१५ सें.मी.</p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -388,21 +386,20 @@ with tab_botany:
         <div class="morph-box" style="border-top: 4px solid #10B981;">
             <h4 style="color:#10B981; margin-top:0;">🌱 सोयाबीन (Soybean Leaf)</h4>
             <p><b>पानाचा प्रकार:</b> त्रिपर्णी संयुक्त पान (Trifoliate Leaf) - ३ उप-पाने.</p>
-            <p><b>आकार व कडा:</b> अंडाकृती ते भाल्यासारखे (Ovate/Elliptic), अखंड कडा.</p>
-            <p><b>रंग:</b> उजळ, चमकदार पोपटी ते मध्यम हिरवा (Light Green).</p>
-            <p><b>पोत:</b> मऊ, लवचिक, पाठीमागे व पुढे मखमली बारीक लव (Pubescence).</p>
+            <p><b>आकार व कडा:</b> अंडाकृती ते भाल्यासारखे (Ovate/Elliptic).</p>
+            <p><b>रंग:</b> उजळ, चमकदार पोपटी ते मध्यम हिरवा.</p>
+            <p><b>पोत:</b> मऊ, लवचिक, मखमली बारीक लव (Pubescence).</p>
             <p><b>शिरांची रचना:</b> Reticulate (बारीक जाळीदार शिरा).</p>
             <p><b>आकारमान:</b> प्रत्येक उप-पानाची लांबी ६-१० सें.मी., रुंदी ३-५ सें.मी.</p>
-            <p style="color:#10B981; font-size:0.85rem;"><b>मुख्य ओळख:</b> एकाच देठावर बरोबर ३ पानांची रचना आणि बारीक लव.</p>
         </div>
         """, unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("#### 📊 गुणधर्म तुलनात्मक तक्ता (Quick Comparison Matrix):")
-    st.markdown("""
-| गुणधर्म / घटक | 🥔 बटाटा (Potato) | ☁️ कापूस (Cotton) | 🌱 सोयाबीन (Soybean) |
-| :--- | :--- | :--- | :--- |
-| **रचना प्रकार** | संयुक्त (Compound Leaflets) | साधे, पंजाकार (3-5 Lobes) | त्रिपर्णी (Trifoliate - 3 Leaflets) |
-| **पानाचा पोत** | जाडसर व सपाट | चिवट, जाड शिरा (Leathery) | मऊ, मखमली लव (Pubescent) |
-| **रंग** | मध्यम ते गडद हिरवा | गडद काळसर हिरवा | उजळ पोपटी/हिरवा |
-| **सरासरी रुंदी** | ३ ते ६ सें.मी. (उप-पान) |
+    st.markdown("---")
+    st.markdown("#### 📊 गुणधर्म तुलनात्मक तक्ता (Comparison Table):")
+    comparison_table = {
+        "गुणधर्म (Feature)": ["रचना प्रकार", "पानाचा पोत", "पानाचा रंग", "सरासरी रुंदी", "कॉम्प्युटर व्हिजन की-फीचर"],
+        "🥔 बटाटा (Potato)": ["संयुक्त (Compound Leaflets)", "जाडसर व सपाट", "मध्यम ते गडद हिरवा", "३ ते ६ सें.मी.", "गुळगुळीत अंडाकृती कडा"],
+        "☁️ कापूस (Cotton)": ["साधे, पंजाकार (3-5 Lobes)", "चिवट, जाड शिरा (Leathery)", "काळसर गडद हिरवा", "७ ते १५ सें.मी.", "हस्तकाकार लोब्स (Palmate)"],
+        "🌱 सोयाबीन (Soybean)": ["त्रिपर्णी (Trifoliate - 3 Leaflets)", "मऊ, मखमली लव", "उजळ पोपटी/हिरवा", "३ ते ५ सें.मी.", "३ पानांचा गुच्छ व लव"]
+    }
+    st.table(comparison_table)
