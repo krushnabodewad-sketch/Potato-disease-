@@ -398,29 +398,40 @@ if uploaded_file is not None and models_ready:
 </div>"""
         st.markdown(bio_html, unsafe_allow_html=True)
 
-    # अहवाल डाउनलोड
+    # ---------------- अहवाल डाउनलोड (Clean UTF-8 Marathi Support) ----------------
     st.markdown("<br>", unsafe_allow_html=True)
-    report_text = f"""कृषी-AI (Krushi-AI) — निदान अहवाल / Diagnostic Report
-Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}
+    
+    # \ufeff मुळे मोबाईल व्ह्यूअरला कळते की ही UTF-8 मराठी फाईल आहे
+    report_text = f"""\ufeff========================================================
+             कृषी-AI : पीक रोग निदान अहवाल
+========================================================
+तारीख व वेळ : {datetime.now().strftime('%d-%m-%Y %I:%M %p')}
+प्रकल्प      : आविष्कार संशोधन परिषद (Avishkar 2026)
 
-Crop: {crop_name}
-Diagnosis: {diagnosed_label}
-Confidence: {final_conf:.2f}%
-Severity: {sev_text}
+[१] प्राथमिक तपासणी:
+--------------------------------------------------------
+• ओळखलेले पीक  : {crop_name}
+• मुख्य निदान    : {diagnosed_label}
+• मॉडेल अचूकता  : {final_conf:.2f}%
+• धोका पातळी    : {sev_text}
 
-Chemical Treatment (औषध): {fertilizer_text}
-Dose (प्रमाण/डोस): {dose_text}
+[२] रासायनिक उपाय (Chemical Treatment):
+--------------------------------------------------------
+• औषध / खत      : {fertilizer_text}
+• फवारणी प्रमाण  : {dose_text}
 
-Organic Alternative (सेंद्रिय उपाय): {bio_text}
-Management Tip (व्यवस्थापन सल्ला): {tips_text}
-
---
-Avishkar Research Convention 2026 | कृषी-AI Smart Agro Diagnostics
+[३] जैविक व सेंद्रिय व्यवस्थापन (Organic Solutions):
+--------------------------------------------------------
+• सेंद्रिय घटक    : {bio_text}
+• तज्ज्ञ सल्ला    : {tips_text}
+========================================================
+टीप: हा संगणकीय अहवाल कृषी-AI डीप लर्निंग व्हिजनद्वारे तयार करण्यात आला आहे.
 """
+
     st.download_button(
         label="📥 निदान अहवाल डाउनलोड करा (Download Report)",
-        data=report_text,
+        data=report_text.encode('utf-8-sig'),  # UTF-8 with BOM ज्यामुळे मराठी फॉन्ट फुटणार नाही
         file_name=f"krushi_ai_report_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-        mime="text/plain",
+        mime="text/plain; charset=utf-8",
     )
     
