@@ -240,7 +240,7 @@ with st.container():
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================================
-# ACCURATE INFERENCE & CALIBRATION
+# SMART COMPUTER VISION + MULTI-CROP CLASSIFICATION
 # ============================================================
 if uploaded_file is not None and models_ready:
     img = Image.open(uploaded_file).convert('RGB')
@@ -252,51 +252,55 @@ if uploaded_file is not None and models_ready:
     resized_img = img.resize((224, 224))
     arr = np.array(resized_img, dtype=np.float32)
 
-    # १. बटाटा मॉडेल (0-255 normalisation)
+    # १. मॉडेल इन्फरन्स (Predictions)
+    # बटाटा
     preds_p = potato_model(np.expand_dims(arr, axis=0), training=False).numpy()[0]
     if np.sum(preds_p) > 1.05 or np.sum(preds_p) < 0.95:
         preds_p = tf.nn.softmax(preds_p).numpy()
     idx_p = int(np.argmax(preds_p))
     conf_p = float(preds_p[idx_p])
 
-    # २. सोयाबीन मॉडेल (0-1 normalisation)
+    # सोयाबीन
     preds_s = soybean_model(np.expand_dims(arr / 255.0, axis=0), training=False).numpy()[0]
     if np.sum(preds_s) > 1.05 or np.sum(preds_s) < 0.95:
         preds_s = tf.nn.softmax(preds_s).numpy()
     idx_s = int(np.argmax(preds_s))
     conf_s = float(preds_s[idx_s])
 
-    # ३. कापूस मॉडेल (0-1 normalisation)
+    # कापूस
     preds_c = cotton_model(np.expand_dims(arr / 255.0, axis=0), training=False).numpy()[0]
     if np.sum(preds_c) > 1.05 or np.sum(preds_c) < 0.95:
         preds_c = tf.nn.softmax(preds_c).numpy()
     idx_c = int(np.argmax(preds_c))
     conf_c = float(preds_c[idx_c])
 
-    # अचूक वजन कॅलिब्रेशन (सोयाबीनला योग्य प्राधान्य, कापसाचा फॉल्स पॉझिटिव्ह बंद)
-    p_weight = 0.40 if idx_p == 2 else 0.85
-    score_p = conf_p * p_weight
-    score_s = conf_s * 1.70  # सोयाबीन बूस्ट
-    score_c = conf_c * 0.70  # कापूस पेनल्टी
+    # २. कॉम्प्युटर व्हिजन व्हेरिडिकेशन (Cotton Lobed Leaf / Color Analysis)
+    # कापसाच्या पानात मध्यभागी लालसर शीर (Pulvinus) आणि ५ कोपरे असतात
+    hsv_img = img.convert('HSV')
+    hsv_arr = np.array(hsv_img)
+    # लालसर / जांभळट शीर शोधणे (Hue < 15 or Hue > 240)
+    reddish_vein = np.sum((hsv_arr[:, :, 0] < 15) | (hsv_arr[:, :, 0] > 240)) / (img.width * img.height)
+    is_cotton_shaped = (conf_c > 0.35 and reddish_vein > 0.015) or (conf_c > 0.65)
 
-    if score_s >= score_p and score_s >= score_c:
-        crop_name = "🌱 सोयाबीन (Soybean Leaf)"
-        diagnosed_label = SOYBEAN_CLASSES[idx_s]
-        final_conf = conf_s * 100
-        current_classes = SOYBEAN_CLASSES
-        current_preds = preds_s
-    elif score_c >= score_p and score_c >= score_s:
+    # ३. योग्य पीक निवडणे (Dynamic Decision)
+    if is_cotton_shaped or (conf_c > conf_s and conf_c > conf_p):
         crop_name = "☁️ कापूस (Cotton Leaf)"
         diagnosed_label = COTTON_CLASSES[idx_c]
         final_conf = conf_c * 100
         current_classes = COTTON_CLASSES
         current_preds = preds_c
-    else:
+    elif (idx_p != 2 and conf_p > conf_s):
         crop_name = "🥔 बटाटा (Potato Leaf)"
         diagnosed_label = POTATO_CLASSES[idx_p]
         final_conf = conf_p * 100
         current_classes = POTATO_CLASSES
         current_preds = preds_p
+    else:
+        crop_name = "🌱 सोयाबीन (Soybean Leaf)"
+        diagnosed_label = SOYBEAN_CLASSES[idx_s]
+        final_conf = conf_s * 100
+        current_classes = SOYBEAN_CLASSES
+        current_preds = preds_s
 
     info = TREATMENTS[diagnosed_label]
     sev_text = info['severity']
@@ -306,7 +310,7 @@ if uploaded_file is not None and models_ready:
     tips_text = info['tips']
     sev_class = severity_class(sev_text)
 
-    # निकाल हेडर
+    # १. निकाल हेडर
     st.markdown('<p class="kai-section-label">निदान परिणाम · Diagnosis Result</p>', unsafe_allow_html=True)
     
     res_header_html = f"""<div class="kai-card">
@@ -330,7 +334,7 @@ if uploaded_file is not None and models_ready:
 </div>"""
     st.markdown(res_header_html, unsafe_allow_html=True)
 
-    # संभाव्यता विवरण
+    # २. संभाव्यता विवरण
     st.markdown('<p class="kai-section-label">संभाव्यता विश्लेषण · Probability Distribution</p>', unsafe_allow_html=True)
     st.markdown('<div class="kai-card">', unsafe_allow_html=True)
 
@@ -350,7 +354,7 @@ if uploaded_file is not None and models_ready:
         st.markdown(row_html, unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # रासायनिक व जैविक कार्ड्स
+    # ३. रासायनिक व जैविक कार्ड्स
     st.markdown('<p class="kai-section-label">उपचार सल्ला · Treatment Advisory</p>', unsafe_allow_html=True)
     adv_col1, adv_col2 = st.columns(2)
 
@@ -395,5 +399,5 @@ Avishkar Research Convention 2026 | कृषी-AI Smart Agro Diagnostics
         data=report_text,
         file_name=f"krushi_ai_report_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
         mime="text/plain",
-                                                )
+    )
     
