@@ -225,7 +225,7 @@ st.markdown(
 )
 
 # ============================================================
-# LOAD MODELS
+# LOAD MODELS  (unchanged filenames / logic)
 # ============================================================
 @st.cache_resource
 def load_all_models():
@@ -328,12 +328,15 @@ TREATMENTS = {
     }
 }
 
+
 def severity_class(severity_text: str) -> str:
+    """Map a Marathi/English severity string to a badge style."""
     if 'सुरक्षित' in severity_text or 'Healthy' in severity_text:
         return 'healthy'
     if 'मध्यम' in severity_text and 'तीव्र' not in severity_text:
         return 'moderate'
     return 'critical'
+
 
 # ============================================================
 # INPUT SECTION
@@ -349,7 +352,7 @@ with st.container():
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================================
-# INFERENCE + RESULTS
+# INFERENCE + RESULTS  (ML logic unchanged)
 # ============================================================
 if uploaded_file is not None:
     img = Image.open(uploaded_file).convert('RGB')
@@ -429,7 +432,7 @@ if uploaded_file is not None:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Confidence meter
+    # Confidence meter (gradient bar acting as gauge)
     st.markdown(
         f"""
         <div class="kai-gauge-wrap">
@@ -485,11 +488,4 @@ if uploaded_file is not None:
               <div class="kai-adv-tip">{tips_text}</div>
             </div>
             """,
-            unsafe_allow_html=True,
-        )
-
-    with adv_col2:
-        st.markdown(
-            f"""
-            <div class="kai-adv-card kai-adv-bio">
-         
+            
