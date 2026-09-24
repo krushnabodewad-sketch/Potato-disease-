@@ -1,58 +1,71 @@
 import streamlit as st
-import tensorflow as tf
+import google.generativeai as genai
 from PIL import Image
-import numpy as np
 
 st.set_page_config(
-    page_title="कृषी-AI : पीक संरक्षण",
+    page_title="Krushi-AI",
     page_icon="🌿",
     layout="centered"
 )
 
-# मॉडेल लोड करणे
-@st.cache_resource
-def load_trained_model():
-    return tf.keras.models.load_model('best_crop_model.h5', compile=False)
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Mukta:wght@400;600;700&display=swap');
+    * { font-family: 'Mukta', sans-serif; }
+    .stApp { background-color: #f4f8f4; }
+    .hero-banner {
+        background: linear-gradient(135deg, #073b22, #1e874b);
+        border-radius: 14px;
+        padding: 16px;
+        text-align: center;
+        color: white;
+        margin-bottom: 16px;
+    }
+    .result-card {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 18px;
+        border: 1px solid #c8e6c9;
+        margin-top: 14px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-model = load_trained_model()
+# Google AI Studio API Key ethe direct taka:
+API_KEY = "TUMCHI_GOOGLE_AI_STUDIO_KEY_ETHE_PASTE_KARA"
 
-# Colab मधील क्लासची नावे (ज्या क्रमाने प्रिंट झाली होती तीच नावे ठेवा)
-CLASS_NAMES = [
-    'Cotton Bacterial Blight',
-    'Potato Early Blight',
-    'Potato Healthy',
-    'Potato Late Blight',
-    'Soybean Healthy'
-]
+genai.configure(api_key=API_KEY)
+model = genai.GenerativeModel('gemini-1.5-flash-latest')
 
 st.markdown("""
-<div style="background: linear-gradient(135deg, #073b22, #1e874b); padding: 18px; border-radius: 14px; text-align: center; color: white;">
-    <h2 style="margin:0;">🌱 कृषी-AI : स्मार्ट पीक व रोग निदान</h2>
-    <p style="margin:5px 0 0 0;">Custom Deep Learning Model (MobileNetV2)</p>
+<div class="hero-banner">
+    <h2>🌱 Krushi-AI : Peek va Rog Nidan</h2>
+    <p>Automated Multi-Crop Vision System</p>
 </div>
 """, unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader("पिकाचा फोटो निवडा (JPG/PNG)", type=["jpg", "jpeg", "png"])
+uploaded_file = st.file_uploader("Pikacha photo dya (JPG/PNG)", type=["jpg", "jpeg", "png"])
 
 if uploaded_file is not None:
-    image = Image.open(uploaded_file).convert('RGB')
-    st.image(image, caption="निवडलेला फोटो", use_container_width=True)
+    img = Image.open(uploaded_file).convert('RGB')
+    st.image(img, caption="Nivadlela photo", use_container_width=True)
 
-    with st.spinner("AI विश्लेषण करत आहे..."):
-        img = image.resize((224, 224))
-        img_array = np.array(img, dtype=np.float32)
-        img_array = np.expand_dims(img_array, axis=0)
+    fast_img = img.copy()
+    fast_img.thumbnail((512, 512))
 
-        # मॉडेलमध्ये आधीच Rescaling लेयर असल्याने थेट इनपुट देणे
-        predictions = model.predict(img_array)
-        predicted_idx = int(np.argmax(predictions[0]))
-        confidence = float(predictions[0][predicted_idx]) * 100
-        result_label = CLASS_NAMES[predicted_idx]
-
-        st.markdown(f"""
-        <div style="background: #ffffff; padding: 16px; border-radius: 12px; border: 1px solid #c8e6c9; margin-top: 15px;">
-            <h3 style="color: #1b5e20; margin: 0 0 8px 0;">निदान: {result_label}</h3>
-            <p style="font-weight: bold; margin: 0; color: #333;">अचूकता (Confidence): {confidence:.2f}%</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
+    with st.spinner("AI nidan karat ahe..."):
+        try:
+            prompt = """
+            Tumhi krushi tajjnya ahat. Ya pikachya photoche nirikshan karun Marathi madhe spashtha uttar dya:
+            1. Okhallele Peek konte ahe?
+            2. Avayav konta ahe (Paan, Phool, Fal)?
+            3. Rog konta ahe kivha peek nirogi ahe ka?
+            4. Upay aani aushadhache praman kay asave?
+            """
+            response = model.generate_content([prompt, fast_img])
+            st.markdown('<div class="result-card">', unsafe_allow_html=True)
+            st.markdown(response.text)
+            st.markdown('</div>', unsafe_allow_html=True)
+        except Exception as e:
+            st.error(f"Error: {e}")
+            
