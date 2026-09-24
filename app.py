@@ -2,7 +2,6 @@ import streamlit as st
 import tensorflow as tf
 from PIL import Image
 import numpy as np
-from datetime import datetime
 
 # ============================================================
 # PAGE CONFIG
@@ -17,7 +16,7 @@ st.set_page_config(
 # ============================================================
 # DESIGN SYSTEM — CSS
 # ============================================================
-css_style = """
+st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Mukta:wght@400;500;600;700&display=swap');
 :root {
@@ -82,8 +81,7 @@ html, body, [class*="css"] { font-family:'Plus Jakarta Sans','Mukta',sans-serif;
     padding:0.7rem 1.4rem !important; font-weight:700 !important;
 }
 </style>
-"""
-st.markdown(css_style, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # ============================================================
 # HERO HEADER
@@ -216,14 +214,14 @@ TREATMENTS = {
 # ============================================================
 # INPUT SECTION
 # ============================================================
-st.markdown('<p style="font-size:0.8rem; font-weight:700; color:#059669; text-transform:uppercase;">पान अपलोड करा · Upload Leaf Sample</p>', unsafe_allow_html=True)
+st.markdown('<p style="font-size:0.8rem; font-weight:700; color:#059669; text-transform:uppercase;">पान नमुना द्या · Upload Leaf Sample</p>', unsafe_allow_html=True)
 
 with st.container():
     st.markdown('<div class="kai-card">', unsafe_allow_html=True)
     c1, c2 = st.columns([1, 1])
     with c1:
         crop_mode = st.selectbox(
-            "🌾 पीक निवडा (Auto किंवा मॅन्युअल):",
+            "🌾 पीक निवडा:",
             ("🤖 ऑटो-डिटेक्ट (Auto-Detect Mode)", "🥔 बटाटा (Potato)", "🌱 सोयाबीन (Soybean)", "☁️ कापूस (Cotton)")
         )
     with c2:
@@ -236,7 +234,7 @@ with st.container():
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================================
-# INFERENCE & OUT-OF-SCOPE FILTER
+# INFERENCE & PROCESSING
 # ============================================================
 if uploaded_file is not None and models_ready:
     img = Image.open(uploaded_file).convert('RGB')
@@ -248,7 +246,7 @@ if uploaded_file is not None and models_ready:
     resized_img = img.resize((224, 224))
     arr = np.array(resized_img, dtype=np.float32)
 
-    # १. मॉडेल्स रन करणे
+    # 1. Models Inference
     preds_p = potato_model(np.expand_dims(arr, axis=0), training=False).numpy()[0]
     if np.sum(preds_p) > 1.05 or np.sum(preds_p) < 0.95:
         preds_p = tf.nn.softmax(preds_p).numpy()
@@ -267,33 +265,32 @@ if uploaded_file is not None and models_ready:
     idx_c = int(np.argmax(preds_c))
     conf_c = float(preds_c[idx_c])
 
-    # २. टोमॅटो / अनोळखी वनस्पती स्पेक्ट्रल तपासणी
+    # 2. Out-of-Scope Plant Check (Tomato Spectral Check)
     r_chan, g_chan, b_chan = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
     mean_r, mean_g, mean_b = np.mean(r_chan), np.mean(g_chan), np.mean(b_chan)
-    cyan_green_ratio = (mean_g - mean_r) / (mean_b + 1e-5)
-    is_tomato_spectral = (cyan_green_ratio > 0.18 and mean_b > 60.0)
+    cyan_ratio = (mean_g - mean_r) / (mean_b + 1e-5)
+    is_tomato = (cyan_ratio > 0.18 and mean_b > 60.0)
 
     is_out_of_scope = False
     if crop_mode == "🤖 ऑटो-डिटेक्ट (Auto-Detect Mode)":
-        if is_tomato_spectral and idx_p == 0:
+        if is_tomato and idx_p == 0:
             is_out_of_scope = True
 
-    # ३. निकाल किंवा चेतावणी
     if is_out_of_scope:
         st.markdown("""
         <div class="kai-card" style="border: 2px solid #ef4444; background: #fef2f2;">
             <div style="display:inline-block; background:#fee2e2; color:#b91c1c; font-weight:800; padding:6px 14px; border-radius:8px; font-size:13px; margin-bottom:10px;">
                 ⚠️ अनोळखी पीक / OUT OF SCOPE PLANT DETECTED
             </div>
-            <h3 style="color:#991b1b; margin:0 0 8px 0; font-size:1.25rem;">हे पान टोमॅटो किंवा इतर वनस्पतीचे आहे!</h3>
+            <h3 style="color:#991b1b; margin:0 0 8px 0; font-size:1.25rem;">हे पान टोमॅटो किंवा इतर वनस्पतीचे वाटते!</h3>
             <p style="color:#374151; font-size:0.95rem; line-height:1.6; margin:0;">
-                टोमॅटो आणि बटाटा हे दोन्ही <b>Solanaceae</b> कुळातील असल्याने बुरशीची लक्षणे (Early Blight) सारखीच दिसतात. <br>
-                परंतु हे मॉडेल सध्या केवळ <b>बटाटा, सोयाबीन आणि कापूस</b> या ३ पिकांसाठी प्रमाणित आहे. इतर वनस्पतींसाठी चुकीचा सल्ला देणे टाळण्यासाठी हे निकाल थांबवले आहेत.
+                टोमॅटो आणि बटाटा हे दोन्ही <b>Solanaceae</b> कुळातील असल्याने बुरशीची लक्षणे सारखीच दिसतात. <br>
+                परंतु हे मॉडेल सध्या केवळ <b>बटाटा, सोयाबीन आणि कापूस</b> या ३ पिकांसाठी प्रमाणित आहे. कृपया ठरवून दिलेल्या ३ पिकांची पाने अपलोड करा.
             </p>
         </div>
         """, unsafe_allow_html=True)
     else:
-        # पीक वर्गीकरण
+        # Final Decision
         if "बटाटा" in crop_mode:
             selected_crop = "potato"
         elif "सोयाबीन" in crop_mode:
@@ -344,7 +341,7 @@ if uploaded_file is not None and models_ready:
         tips_text = info['tips']
         sev_class = 'healthy' if ('सुरक्षित' in sev_text or 'Healthy' in sev_text) else ('moderate' if 'मध्यम' in sev_text else 'critical')
 
-        # निकाल हेडर
+        # Results Header
         st.markdown(f"""
         <div class="kai-card">
         <div class="kai-pill-row">
@@ -367,7 +364,7 @@ if uploaded_file is not None and models_ready:
         </div>
         """, unsafe_allow_html=True)
 
-        # संभाव्यता विवरण
+        # Probabilities
         st.markdown('<p style="font-size:0.8rem; font-weight:700; color:#059669; text-transform:uppercase;">संभाव्यता विश्लेषण · Probability Distribution</p>', unsafe_allow_html=True)
         st.markdown('<div class="kai-card">', unsafe_allow_html=True)
         order = np.argsort(current_preds)[::-1]
@@ -387,7 +384,7 @@ if uploaded_file is not None and models_ready:
             """, unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # सल्ला व औषधोपचार कार्ड्स
+        # Advisories
         st.markdown('<p style="font-size:0.8rem; font-weight:700; color:#059669; text-transform:uppercase;">उपचार सल्ला · Treatment Advisory</p>', unsafe_allow_html=True)
         adv_col1, adv_col2 = st.columns(2)
         with adv_col1:
@@ -409,11 +406,10 @@ if uploaded_file is not None and models_ready:
             </div>
             """, unsafe_allow_html=True)
 
-        # संक्षिप्त आणि सुरक्षित अहवाल डाऊनलोड
+        # Clean Safe Download Button
         st.markdown("<br>", unsafe_allow_html=True)
-        cur_time = datetime.now().strftime('%d-%m-%Y %I:%M %p')
-        out_report = (
-            "कृषी-AI : पीक रोग निदान अहवाल\n"
-            "तारीख: " + cur_time + "\n"
-            "पीक: " + str(crop_name) + "\n"
-      
+        report_data = f"कृषी-AI अहवाल\nपीक: {crop_name}\nनिदान: {diagnosed_label}\nअचूकता: {final_conf:.2f}%\nधोका: {sev_text}\nऔषध: {fertilizer_text}\nप्रमाण: {dose_text}\nसेंद्रिय: {bio_text}\nसल्ला: {tips_text}"
+        st.download_button(
+            label="📥 निदान अहवाल डाउनलोड करा (Download Report)",
+            data=("\ufeff" + report_data).encode('utf-8-sig'),
+            file_name="crop_diagnosis_re
