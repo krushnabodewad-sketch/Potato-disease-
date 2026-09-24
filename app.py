@@ -14,7 +14,7 @@ st.set_page_config(
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Mukta:wght@400;600;700;800&family=Poppins:wght@500;600;700&display=swap');
-    * { font-family: 'Mukta', 'Poppins', sans-serif; }
+    * { font-family: 'Mukta', sans-serif; }
     .stApp { background-color: #f4f8f4; }
 
     .hero-banner {
@@ -68,7 +68,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ३. API Key सुरक्षितपणे मिळवणे
+# ३. API Key Secrets मधून मिळवणे
 if "GEMINI_API_KEY" not in st.secrets:
     st.error("⚠️ कृपया Streamlit Settings -> Secrets मध्ये 'GEMINI_API_KEY' जोडा.")
     st.stop()
@@ -76,18 +76,31 @@ if "GEMINI_API_KEY" not in st.secrets:
 api_key = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=api_key)
 
-# मॉडेल फॉलबॅक सेटअप (404 एरर रोखण्यासाठी)
-def get_working_model():
-    candidates = ['gemini-1.5-flash-latest', 'gemini-1.5-flash', 'gemini-pro-vision']
-    for cand in candidates:
-        try:
-            m = genai.GenerativeModel(cand)
-            return m
-        except Exception:
-            continue
-    return genai.GenerativeModel('gemini-1.5-flash-latest')
+# ॲक्टिव्ह मॉडेल शोधणारे ऑटोमॅटिक फंक्शन
+@st.cache_resource
+def get_supported_model():
+    preferred = [
+        "gemini-1.5-flash",
+        "models/gemini-1.5-flash",
+        "gemini-1.5-pro",
+        "gemini-pro-vision"
+    ]
+    try:
+        available = [
+            m.name for m in genai.list_models() 
+            if 'generateContent' in m.supported_generation_methods
+        ]
+        # उपलब्ध मॉडेलमधून मॅच करणे
+        for p in preferred:
+            for a in available:
+                if p in a:
+                    return genai.GenerativeModel(a)
+        # fallback
+        return genai.GenerativeModel(available[0])
+    except Exception:
+        return genai.GenerativeModel('gemini-1.5-flash')
 
-gemini_model = get_working_model()
+gemini_model = get_supported_model()
 
 # ४. लोगो व हेडर बॅनर
 logo_svg = """
@@ -135,7 +148,6 @@ if uploaded_file is not None:
     image = Image.open(uploaded_file).convert('RGB')
     st.image(image, caption="विश्लेषणासाठी निवडलेले छायाचित्र", use_container_width=True)
 
-    # नेटवर्कवरील वेळ वाचवण्यासाठी इमेज कॉम्प्रेस करणे
     fast_image = image.copy()
     fast_image.thumbnail((512, 512))
 
@@ -163,7 +175,7 @@ if uploaded_file is not None:
             ### 🛡️ ४. शेतकरी प्रतिबंधात्मक सल्ला:
             * [१-२ ओळीत शेत व्यवस्थापनाची खबरदारी]
 
-            (टीप: छायाचित्र कोणत्याही पिकाचे नसल्यास कृपया 'हा फोटो कोणत्याही शेती पिकाचा दिसत नाही' असा संदेश द्यावा.)
+            (टीप: छायाचित्र कोणत्याही पिकाचे नसल्यास कृपया 'हा फोटो कोणत्याही शेती पिकाचा दिसत नाही' असा स्पष्ट संदेश द्यावा.)
             """
 
             response = gemini_model.generate_content([analysis_prompt, fast_image])
