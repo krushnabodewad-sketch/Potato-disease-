@@ -409,9 +409,11 @@ if uploaded_file is not None and models_ready:
             </div>
             """, unsafe_allow_html=True)
 
-        # सुरक्षित अहवाल स्ट्रिंग (No multiline f-string crash)
+        # संक्षिप्त आणि सुरक्षित अहवाल डाऊनलोड
         st.markdown("<br>", unsafe_allow_html=True)
-        date_str = datetime.now().strftime('%d-%m-%Y %I:%M %p')
-        report_lines = [
-            "========================================================",
-            "             कृषी-AI : पीक रोग न
+        cur_time = datetime.now().strftime('%d-%m-%Y %I:%M %p')
+        out_report = (
+            "कृषी-AI : पीक रोग निदान अहवाल\n"
+            "तारीख: " + cur_time + "\n"
+            "पीक: " + str(crop_name) + "\n"
+      
