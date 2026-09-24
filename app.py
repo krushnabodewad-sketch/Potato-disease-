@@ -201,35 +201,34 @@ if uploaded_file is not None and models_ready:
     idx_c = int(np.argmax(preds_c))
     conf_c = float(preds_c[idx_c])
 
-    # -------------------------------------------------------------
-    # अचूक टोमॅटो / अनोळखी पीक फिल्टर (Strict Anomaly Rejection)
-    # -------------------------------------------------------------
-    # पांढऱ्या नागमोडी रेषा (Tomato Leaf Miner) किंवा टोकदार दातेरी खाचा तपासणे:
+    # Universal Out-of-Scope Plant Filter
     gray = np.array(img.resize((150, 150)).convert('L'))
-    # पांढऱ्या नागमोडी रेषांची तीव्रता
     white_lines = np.sum(gray > 200) / (150 * 150)
     
+    r_c, g_c, b_c = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
+    mean_r, mean_g, mean_b = np.mean(r_c), np.mean(g_c), np.mean(b_c)
+    cyan_ratio = (mean_g - mean_r) / (mean_b + 1e-5)
+
     is_out_of_scope = False
     if crop_mode == "🤖 ऑटो-डिटेक्ट (Auto-Detect Mode)":
-        # जर बटाटा करपा ९०% पेक्षा जास्त सांगत असेल पण पानात पांढऱ्या नागमोडी रेषा (Leaf Miner) किंवा दातेरी टोकदार पाने असतील:
-        if idx_p == 0 and (white_lines > 0.05 or (conf_c < 0.01 and conf_s < 0.01 and conf_p > 0.98)):
+        if idx_p == 0 and (white_lines > 0.05 or (conf_c < 0.01 and conf_s < 0.01 and conf_p > 0.98) or (cyan_ratio > 0.18 and mean_b > 60.0)):
             is_out_of_scope = True
 
     if is_out_of_scope:
         st.markdown("""
         <div class="kai-card" style="border: 2px solid #ef4444; background: #fef2f2;">
             <div style="background:#fee2e2; color:#b91c1c; font-weight:800; padding:6px 12px; border-radius:8px; display:inline-block; font-size:13px; margin-bottom:8px;">
-                ⚠️ अनोळखी पीक आढळले / OUT OF SCOPE (TOMATO LEAF)
+                ⚠️ अनोळखी पीक / OUT OF SCOPE PLANT
             </div>
-            <h3 style="color:#991b1b; margin:6px 0;">हे पान टोमॅटोचे (Tomato Leaf Miner) दिसते!</h3>
+            <h3 style="color:#991b1b; margin:6px 0;">हे पान अधिकृत ३ पिकांमधील नाही!</h3>
             <p style="color:#374151; font-size:0.95rem; line-height: 1.6; margin:0;">
-                या पानावर <b>टोमॅटोवरील नागअळी (Leaf Miner)</b> ची पांढरी नागमोडी लक्षणे दिसत आहेत. <br>
-                कृषी-AI सध्या केवळ <b>बटाटा, सोयाबीन आणि कापूस</b> या ३ पिकांसाठी प्रशिक्षित आहे. चुकीचे औषध किंवा खत सुचवणे टाळण्यासाठी हे निकाल थांबवले आहेत.
+                हे पान टोमॅटो, मिरची किंवा इतर बाहेरील वनस्पतीचे दिसते. <br>
+                <b>कृषी-AI</b> सध्या केवळ <b>बटाटा, सोयाबीन आणि कापूस</b> या ३ पिकांच्या अचूक रोगनिदानासाठी प्रमाणित आहे. चुकीची औषध शिफारस टाळण्यासाठी सिस्टीमने हे निकाल सुरक्षितपणे थांबवले आहेत.
             </p>
         </div>
         """, unsafe_allow_html=True)
     else:
-        # अधिकृत ३ पिकांचे वर्गीकरण
+        # Final Diagnosis Logic
         if "बटाटा" in crop_mode:
             selected_crop = "potato"
         elif "सोयाबीन" in crop_mode:
@@ -319,3 +318,4 @@ if uploaded_file is not None and models_ready:
                 <small style="color:#64748b;">{info['tips']}</small>
             </div>
             """, unsafe_allow_html=True)
+            
