@@ -10,7 +10,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# 2. Modern UI & Print Styling
+# 2. Modern UI Styling
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Mukta:wght@400;600;700;800&family=Poppins:wght@500;600;700&display=swap');
@@ -44,16 +44,16 @@ st.markdown("""
     .treatment-box {
         background: #f1f8e9;
         border-left: 5px solid #2e7d32;
-        padding: 12px 14px;
+        padding: 14px;
         border-radius: 8px;
-        margin-top: 12px;
+        margin-top: 14px;
     }
     .bio-box {
         background: #e8f5e9;
         border-left: 5px solid #43a047;
-        padding: 12px 14px;
+        padding: 14px;
         border-radius: 8px;
-        margin-top: 10px;
+        margin-top: 12px;
     }
     .badge {
         display: inline-block;
@@ -166,7 +166,7 @@ TREATMENTS = {
         'severity': 'मध्यम (Moderate)',
         'fertilizer': 'Lambda Cyhalothrin 4.9% CS / Quinalphos 25% EC',
         'dose': 'लॅम्बडा सायहेलोथ्रीन १५ मिली किंवा क्विनॉलफॉस ३० मिली (प्रति १५ लिटर पंप)',
-        'bio': 'ब Beauveria bassiana ५ ग्रॅम प्रति लिटर फवारणी.',
+        'bio': 'Beauveria bassiana ५ ग्रॅम प्रति लिटर फवारणी.',
         'tips': 'भुंग्यांचा प्रादुर्भाव रोखण्यासाठी शेताच्या कडेने पिवळे चिकट सापळे लावावेत.'
     },
     'Soybean Healthy Leaf (निरोगी सोयाबीन पान)': {
@@ -186,7 +186,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 6. Input Section (Gallery + Realtime Camera)
+# 6. Input Section
 st.markdown('<div class="main-card">', unsafe_allow_html=True)
 st.markdown("##### 📷 पिकाच्या पानाचे छायाचित्र द्या:")
 mode = st.radio("इनपुट माध्यम निवडा:", ("गॅलरीतून निवडा (Upload)", "थेट कॅमेरा वापरा (Camera)"), horizontal=True)
@@ -263,7 +263,7 @@ if uploaded_file is not None and models_ready:
         is_healthy = "Healthy" in diagnosed_label or "Fresh" in diagnosed_label
         badge_style = "badge-low" if is_healthy else "badge-high"
 
-        # Main Diagnosis Card
+        # 1. Main Diagnosis Header
         st.markdown(f"""
         <div class="res-card">
             <span class="badge badge-crop">🌾 ओळखलेले पीक: {crop_name}</span>
@@ -272,33 +272,34 @@ if uploaded_file is not None and models_ready:
             <div style="background: #eef7ee; padding: 6px 12px; border-radius: 8px; display: inline-block; margin-bottom: 14px;">
                 <span style="font-weight: 700; color: #2e7d32;">एकूण अचूकता (Top Confidence): {final_conf:.2f}%</span>
             </div>
+        </div>
         """, unsafe_allow_html=True)
 
-        # Probability Breakdown
-        st.markdown("#### 📊 संभाव्यता विवरण (Chances Breakdown):")
+        # 2. Probability Breakdown
+        st.markdown("#### 📊 रोगांची व निरोगी असण्याची शक्यता (Probability Breakdown):")
         for cls_name, prob in zip(current_classes, current_preds):
             prob_pct = float(prob) * 100
             icon = "🟢" if ("Healthy" in cls_name or "Fresh" in cls_name) else "🔴"
             st.write(f"{icon} **{cls_name}**: `{prob_pct:.2f}%`")
             st.progress(min(max(float(prob), 0.0), 1.0))
 
-        # Treatment Cards (Chemical + Bio)
-        st.markdown(f"""
-            <div class="treatment-box">
-                <h4 style="margin: 0 0 8px 0; color: #1b5e20;">🧪 रासायनिक उपाय व खते (Chemical Control):</h4>
-                <p style="margin: 0 0 6px 0; font-weight: 600; color: #2e7d32;">औषध / खत: <span style="color:#000;">{treatment_data['fertilizer']}</span></p>
-                <p style="margin: 0 0 6px 0; font-weight: 600; color: #d84315;">फवारणी प्रमाण (Dose): <span style="color:#000;">{treatment_data['dose']}</span></p>
-            </div>
-            
-            <div class="bio-box">
-                <h4 style="margin: 0 0 8px 0; color: #2e7d32;">🌿 जैविक / सेंद्रिय पर्याय (Organic Solution):</h4>
-                <p style="margin: 0 0 6px 0; font-weight: 600; color: #2e7d32;">सेंद्रिय घटक: <span style="color:#000;">{treatment_data['bio']}</span></p>
-                <p style="margin: 0; font-size: 13px; color: #424242;">💡 <b>व्यवस्थापन सल्ला:</b> {treatment_data['tips']}</p>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        # 3. Chemical Treatment Box (Left-aligned HTML to prevent markdown code-block bug)
+        chem_html = f"""<div class="treatment-box">
+<h4 style="margin: 0 0 8px 0; color: #1b5e20;">🧪 रासायनिक उपाय व खते (Chemical Control):</h4>
+<p style="margin: 0 0 6px 0; font-weight: 600; color: #2e7d32;">औषध / खत: <span style="color:#000;">{treatment_data['fertilizer']}</span></p>
+<p style="margin: 0 0 6px 0; font-weight: 600; color: #d84315;">फवारणी प्रमाण (Dose): <span style="color:#000;">{treatment_data['dose']}</span></p>
+</div>"""
+        st.markdown(chem_html, unsafe_allow_html=True)
 
-        # Summary Report Download Button
+        # 4. Organic Treatment Box (Left-aligned HTML)
+        bio_html = f"""<div class="bio-box">
+<h4 style="margin: 0 0 8px 0; color: #2e7d32;">🌿 जैविक / सेंद्रिय पर्याय (Organic Solution):</h4>
+<p style="margin: 0 0 6px 0; font-weight: 600; color: #2e7d32;">सेंद्रिय घटक: <span style="color:#000;">{treatment_data['bio']}</span></p>
+<p style="margin: 0; font-size: 13px; color: #424242;">💡 <b>व्यवस्थापन सल्ला:</b> {treatment_data['tips']}</p>
+</div>"""
+        st.markdown(bio_html, unsafe_allow_html=True)
+
+        # 5. Summary Report Download Button
         report_text = f"""--- कृषी-AI पीक आरोग्य अहवाल ---
 ओळखलेले पीक: {crop_name}
 मुख्य निदान: {diagnosed_label}
@@ -320,3 +321,4 @@ if uploaded_file is not None and models_ready:
             file_name="crop_diagnosis_report.txt",
             mime="text/plain"
         )
+        
