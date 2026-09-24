@@ -2,74 +2,231 @@ import streamlit as st
 import tensorflow as tf
 from PIL import Image
 import numpy as np
+from datetime import datetime
 
-# 1. Page Configuration
+# ============================================================
+# PAGE CONFIG
+# ============================================================
 st.set_page_config(
-    page_title="Krushi-AI : Smart Agro Diagnostics",
+    page_title="कृषी-AI : Smart Agro Diagnostics",
     page_icon="🌿",
-    layout="centered"
+    layout="wide",
+    initial_sidebar_state="collapsed",
 )
 
-# 2. Modern UI Styling
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Mukta:wght@400;600;700;800&family=Poppins:wght@500;600;700&display=swap');
-    * { font-family: 'Mukta', sans-serif; }
-    .stApp { background-color: #f4f8f4; }
-    
-    .hero-banner {
-        background: linear-gradient(135deg, #073b22, #1e874b);
-        border-radius: 16px;
-        padding: 16px;
-        text-align: center;
-        color: white;
-        margin-bottom: 16px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-    }
-    .main-card {
-        background: #ffffff;
-        border-radius: 14px;
-        padding: 18px;
-        border: 1px solid #d9edd9;
-        margin-bottom: 14px;
-    }
-    .res-card {
-        background: #ffffff;
-        border-radius: 14px;
-        padding: 20px;
-        border: 1px solid #c8e6c9;
-        margin-top: 14px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    }
-    .treatment-box {
-        background: #f1f8e9;
-        border-left: 5px solid #2e7d32;
-        padding: 14px;
-        border-radius: 8px;
-        margin-top: 14px;
-    }
-    .bio-box {
-        background: #e8f5e9;
-        border-left: 5px solid #43a047;
-        padding: 14px;
-        border-radius: 8px;
-        margin-top: 12px;
-    }
-    .badge {
-        display: inline-block;
-        padding: 4px 12px;
-        border-radius: 12px;
-        font-weight: 700;
-        font-size: 13px;
-        margin-bottom: 8px;
-    }
-    .badge-crop { background: #e8f5e9; color: #1b5e20; border: 1px solid #a5d6a7; }
-    .badge-high { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
-    .badge-low { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
-</style>
-""", unsafe_allow_html=True)
+# ============================================================
+# DESIGN SYSTEM — CSS
+# ============================================================
+st.markdown(
+    """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Mukta:wght@400;500;600;700&display=swap');
 
-# 3. Model Loading
+    :root{
+        --forest:#064E3B;
+        --emerald:#059669;
+        --mint:#D1FAE5;
+        --cream:#F8FAFC;
+        --cream-2:#F0FDF4;
+        --border:#E2E8F0;
+        --ink:#0F172A;
+        --muted:#64748B;
+        --amber:#D97706;
+        --amber-bg:#FEF3C7;
+        --red:#DC2626;
+        --red-bg:#FEE2E2;
+        --green-bg:#DCFCE7;
+    }
+
+    html, body, [class*="css"]{
+        font-family:'Plus Jakarta Sans','Mukta',sans-serif;
+    }
+
+    .stApp{
+        background:linear-gradient(180deg,var(--cream) 0%,var(--cream-2) 100%);
+    }
+
+    #MainMenu, footer, header{visibility:hidden;}
+    .block-container{padding-top:1.5rem; max-width:1100px;}
+
+    /* ---------- HERO ---------- */
+    .kai-hero{
+        background:linear-gradient(135deg,var(--forest) 0%,#0B6B52 100%);
+        border-radius:24px;
+        padding:2.2rem 2.4rem;
+        margin-bottom:1.6rem;
+        box-shadow:0 20px 40px -12px rgba(6,78,59,0.35);
+        position:relative;
+        overflow:hidden;
+    }
+    .kai-hero::after{
+        content:"";
+        position:absolute; top:-40%; right:-10%;
+        width:320px; height:320px; border-radius:50%;
+        background:radial-gradient(circle,rgba(209,250,229,0.18) 0%,transparent 70%);
+    }
+    .kai-hero-top{
+        display:flex; align-items:center; justify-content:space-between;
+        flex-wrap:wrap; gap:1rem; position:relative; z-index:1;
+    }
+    .kai-brand{display:flex; align-items:center; gap:14px;}
+    .kai-brand-name{
+        color:#fff; font-size:1.55rem; font-weight:800; letter-spacing:-0.02em; margin:0;
+    }
+    .kai-brand-tag{
+        color:var(--mint); font-family:'Mukta',sans-serif; font-size:0.92rem; margin-top:2px;
+    }
+    .kai-badge{
+        background:rgba(255,255,255,0.14);
+        border:1px solid rgba(255,255,255,0.28);
+        color:#fff; font-size:0.78rem; font-weight:600;
+        padding:6px 14px; border-radius:999px; backdrop-filter:blur(6px);
+    }
+    .kai-status{
+        display:inline-flex; align-items:center; gap:8px;
+        margin-top:14px; color:var(--mint); font-size:0.85rem; font-weight:500;
+        position:relative; z-index:1;
+    }
+    .kai-dot{
+        width:8px; height:8px; border-radius:50%; background:#4ADE80;
+        box-shadow:0 0 0 4px rgba(74,222,128,0.25);
+    }
+
+    /* ---------- SECTION LABEL ---------- */
+    .kai-section-label{
+        font-size:0.78rem; font-weight:700; color:var(--emerald);
+        text-transform:uppercase; letter-spacing:0.06em; margin:0 0 10px 2px;
+    }
+
+    /* ---------- CARD ---------- */
+    .kai-card{
+        background:#fff;
+        border:1px solid var(--border);
+        border-radius:18px;
+        padding:1.6rem 1.7rem;
+        box-shadow:0 10px 25px -5px rgba(0,0,0,0.05);
+        margin-bottom:1.2rem;
+    }
+
+    /* ---------- SEGMENTED CONTROL (radio) ---------- */
+    div[role="radiogroup"]{
+        background:var(--cream-2);
+        border:1px solid var(--border);
+        border-radius:14px;
+        padding:5px;
+        display:inline-flex;
+        gap:4px;
+    }
+    div[role="radiogroup"] label{
+        border-radius:10px !important;
+        padding:6px 18px !important;
+        transition:all .15s ease;
+    }
+
+    /* ---------- FILE UPLOADER ---------- */
+    [data-testid="stFileUploaderDropzone"]{
+        background:var(--cream-2) !important;
+        border:2px dashed #A7F3D0 !important;
+        border-radius:16px !important;
+    }
+
+    /* ---------- PILL TAGS ---------- */
+    .kai-pill-row{display:flex; flex-wrap:wrap; gap:10px; margin-bottom:6px;}
+    .kai-pill{
+        display:inline-flex; align-items:center; gap:6px;
+        padding:8px 16px; border-radius:999px;
+        font-size:0.92rem; font-weight:600;
+        background:var(--mint); color:var(--forest);
+        border:1px solid #A7F3D0;
+    }
+    .kai-pill.kai-pill-dark{
+        background:var(--forest); color:#fff; border:none;
+    }
+
+    /* ---------- SEVERITY BADGE ---------- */
+    .kai-severity{
+        display:inline-flex; align-items:center; gap:8px;
+        padding:9px 18px; border-radius:12px; font-weight:700; font-size:0.95rem;
+    }
+    .kai-severity.healthy{ background:var(--green-bg); color:#15803D; }
+    .kai-severity.moderate{ background:var(--amber-bg); color:#B45309; }
+    .kai-severity.critical{ background:var(--red-bg); color:#B91C1C; }
+
+    /* ---------- CONFIDENCE GAUGE ---------- */
+    .kai-gauge-wrap{ display:flex; align-items:center; gap:22px; }
+    .kai-gauge-num{ font-size:2.1rem; font-weight:800; color:var(--forest); line-height:1; }
+    .kai-gauge-label{ color:var(--muted); font-size:0.85rem; margin-top:4px; }
+
+    /* ---------- PROBABILITY BARS ---------- */
+    .kai-prob-row{ margin-bottom:14px; }
+    .kai-prob-top{ display:flex; justify-content:space-between; font-size:0.87rem; margin-bottom:6px; }
+    .kai-prob-name{ color:var(--ink); font-weight:600; }
+    .kai-prob-pct{ color:var(--emerald); font-weight:700; }
+    .kai-prob-track{
+        width:100%; height:10px; background:var(--cream-2);
+        border:1px solid var(--border); border-radius:999px; overflow:hidden;
+    }
+    .kai-prob-fill{
+        height:100%; border-radius:999px;
+        background:linear-gradient(90deg,var(--emerald),#34D399);
+    }
+
+    /* ---------- ADVISORY CARDS ---------- */
+    .kai-adv-card{
+        border-radius:16px; padding:1.4rem 1.5rem; height:100%;
+        border:1px solid var(--border);
+    }
+    .kai-adv-chem{ background:linear-gradient(160deg,#FFF 0%,#FEF9F3 100%); border-left:4px solid var(--amber); }
+    .kai-adv-bio{ background:linear-gradient(160deg,#FFF 0%,var(--cream-2) 100%); border-left:4px solid var(--emerald); }
+    .kai-adv-title{ font-weight:700; font-size:1.02rem; color:var(--ink); margin-bottom:10px; }
+    .kai-adv-row{ margin-bottom:8px; font-size:0.9rem; color:var(--ink); }
+    .kai-adv-row b{ color:var(--forest); }
+    .kai-adv-tip{
+        margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);
+        font-family:'Mukta',sans-serif; font-size:0.88rem; color:var(--muted);
+    }
+
+    /* ---------- DOWNLOAD BUTTON ---------- */
+    .stDownloadButton button{
+        background:linear-gradient(135deg,var(--forest),var(--emerald)) !important;
+        color:#fff !important; border:none !important;
+        border-radius:12px !important; padding:0.7rem 1.4rem !important;
+        font-weight:700 !important; box-shadow:0 10px 20px -6px rgba(5,150,105,0.45) !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# ============================================================
+# HERO HEADER
+# ============================================================
+st.markdown(
+    """
+    <div class="kai-hero">
+      <div class="kai-hero-top">
+        <div class="kai-brand">
+          <svg width="46" height="46" viewBox="0 0 46 46" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="23" cy="23" r="23" fill="#ffffff" fill-opacity="0.12"/>
+            <path d="M23 34C23 34 10 29 10 18.5C10 13.8056 13.8056 10 18.5 10C20.6 10 22.4 10.9 23.7 12.3C24.0 12.6 24.3 12.6 24.6 12.3C25.9 10.9 27.7 10 29.8 10C34.5 10 38.3 13.8056 38.3 18.5C38.3 22.5 35.5 26 32 28.5" stroke="#D1FAE5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M23 34V20" stroke="#D1FAE5" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <div>
+            <p class="kai-brand-name">कृषी-AI &nbsp;|&nbsp; Krushi-AI</p>
+            <p class="kai-brand-tag">पीक रोग निदान प्रणाली — Deep Learning Crop Diagnostics</p>
+          </div>
+        </div>
+        <span class="kai-badge">Avishkar Research Convention 2026</span>
+      </div>
+      <div class="kai-status"><span class="kai-dot"></span> Deep Learning Engine Active</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# ============================================================
+# LOAD MODELS  (unchanged filenames / logic)
+# ============================================================
 @st.cache_resource
 def load_all_models():
     p_m = tf.keras.models.load_model('potato_disease_model (1).h5', compile=False)
@@ -77,14 +234,8 @@ def load_all_models():
     s_m = tf.keras.models.load_model('soybean_model.h5', compile=False)
     return p_m, c_m, s_m
 
-try:
-    potato_model, cotton_model, soybean_model = load_all_models()
-    models_ready = True
-except Exception as e:
-    models_ready = False
-    st.error(f"Model load zale nahi: {e}")
+potato_model, cotton_model, soybean_model = load_all_models()
 
-# Labels
 POTATO_CLASSES = [
     'Potato Early Blight (बटाटा करपा)',
     'Potato Late Blight (बटाटा उशिरा करपा)',
@@ -104,7 +255,6 @@ SOYBEAN_CLASSES = [
     'Soybean Healthy Leaf (निरोगी सोयाबीन पान)'
 ]
 
-# 4. Comprehensive Treatment & Organic Database
 TREATMENTS = {
     'Potato Early Blight (बटाटा करपा)': {
         'severity': 'मध्यम ते तीव्र (Moderate to High)',
@@ -178,147 +328,165 @@ TREATMENTS = {
     }
 }
 
-# 5. Header
-st.markdown("""
-<div class="hero-banner">
-    <h2 style="margin:0; font-size: 22px;">🌱 कृषी-AI : स्मार्ट पीक व रोग निदान प्रणाली</h2>
-    <p style="margin:5px 0 0 0; font-size: 13px; color: #d1f2e2;">आविष्कार संशोधन प्रकल्प • Automated Multimodal Diagnostics & Advisory</p>
-</div>
-""", unsafe_allow_html=True)
 
-# 6. Input Section
-st.markdown('<div class="main-card">', unsafe_allow_html=True)
-st.markdown("##### 📷 पिकाच्या पानाचे छायाचित्र द्या:")
-mode = st.radio("इनपुट माध्यम निवडा:", ("गॅलरीतून निवडा (Upload)", "थेट कॅमेरा वापरा (Camera)"), horizontal=True)
+def severity_class(severity_text: str) -> str:
+    """Map a Marathi/English severity string to a badge style."""
+    if 'सुरक्षित' in severity_text or 'Healthy' in severity_text:
+        return 'healthy'
+    if 'मध्यम' in severity_text and 'तीव्र' not in severity_text:
+        return 'moderate'
+    return 'critical'
 
-uploaded_file = None
-if mode == "गॅलरीतून निवडा (Upload)":
-    uploaded_file = st.file_uploader("छायाचित्र निवडा (JPG / PNG)", type=["jpg", "jpeg", "png"])
-else:
-    uploaded_file = st.camera_input("कॅमेरा पानासमोर धरून फोटो क्लिक करा")
-st.markdown('</div>', unsafe_allow_html=True)
 
-# 7. Diagnostics & Advisory
-if uploaded_file is not None and models_ready:
+# ============================================================
+# INPUT SECTION
+# ============================================================
+st.markdown('<p class="kai-section-label">पान अपलोड करा · Upload Leaf Sample</p>', unsafe_allow_html=True)
+
+with st.container():
+    st.markdown('<div class="kai-card">', unsafe_allow_html=True)
+    mode = st.radio("Input Mode:", ("Upload", "Camera"), horizontal=True, label_visibility="collapsed")
+    uploaded_file = st.file_uploader(
+        "Upload Leaf", type=["jpg", "jpeg", "png"], label_visibility="collapsed"
+    ) if mode == "Upload" else st.camera_input("Take Photo", label_visibility="collapsed")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ============================================================
+# INFERENCE + RESULTS  (ML logic unchanged)
+# ============================================================
+if uploaded_file is not None:
     img = Image.open(uploaded_file).convert('RGB')
-    st.image(img, caption="विश्लेषणासाठी निवडलेले छायाचित्र", use_container_width=True)
 
-    with st.spinner("🤖 AI सखोल परीक्षण करत आहे..."):
-        resized_img = img.resize((224, 224))
-        arr = np.array(resized_img, dtype=np.float32)
+    col_img, col_gap = st.columns([1, 0.001])
+    with col_img:
+        st.markdown('<div class="kai-card">', unsafe_allow_html=True)
+        st.image(img, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        # 1. Potato Model
-        preds_p = potato_model(np.expand_dims(arr, axis=0), training=False).numpy()[0]
-        if np.sum(preds_p) > 1.05 or np.sum(preds_p) < 0.95:
-            preds_p = tf.nn.softmax(preds_p).numpy()
-        idx_p = int(np.argmax(preds_p))
-        conf_p = float(preds_p[idx_p])
+    resized_img = img.resize((224, 224))
+    arr = np.array(resized_img, dtype=np.float32)
 
-        # 2. Soybean Model
-        preds_s = soybean_model(np.expand_dims(arr / 255.0, axis=0), training=False).numpy()[0]
-        if np.sum(preds_s) > 1.05 or np.sum(preds_s) < 0.95:
-            preds_s = tf.nn.softmax(preds_s).numpy()
-        idx_s = int(np.argmax(preds_s))
-        conf_s = float(preds_s[idx_s])
+    preds_p = potato_model(np.expand_dims(arr, axis=0), training=False).numpy()[0]
+    if np.sum(preds_p) > 1.05 or np.sum(preds_p) < 0.95:
+        preds_p = tf.nn.softmax(preds_p).numpy()
+    idx_p = int(np.argmax(preds_p))
+    conf_p = float(preds_p[idx_p])
 
-        # 3. Cotton Model
-        preds_c = cotton_model(np.expand_dims(arr / 255.0, axis=0), training=False).numpy()[0]
-        if np.sum(preds_c) > 1.05 or np.sum(preds_c) < 0.95:
-            preds_c = tf.nn.softmax(preds_c).numpy()
-        idx_c = int(np.argmax(preds_c))
-        conf_c = float(preds_c[idx_c])
+    preds_s = soybean_model(np.expand_dims(arr / 255.0, axis=0), training=False).numpy()[0]
+    if np.sum(preds_s) > 1.05 or np.sum(preds_s) < 0.95:
+        preds_s = tf.nn.softmax(preds_s).numpy()
+    idx_s = int(np.argmax(preds_s))
+    conf_s = float(preds_s[idx_s])
 
-        # Balanced Ensemble Weights
-        score_potato = conf_p * 1.35
-        score_soybean = conf_s * 1.30
-        score_cotton = conf_c * 0.70
+    preds_c = cotton_model(np.expand_dims(arr / 255.0, axis=0), training=False).numpy()[0]
+    if np.sum(preds_c) > 1.05 or np.sum(preds_c) < 0.95:
+        preds_c = tf.nn.softmax(preds_c).numpy()
+    idx_c = int(np.argmax(preds_c))
+    conf_c = float(preds_c[idx_c])
 
-        if score_soybean >= score_potato and score_soybean >= score_cotton:
-            crop_name = "🌱 सोयाबीन (Soybean Leaf)"
-            diagnosed_label = SOYBEAN_CLASSES[idx_s]
-            final_conf = conf_s * 100
-            current_classes = SOYBEAN_CLASSES
-            current_preds = preds_s
-        elif score_potato >= score_soybean and score_potato >= score_cotton:
-            crop_name = "🥔 बटाटा (Potato Leaf)"
-            diagnosed_label = POTATO_CLASSES[idx_p]
-            final_conf = conf_p * 100
-            current_classes = POTATO_CLASSES
-            current_preds = preds_p
-        else:
-            crop_name = "☁️ कापूस (Cotton Leaf)"
-            diagnosed_label = COTTON_CLASSES[idx_c]
-            final_conf = conf_c * 100
-            current_classes = COTTON_CLASSES
-            current_preds = preds_c
+    score_potato = conf_p * 1.35
+    score_soybean = conf_s * 1.30
+    score_cotton = conf_c * 0.70
 
-        treatment_data = TREATMENTS.get(diagnosed_label, {
-            'severity': 'सामान्य',
-            'fertilizer': 'संतुलित खतांची फवारणी करावी.',
-            'dose': 'कृषी तज्ज्ञांच्या सल्ल्याने वापरावे.',
-            'bio': 'दशपर्णी अर्क किंवा सेंद्रिय खते वापरावीत.',
-            'tips': 'नियमित निगराणी ठेवावी.'
-        })
+    if score_soybean >= score_potato and score_soybean >= score_cotton:
+        crop_name = "🌱 सोयाबीन (Soybean Leaf)"
+        diagnosed_label = SOYBEAN_CLASSES[idx_s]
+        final_conf = conf_s * 100
+        current_classes = SOYBEAN_CLASSES
+        current_preds = preds_s
+    elif score_potato >= score_soybean and score_potato >= score_cotton:
+        crop_name = "🥔 बटाटा (Potato Leaf)"
+        diagnosed_label = POTATO_CLASSES[idx_p]
+        final_conf = conf_p * 100
+        current_classes = POTATO_CLASSES
+        current_preds = preds_p
+    else:
+        crop_name = "☁️ कापूस (Cotton Leaf)"
+        diagnosed_label = COTTON_CLASSES[idx_c]
+        final_conf = conf_c * 100
+        current_classes = COTTON_CLASSES
+        current_preds = preds_c
 
-        is_healthy = "Healthy" in diagnosed_label or "Fresh" in diagnosed_label
-        badge_style = "badge-low" if is_healthy else "badge-high"
+    info = TREATMENTS[diagnosed_label]
+    sev_class = severity_class(info['severity'])
 
-        # 1. Main Diagnosis Header
-        st.markdown(f"""
-        <div class="res-card">
-            <span class="badge badge-crop">🌾 ओळखलेले पीक: {crop_name}</span>
-            <span class="badge {badge_style}">धोका पातळी: {treatment_data['severity']}</span>
-            <h3 style="color: #1b5e20; margin: 8px 0 10px 0; font-size: 19px;">📋 मुख्य निदान: {diagnosed_label}</h3>
-            <div style="background: #eef7ee; padding: 6px 12px; border-radius: 8px; display: inline-block; margin-bottom: 14px;">
-                <span style="font-weight: 700; color: #2e7d32;">एकूण अचूकता (Top Confidence): {final_conf:.2f}%</span>
-            </div>
+    # ---------------- RESULTS HEADER ----------------
+    st.markdown('<p class="kai-section-label">निदान परिणाम · Diagnosis Result</p>', unsafe_allow_html=True)
+    st.markdown('<div class="kai-card">', unsafe_allow_html=True)
+
+    st.markdown(
+        f"""
+        <div class="kai-pill-row">
+          <span class="kai-pill kai-pill-dark">{crop_name}</span>
+          <span class="kai-pill">{diagnosed_label}</span>
         </div>
-        """, unsafe_allow_html=True)
+        <div class="kai-severity {sev_class}">● {info['severity']}</div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-        # 2. Probability Breakdown
-        st.markdown("#### 📊 रोगांची व निरोगी असण्याची शक्यता (Probability Breakdown):")
-        for cls_name, prob in zip(current_classes, current_preds):
-            prob_pct = float(prob) * 100
-            icon = "🟢" if ("Healthy" in cls_name or "Fresh" in cls_name) else "🔴"
-            st.write(f"{icon} **{cls_name}**: `{prob_pct:.2f}%`")
-            st.progress(min(max(float(prob), 0.0), 1.0))
+    st.markdown("<br>", unsafe_allow_html=True)
 
-        # 3. Chemical Treatment Box (Left-aligned HTML to prevent markdown code-block bug)
-        chem_html = f"""<div class="treatment-box">
-<h4 style="margin: 0 0 8px 0; color: #1b5e20;">🧪 रासायनिक उपाय व खते (Chemical Control):</h4>
-<p style="margin: 0 0 6px 0; font-weight: 600; color: #2e7d32;">औषध / खत: <span style="color:#000;">{treatment_data['fertilizer']}</span></p>
-<p style="margin: 0 0 6px 0; font-weight: 600; color: #d84315;">फवारणी प्रमाण (Dose): <span style="color:#000;">{treatment_data['dose']}</span></p>
-</div>"""
-        st.markdown(chem_html, unsafe_allow_html=True)
+    # Confidence meter (gradient bar acting as gauge)
+    st.markdown(
+        f"""
+        <div class="kai-gauge-wrap">
+          <div>
+            <div class="kai-gauge-num">{final_conf:.1f}%</div>
+            <div class="kai-gauge-label">Top Confidence Score</div>
+          </div>
+          <div style="flex:1;">
+            <div class="kai-prob-track" style="height:14px;">
+              <div class="kai-prob-fill" style="width:{final_conf:.1f}%;"></div>
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
 
-        # 4. Organic Treatment Box (Left-aligned HTML)
-        bio_html = f"""<div class="bio-box">
-<h4 style="margin: 0 0 8px 0; color: #2e7d32;">🌿 जैविक / सेंद्रिय पर्याय (Organic Solution):</h4>
-<p style="margin: 0 0 6px 0; font-weight: 600; color: #2e7d32;">सेंद्रिय घटक: <span style="color:#000;">{treatment_data['bio']}</span></p>
-<p style="margin: 0; font-size: 13px; color: #424242;">💡 <b>व्यवस्थापन सल्ला:</b> {treatment_data['tips']}</p>
-</div>"""
-        st.markdown(bio_html, unsafe_allow_html=True)
+    # ---------------- PROBABILITY DISTRIBUTION ----------------
+    st.markdown('<p class="kai-section-label">संभाव्यता विश्लेषण · Probability Distribution</p>', unsafe_allow_html=True)
+    st.markdown('<div class="kai-card">', unsafe_allow_html=True)
 
-        # 5. Summary Report Download Button
-        report_text = f"""--- कृषी-AI पीक आरोग्य अहवाल ---
-ओळखलेले पीक: {crop_name}
-मुख्य निदान: {diagnosed_label}
-अचूकता: {final_conf:.2f}%
-धोका पातळी: {treatment_data['severity']}
+    order = np.argsort(current_preds)[::-1]
+    bars_html = ""
+    for i in order:
+        cls_name = current_classes[i]
+        pct = float(current_preds[i]) * 100
+        bars_html += f"""
+        <div class="kai-prob-row">
+          <div class="kai-prob-top">
+            <span class="kai-prob-name">{cls_name}</span>
+            <span class="kai-prob-pct">{pct:.1f}%</span>
+          </div>
+          <div class="kai-prob-track">
+            <div class="kai-prob-fill" style="width:{pct:.1f}%;"></div>
+          </div>
+        </div>
+        """
+    st.markdown(bars_html, unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-[रासायनिक उपाय]
-औषध/खत: {treatment_data['fertilizer']}
-प्रमाण: {treatment_data['dose']}
+    # ---------------- ADVISORY CARDS ----------------
+    st.markdown('<p class="kai-section-label">उपचार सल्ला · Treatment Advisory</p>', unsafe_allow_html=True)
+    adv_col1, adv_col2 = st.columns(2)
 
-[जैविक उपाय]
-सेंद्रिय घटक: {treatment_data['bio']}
-सल्ला: {treatment_data['tips']}
----------------------------------------"""
-
-        st.download_button(
-            label="📥 शेतकरी सल्ला अहवाल डाउनलोड करा (Download Report)",
-            data=report_text,
-            file_name="crop_diagnosis_report.txt",
-            mime="text/plain"
+    with adv_col1:
+        st.markdown(
+            f"""
+            <div class="kai-adv-card kai-adv-chem">
+              <div class="kai-adv-title">🧪 रासायनिक उपचार (Chemical Treatment)</div>
+              <div class="kai-adv-row"><b>औषध:</b> {info['fertilizer']}</div>
+              <div class="kai-adv-row"><b>प्रमाण/डोस:</b> {info['dose']}</div>
+              <div class="kai-adv-tip">{info['tips']}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
-        
+
+    with adv_col2:
+        st.markdown(
+            f"""
+            <div class="kai-adv-card kai-
