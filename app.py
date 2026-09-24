@@ -1,63 +1,159 @@
-cd /home/claude/w && cp /mnt/user-data/outputs/app.py gemini_app.py && cat > top.txt <<'EOF'
-# कृषी-AI : स्मार्ट पीक व रोग निदान प्रणाली  (No API key needed)
-# Runs fully on your own trained models: potato / cotton / soybean (.h5) + MobileNetV2 plant-part detection.
-#
-# Files that must sit next to this app.py in the repo:
-#   potato_disease_model (1).h5 , cotton_model.h5 , soybean_model.h5
-# requirements.txt: use the same one your earlier TensorFlow app used (tensorflow, streamlit, Pillow, numpy).
-
-import re
-from html import escape
-
 import streamlit as st
 import tensorflow as tf
 from PIL import Image
 import numpy as np
 
-# =====================================================================
-# 1. PAGE CONFIG
-# =====================================================================
+# 1. Page Configuration
 st.set_page_config(
-    page_title="कृषी-AI: स्वयंचलित पीक व रोग निदान",
+    page_title="कृषी-AI : स्मार्ट पीक संरक्षण",
     page_icon="🌿",
     layout="centered",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="collapsed"
 )
 
-# =====================================================================
-# 2. MODELS LOADING
-# =====================================================================
+# 2. Modern Agri-Tech Styling
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Mukta:wght@400;600;700;800&family=Poppins:wght@500;600;700&display=swap');
+    * { font-family: 'Mukta', 'Poppins', sans-serif; }
+    .stApp { background-color: #f4f8f4; }
+
+    .hero-banner {
+        background: linear-gradient(135deg, #073b22 0%, #0f6639 55%, #1e874b 100%);
+        border-radius: 18px;
+        padding: 16px 18px;
+        text-align: center;
+        color: white;
+        box-shadow: 0 8px 20px rgba(15, 102, 57, 0.2);
+        margin-bottom: 16px;
+    }
+    .hero-banner h1 {
+        color: #ffffff !important;
+        font-size: 22px;
+        font-weight: 800;
+        margin: 6px 0 2px 0;
+    }
+    .hero-banner p {
+        color: #d1f2e2 !important;
+        font-size: 13px;
+        margin: 0;
+    }
+
+    .badge-pill {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        padding: 2px 12px;
+        border-radius: 15px;
+        font-size: 11px;
+        font-weight: 600;
+        color: #ffffff;
+        margin-top: 6px;
+    }
+
+    .main-card {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 16px 18px;
+        border: 1px solid #d9edd9;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
+        margin-bottom: 16px;
+    }
+
+    .detection-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 13.5px;
+        font-weight: 700;
+        margin-right: 6px;
+        margin-bottom: 8px;
+    }
+    .chip-crop { background: #e8f5e9; color: #1b5e20; border: 1px solid #a5d6a7; }
+    .chip-part { background: #fff8e1; color: #f57f17; border: 1px solid #ffe082; }
+
+    .result-danger {
+        background: #fff5f5;
+        border-left: 5px solid #e53935;
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin-top: 14px;
+        box-shadow: 0 4px 12px rgba(229, 57, 53, 0.06);
+    }
+    .result-success {
+        background: #f1f8e9;
+        border-left: 5px solid #2e7d32;
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin-top: 14px;
+        box-shadow: 0 4px 12px rgba(46, 125, 50, 0.06);
+    }
+
+    .remedy-card {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin-top: 10px;
+        border: 1px solid #c8e6c9;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.02);
+    }
+    .remedy-title {
+        font-weight: 700;
+        font-size: 15px;
+        color: #1b5e20;
+        margin-bottom: 4px;
+    }
+    .remedy-text {
+        font-size: 14px;
+        color: #263238;
+        line-height: 1.5;
+        margin: 0;
+    }
+
+    [data-testid="stImage"] img {
+        border-radius: 14px;
+        box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+        border: 1px solid #dceede;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# 3. Load Offline Models Safely
 @st.cache_resource
-def load_all_models():
+def load_models():
     p_m = tf.keras.models.load_model('potato_disease_model (1).h5', compile=False)
     c_m = tf.keras.models.load_model('cotton_model.h5', compile=False)
     s_m = tf.keras.models.load_model('soybean_model.h5', compile=False)
     feat_m = tf.keras.applications.MobileNetV2(weights='imagenet', include_top=True)
     return p_m, c_m, s_m, feat_m
 
-# =====================================================================
-# 3. REMEDIES DATABASE
-# =====================================================================
+try:
+    potato_model, cotton_model, soybean_model, feature_model = load_models()
+    models_loaded = True
+except Exception as e:
+    models_loaded = False
+    st.error(f"मॉडेल लोड करताना त्रुटी: {e}")
+
+# 4. Agro Remedies Database
 POTATO_CLASSES = ['Potato___Early_blight', 'Potato___Late_blight', 'Potato___healthy']
 POTATO_REMEDIES = {
     'Potato___Early_blight': {
         'title': 'अर्ली ब्लाइट (अगाती करपा)',
         'type': 'रोगग्रस्त',
-        'badge': 'बुरशीजन्य संसर्ग',
         'cure': 'मॅन्कोझेब (Mancozeb 75% WP) २ ते २.५ ग्रॅम प्रति लिटर पाण्यात मिसळून संपूर्ण पानांवर फवारावे.',
         'prevention': 'पिकांची फेरपालट करा व रोगट पाने गोळा करून नष्ट करा.'
     },
     'Potato___Late_blight': {
         'title': 'लेट ब्लाइट (उशिरा येणारा करपा)',
         'type': 'रोगग्रस्त',
-        'badge': 'गंभीर रोग धोका',
         'cure': 'मेटॅलॅक्सिल + मॅन्कोझेब (रिडोमिल गोल्ड) २ ग्रॅम प्रति लिटर पाण्यात फवारावे.',
         'prevention': 'ढगाळ व दमट हवामानात त्वरित प्रतिबंधात्मक फवारणी करावी.'
     },
     'Potato___healthy': {
         'title': 'निरोगी पीक (Healthy)',
         'type': 'निरोगी',
-        'badge': 'उत्कृष्ट आरोग्य',
         'cure': 'पीक पूर्णपणे सुदृढ आहे. कोणत्याही औषधाची गरज नाही.',
         'prevention': 'वेळोवेळी योग्य खत आणि पाणी व्यवस्थापन ठेवा.'
     }
@@ -68,28 +164,24 @@ COTTON_REMEDIES = {
     'diseased cotton leaf': {
         'title': 'रोगग्रस्त पान / बोंड (Bacterial Blight / करपा)',
         'type': 'रोगग्रस्त',
-        'badge': 'जिवाणू संसर्ग',
         'cure': 'कॉपर ऑक्सिक्लोराईड (COC) २५ ग्रॅम + स्ट्रेप्टोसायक्लिन १ ते २ ग्रॅम प्रति १० लिटर पाण्यात फवारावे.',
         'prevention': 'शेतात पाणी साचू देऊ नका आणि गळून पडलेले रोगट भाग नष्ट करा.'
     },
     'diseased cotton plant': {
         'title': 'रोगग्रस्त झाड (Infected Plant)',
         'type': 'रोगग्रस्त',
-        'badge': 'संसर्गग्रस्त पीक',
         'cure': 'बाधित झाडे नष्ट करावीत व मुळांशी ट्रायकोडर्मा किंवा बुरशीनाशकाचे आळवणी करावी.',
         'prevention': 'रोगप्रतिकारक वाण वापरा.'
     },
     'fresh cotton leaf': {
         'title': 'निरोगी कापूस पान / बोंड (Fresh)',
         'type': 'निरोगी',
-        'badge': 'उत्कृष्ट आरोग्य',
         'cure': 'कापसाचे पीक निरोगी आहे. अनावश्यक फवारणी टाळावी.',
         'prevention': 'रसशोषक किडींचे नियमित निरीक्षण ठेवा.'
     },
     'fresh cotton plant': {
         'title': 'निरोगी कापूस पीक (Fresh Plant)',
         'type': 'निरोगी',
-        'badge': 'उत्कृष्ट आरोग्य',
         'cure': 'कापूस झाड सशक्त व निरोगी आहे.',
         'prevention': 'संतुलित खतांचा वापर ठेवा.'
     }
@@ -100,352 +192,177 @@ SOYBEAN_REMEDIES = {
     'Caterpillar': {
         'title': 'लष्करी अळी / पाने खाणारी अळी (Caterpillar)',
         'type': 'रोगग्रस्त',
-        'badge': 'कीड प्रादुर्भाव',
         'cure': 'इमामेक्टिन बेन्झोएट ५% एस.जी. ४ ग्रॅम किंवा कोराजन ३ मिली प्रति १० लिटर पाण्यात फवारावे.',
         'prevention': 'शेतात एकरी ३ कामगंध सापळे (Pheromone Traps) लावा.'
     },
     'Diabrotica speciosa': {
         'title': 'पानांवरील भुंगा/किडे (Leaf Beetle)',
         'type': 'रोगग्रस्त',
-        'badge': 'कीड प्रादुर्भाव',
         'cure': 'अलिका (थायमेथॉक्सम + लॅम्बडा सायहॅलोथ्रीन) ३ ते ४ मिली प्रति १० लिटर पाण्यात फवारावे.',
         'prevention': 'सुरुवातीला निंबोळी अर्क ५% फवारा.'
     },
     'Healthy': {
         'title': 'निरोगी सोयाबीन पीक (Healthy Leaf)',
         'type': 'निरोगी',
-        'badge': 'उत्कृष्ट आरोग्य',
         'cure': 'सोयाबीनचे पीक निरोगी आहे! अतिरिक्त फवारण्या टाळा.',
         'prevention': 'पाण्याचा ताण पडू देऊ नका.'
     }
 }
 
-CROPS = {
-    'potato': {'label': 'बटाटा', 'en': 'Potato', 'emoji': '🥔', 'classes': POTATO_CLASSES, 'remedies': POTATO_REMEDIES},
-    'cotton': {'label': 'कापूस', 'en': 'Cotton', 'emoji': '☁', 'classes': COTTON_CLASSES, 'remedies': COTTON_REMEDIES},
-    'soybean': {'label': 'सोयाबीन', 'en': 'Soybean', 'emoji': '🫘', 'classes': SOYBEAN_CLASSES, 'remedies': SOYBEAN_REMEDIES},
-}
-
-# =====================================================================
-# 4. PLANT PART DETECTION
-# =====================================================================
-def get_part_and_features(img_pil):
+# 5. Plant Part Detection (Leaf / Flower / Fruit / Boll)
+def identify_part(img_pil):
     resized = img_pil.resize((224, 224))
-    pre = tf.keras.applications.mobilenet_v2.preprocess_input(np.expand_dims(np.array(resized, dtype=np.float32), axis=0))
-    raw_pred = feature_model(pre, training=False)
+    x = tf.keras.applications.mobilenet_v2.preprocess_input(np.expand_dims(np.array(resized, dtype=np.float32), axis=0))
+    raw_pred = feature_model(x, training=False)
     decoded = tf.keras.applications.mobilenet_v2.decode_predictions(raw_pred.numpy(), top=8)[0]
-
+    
     flower_kw = ['flower', 'daisy', 'rose', 'blossom', 'petal', 'sunflower', 'dahlia', 'marigold', 'tulip', 'pot']
     fruit_kw = ['fruit', 'boll', 'berry', 'apple', 'orange', 'pomegranate', 'pod', 'cotton', 'seed', 'vegetable', 'cucumber']
-
-    part = "🍃 पान (Leaf / Foliage)"
+    
     for _, name, score in decoded:
         n = name.lower()
-        if any(k in n for k in flower_kw) and score > 0.15:
-            part = "🌸 फूल (Flower)"
-            break
-        elif any(k in n for k in fruit_kw) and score > 0.15:
-            part = "🍏 फळ / बोंड / शेंग (Fruit / Boll / Pod)"
-            break
+        if any(k in n for k in flower_kw) and score > 0.12:
+            return "🌸 फूल (Flower)"
+        elif any(k in n for k in fruit_kw) and score > 0.12:
+            return "🍏 फळ / बोंड / शेंग (Fruit / Boll / Pod)"
+            
+    return "🍃 पान (Leaf / Foliage)"
 
-    return part
-
-# =====================================================================
-# 5. ENSEMBLE ROUTING & PREDICTION
-#    Every crop model sees the image; the most confident model wins.
-#    Input size and scaling are read from each model so shapes never clash.
-# =====================================================================
-def _has_builtin_rescaling(layer_or_model, depth=0):
-    if depth > 3:
-        return False
-    for layer in getattr(layer_or_model, 'layers', [])[:8]:
-        if layer.__class__.__name__ in ('Rescaling', 'Normalization'):
-            return True
-        if hasattr(layer, 'layers') and _has_builtin_rescaling(layer, depth + 1):
-            return True
-    return False
-
-
-def _model_input_size(model):
-    shape = model.input_shape
-    if isinstance(shape, list):
-        shape = shape[0]
-    h = shape[1] if len(shape) > 2 and shape[1] else 224
-    w = shape[2] if len(shape) > 2 and shape[2] else 224
-    return int(h), int(w)
-
-
-def _prepare_input(img_pil, model):
-    h, w = _model_input_size(model)
-    arr = np.array(img_pil.convert('RGB').resize((w, h)), dtype=np.float32)
-    if not _has_builtin_rescaling(model):
-        arr = arr / 255.0
-    return np.expand_dims(arr, axis=0)
-
-
-def _predict_probs(model, img_pil):
-    x = _prepare_input(img_pil, model)
-    out = model(x, training=False)
-    probs = np.array(out.numpy()[0], dtype=np.float64).flatten()
-    total = probs.sum()
-    if probs.min() < 0 or abs(total - 1.0) > 1e-3:
-        e = np.exp(probs - probs.max())
-        probs = e / e.sum()
-    return probs
-
-
-def run_ensemble(img_pil, forced_crop=None):
-    model_map = {'potato': potato_model, 'cotton': cotton_model, 'soybean': soybean_model}
-    all_probs, top_conf = {}, {}
-    for key, mdl in model_map.items():
-        n_classes = len(CROPS[key]['classes'])
-        p = _predict_probs(mdl, img_pil)[:n_classes]
-        all_probs[key] = p
-        top_conf[key] = float(p.max())
-    crop = forced_crop if forced_crop else max(top_conf, key=top_conf.get)
-    return crop, all_probs[crop], top_conf
-
-# =====================================================================
-# 6. HELPERS
-# =====================================================================
-def flat(s):
-    # Flatten indented HTML so Markdown never renders it as a code block.
-    return "".join(line.strip() for line in s.strip().splitlines())
-
-
-QTY_RE = re.compile(
-    r"([०-९0-9]+(?:[.,/][०-९0-9]+)?(?:\s*(?:ते|-|–)\s*[०-९0-9]+(?:[.,][०-९0-9]+)?)?"
-    r"\s*(?:ग्रॅम|ग्राम|मि\.ली\.|मिली|मिलि|ml|mL|ML|gm|kg|किलो|लिटर|g|%|टक्के)(?![A-Za-z]))"
-)
-
-
-def bold_dose(text):
-    # Escape first, then bold dosages such as २ ग्रॅम, ३ मिली, ५%.
-    return QTY_RE.sub(r"<b>\1</b>", escape(text))
-
-
-EOF
-python3 - <<'EOF'
-s = open('gemini_app.py', encoding='utf-8').read()
-a = s.index('CSS = """'); b = s.index('st.markdown(CSS, unsafe_allow_html=True)')
-css = s[a:b]
-extra = """
-/* ---------- Probability bars ---------- */
-.probs{background:#fff; border:1px solid var(--line); border-radius:20px; padding:.9rem 1rem; box-shadow:0 6px 18px rgba(11,79,48,.07); margin-top:.5rem;}
-.prob{margin:.55rem 0;}
-.prob .lbl{display:flex; justify-content:space-between; gap:.6rem; font-size:.94rem; font-weight:500; margin-bottom:.28rem;}
-.prob .lbl b{font-family:'Poppins',sans-serif !important; font-weight:600; font-size:.88rem;}
-.prob .pt{height:9px; border-radius:999px; background:#E6F1E9; overflow:hidden;}
-.prob .pf{height:100%; border-radius:999px; background:linear-gradient(90deg,#8FD0A6,var(--em-700)); transition:width .8s ease;}
-.prob.top .pf{background:linear-gradient(90deg,var(--em-600),var(--em-900));}
-.prob.top.bad .pf{background:linear-gradient(90deg,#EF7B6E,var(--red-700));}
-.prob.top .lbl{font-weight:700;}
-.crop-scan{display:flex; gap:.4rem; flex-wrap:wrap; align-items:center; margin-top:.8rem; padding-top:.7rem; border-top:1px dashed var(--line); font-size:.86rem; color:var(--muted);}
-.crop-scan span.c{background:#fff; border:1px solid var(--line); padding:.12rem .55rem; border-radius:999px;}
-.crop-scan span.win{background:var(--em-100); color:var(--em-900); font-weight:600;}
-[data-testid="stExpander"]{background:#F6FBF7; border:1px solid var(--line) !important; border-radius:14px !important;}
-[data-testid="stExpander"] summary p{font-weight:600; color:var(--em-900); font-size:.95rem;}
+# 6. Minimalist SVG Logo + Hero Banner
+logo_svg = """
+<svg width="46" height="46" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34D399"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+  </defs>
+  <path d="M50 12C28 26 18 50 28 74C37 92 63 92 72 74C82 50 72 26 50 12Z" fill="url(#leafGrad)"/>
+  <path d="M50 24V80" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+  <path d="M50 42L36 32M50 56L32 50M50 70L38 66" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M50 42L64 32M50 56L68 50M50 70L62 66" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="36" cy="32" r="3.5" fill="#FFFFFF"/>
+  <circle cx="64" cy="32" r="3.5" fill="#FFFFFF"/>
+  <circle cx="32" cy="50" r="3.5" fill="#FFFFFF"/>
+  <circle cx="68" cy="50" r="3.5" fill="#FFFFFF"/>
+</svg>
 """
-css = css.replace("</style>", extra + "</style>")
-open('css2.txt', 'w', encoding='utf-8').write(css + 'st.markdown(CSS, unsafe_allow_html=True)\n')
-a = s.index('LOGO_SVG = """'); b = s.index('api_key = get_api_key()')
-open('logo2.txt', 'w', encoding='utf-8').write(s[a:b])
-EOF
-cat > rest.txt <<'EOF'
 
-# =====================================================================
-# 8. HERO + MODEL LOADING
-# =====================================================================
-hero_slot = st.empty()
+st.markdown(f"""
+<div class="hero-banner">
+    <div>{logo_svg}</div>
+    <h1>🌱 कृषी-AI : स्मार्ट पीक व रोग निदान प्रणाली</h1>
+    <p>आविष्कार संशोधन प्रकल्प • ऑटो-डिटेक्ट व्हिजन प्रणाली</p>
+    <div class="badge-pill">⚡ 100% Offline Edge Model Active</div>
+</div>
+""", unsafe_allow_html=True)
 
+# 7. Image Input Form
+st.markdown('<div class="main-card">', unsafe_allow_html=True)
+st.markdown("##### 📷 पिकाचे पान, फूल किंवा फळाचा फोटो द्या:")
+source_option = st.radio("फोटो कसा निवडायचा?", ("गॅलरीतून निवडा (Upload)", "कॅमेरा वापरा (Camera)"), horizontal=True)
 
-def render_hero(state):
-    if state is None:
-        badge = '<span class="status"><span class="dot"></span>⏳ मॉडेल लोड होत आहेत</span>'
-    elif state:
-        badge = '<span class="status"><span class="dot"></span>⚡ AI Active</span>'
-    else:
-        badge = '<span class="status off"><span class="dot"></span>⚠ AI Offline</span>'
-    hero_slot.markdown(flat(f"""
-    <div class="hero">
-      <div class="hero-row">
-        <div class="brand">{LOGO_SVG}<div class="bt"><b>कृषी-<i>AI</i></b><small>स्मार्ट पीक व रोग निदान प्रणाली</small></div></div>
-        {badge}
-      </div>
-    </div>
-    """), unsafe_allow_html=True)
+uploaded_file = None
+if source_option == "गॅलरीतून निवडा (Upload)":
+    uploaded_file = st.file_uploader("छायाचित्र निवडा (JPG / PNG)", type=["jpg", "jpeg", "png"])
+else:
+    uploaded_file = st.camera_input("कॅमेरा समोर धरून फोटो क्लिक करा")
+st.markdown('</div>', unsafe_allow_html=True)
 
+# 8. Automated Multi-Model Prediction
+if uploaded_file is not None and models_loaded:
+    image = Image.open(uploaded_file).convert('RGB')
+    st.image(image, caption="विश्लेषणासाठी निवडलेले छायाचित्र", use_container_width=True)
 
-render_hero(None)
-
-models_ready = False
-try:
-    potato_model, cotton_model, soybean_model, feature_model = load_all_models()
-    models_ready = True
-except Exception as e:
-    st.markdown(flat("""
-    <div class="setup"><b>⚠ AI मॉडेल लोड होऊ शकले नाहीत.</b><br>
-    GitHub मध्ये <code>potato_disease_model (1).h5</code>, <code>cotton_model.h5</code> आणि <code>soybean_model.h5</code>
-    या फाइल्स <code>app.py</code> सोबत आहेत का ते तपासा आणि <code>requirements.txt</code> मध्ये <code>tensorflow</code> असल्याची खात्री करा.</div>
-    """), unsafe_allow_html=True)
-    with st.expander("तांत्रिक तपशील"):
-        st.code(str(e))
-
-render_hero(models_ready)
-
-# =====================================================================
-# 9. INPUT
-# =====================================================================
-def safe_widget(fn, *args, **kwargs):
-    # Call a Streamlit widget; on older Streamlit versions retry without newer kwargs.
-    try:
-        return fn(*args, **kwargs)
-    except (TypeError, AttributeError):
-        kwargs.pop("label_visibility", None)
-        kwargs.pop("horizontal", None)
-        return fn(*args, **kwargs)
-
-
-def input_card():
-    try:
-        return st.container(border=True, key="inputcard")
-    except TypeError:
+    with st.spinner("🤖 AI आपोआप पीक, अवयव व रोग शोधत आहे..."):
         try:
-            return st.container(border=True)
-        except TypeError:
-            return st.container()
+            detected_part = identify_part(image)
 
+            # 1. Soybean
+            img_s = image.resize((224, 224))
+            arr_s = tf.convert_to_tensor(np.expand_dims(np.array(img_s, dtype=np.float32) / 255.0, axis=0))
+            raw_s = soybean_model(arr_s, training=False).numpy()[0]
+            prob_s = tf.nn.softmax(raw_s).numpy() if (np.sum(raw_s) > 1.05 or np.sum(raw_s) < 0.95) else raw_s
+            idx_s = int(np.argmax(prob_s))
+            conf_s = float(prob_s[idx_s])
 
-source = None
-forced_crop = None
-with input_card():
-    st.markdown(flat("""
-    <div class="card-h"><div class="ico">📸</div><b>पिकाचा फोटो द्या</b></div>
-    <div class="hint">फोटो स्पष्ट, दिवसाच्या प्रकाशात व जवळून घ्या. पान, फूल किंवा बोंड ठळक दिसू द्या.</div>
-    """), unsafe_allow_html=True)
+            # 2. Cotton
+            img_c = image.resize((224, 224))
+            arr_c = tf.convert_to_tensor(np.expand_dims(np.array(img_c, dtype=np.float32) / 255.0, axis=0))
+            raw_c = cotton_model(arr_c, training=False).numpy()[0]
+            prob_c = tf.nn.softmax(raw_c).numpy() if (np.sum(raw_c) > 1.05 or np.sum(raw_c) < 0.95) else raw_c
+            idx_c = int(np.argmax(prob_c))
+            conf_c = float(prob_c[idx_c])
 
-    method = safe_widget(
-        st.radio, "फोटो पद्धत",
-        ["🖼 गॅलरीतून निवडा (Upload)", "📷 कॅमेऱ्याने फोटो काढा (Camera)"],
-        horizontal=True, label_visibility="collapsed",
-    )
+            # 3. Potato
+            img_p = image.resize((224, 224))
+            arr_p = tf.convert_to_tensor(np.expand_dims(np.array(img_p, dtype=np.float32), axis=0))
+            try:
+                raw_p = potato_model(arr_p / 255.0, training=False).numpy()[0]
+            except Exception:
+                raw_p = potato_model(arr_p, training=False).numpy()[0]
+            prob_p = tf.nn.softmax(raw_p).numpy() if (np.sum(raw_p) > 1.05 or np.sum(raw_p) < 0.95) else raw_p
+            idx_p = int(np.argmax(prob_p))
+            conf_p = float(prob_p[idx_p])
 
-    if method.startswith("🖼"):
-        source = safe_widget(st.file_uploader, "फोटो निवडा", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
-    else:
-        source = safe_widget(st.camera_input, "फोटो काढा", label_visibility="collapsed")
+            # Smart Routing: Rebalance weights so Soybean doesn't default to Potato
+            adj_p = conf_p * 0.70
+            adj_s = conf_s * 1.30
+            adj_c = conf_c * 1.15
 
-    with st.expander("⚙ पीक स्वतः निवडा (ऐच्छिक)"):
-        crop_choice = safe_widget(
-            st.selectbox, "पीक",
-            ["🤖 स्वयंचलित ओळख (शिफारस)", "🥔 बटाटा", "☁ कापूस", "🫘 सोयाबीन"],
-            label_visibility="collapsed",
-        )
-    forced_crop = {"🥔 बटाटा": "potato", "☁ कापूस": "cotton", "🫘 सोयाबीन": "soybean"}.get(crop_choice)
+            if adj_s >= adj_c and adj_s >= adj_p:
+                chosen_crop = "soybean"
+                crop_title = "सोयाबीन (Soybean)"
+                label = SOYBEAN_CLASSES[idx_s]
+                info = SOYBEAN_REMEDIES[label]
+                conf = conf_s * 100
+            elif adj_c >= adj_s and adj_c >= adj_p:
+                chosen_crop = "cotton"
+                crop_title = "कापूस (Cotton)"
+                label = COTTON_CLASSES[idx_c]
+                info = COTTON_REMEDIES[label]
+                conf = conf_c * 100
+            else:
+                chosen_crop = "potato"
+                crop_title = "बटाटा (Potato)"
+                label = POTATO_CLASSES[idx_p]
+                info = POTATO_REMEDIES[label]
+                conf = conf_p * 100
 
-# =====================================================================
-# 10. ANALYSIS + RESULTS
-# =====================================================================
-if source is not None and models_ready:
-    try:
-        img = Image.open(source).convert("RGB")
-    except Exception:
-        st.error("हा फोटो उघडता आला नाही. कृपया JPG / PNG फोटो वापरा.")
-        st.stop()
+            # Output UI Display
+            st.markdown(f"""
+            <div style="margin-top: 14px;">
+                <span class="detection-chip chip-crop">🌾 ओळखलेले पीक: <b>{crop_title}</b></span>
+                <span class="detection-chip chip-part">🔍 अवयव: <b>{detected_part}</b></span>
+            </div>
+            """, unsafe_allow_html=True)
 
-    st.markdown('<div class="sec"><div class="bar"></div><h3>२. तुमचा फोटो</h3></div>', unsafe_allow_html=True)
-    try:
-        st.image(img, use_container_width=True)
-    except TypeError:
-        st.image(img, use_column_width=True)
+            if info['type'] == 'निरोगी':
+                st.markdown(f"""
+                <div class="result-success">
+                    <h3 style="color:#1b5e20; margin:0 0 4px 0; font-size:20px;">✅ निष्कर्ष: {crop_title} — {info['title']}</h3>
+                    <p style="margin:0; color:#2e7d32; font-weight:700; font-size:15px;">अचूकता (Confidence): {conf:.2f}%</p>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div class="result-danger">
+                    <h3 style="color:#b71c1c; margin:0 0 4px 0; font-size:20px;">⚠️ आढळलेला रोग/कीड: {crop_title} — {info['title']}</h3>
+                    <p style="margin:0; color:#c62828; font-weight:700; font-size:15px;">अचूकता (Confidence): {conf:.2f}%</p>
+                </div>
+                """, unsafe_allow_html=True)
 
-    with st.spinner("🔍 AI फोटोचे विश्लेषण करत आहे…"):
-        part = get_part_and_features(img)
-        crop_key, probs, top_conf = run_ensemble(img, forced_crop)
+            st.markdown(f"""
+            <div class="remedy-card">
+                <div class="remedy-title">💊 तात्काळ रासायनिक / जैविक उपाय:</div>
+                <p class="remedy-text">{info['cure']}</p>
+            </div>
+            <div class="remedy-card">
+                <div class="remedy-title">🛡️ शेत व्यवस्थापन व प्रतिबंधात्मक काळजी:</div>
+                <p class="remedy-text">{info['prevention']}</p>
+            </div>
+            """, unsafe_allow_html=True)
 
-    crop = CROPS[crop_key]
-    classes = crop['classes']
-    remedies = crop['remedies']
-    idx = int(np.argmax(probs))
-    confidence = float(probs[idx]) * 100
-    info = remedies[classes[idx]]
-    healthy = info['type'] == 'निरोगी'
-    tone = "ok" if healthy else "bad"
-    icon = "✅" if healthy else "⚠"
-
-    st.markdown('<div class="sec"><div class="bar"></div><h3>३. निदान</h3></div>', unsafe_allow_html=True)
-    st.markdown(flat(f"""
-    <div class="pills">
-      <span class="pill crop">{crop['emoji']} {crop['label']} <small>{crop['en']}</small></span>
-      <span class="pill">{escape(part)}</span>
-    </div>
-    <div class="result {tone}">
-      <div class="row">
-        <div class="ico-lg">{icon}</div>
-        <div class="grow">
-          <span class="tag">{icon} {escape(info['type'])} · {escape(info['badge'])}</span>
-          <h2>{escape(info['title'])}</h2>
-          <div class="en">{'तुमचे पीक सुरक्षित दिसत आहे.' if healthy else 'त्वरित लक्ष देण्याची गरज आहे.'}</div>
-        </div>
-        <div class="metric"><div class="num">{confidence:.1f}%</div><div class="cap">अचूकता (Confidence)</div></div>
-      </div>
-      <div class="track"><div class="fill" style="width:{max(confidence, 3):.1f}%"></div></div>
-    </div>
-    """), unsafe_allow_html=True)
-
-    if confidence < 60:
-        st.markdown(
-            "<div class='note'>💡 खात्री कमी आहे. जवळून, स्पष्ट व चांगल्या प्रकाशात दुसरा फोटो घेऊन पुन्हा तपासा, "
-            "किंवा वर \"पीक स्वतः निवडा\" वापरा.</div>",
-            unsafe_allow_html=True,
-        )
-
-    # ---- Probability breakdown ----
-    st.markdown('<div class="sec"><div class="bar"></div><h3>संभाव्यता तपशील</h3></div>', unsafe_allow_html=True)
-    bars = ""
-    for i in np.argsort(probs)[::-1]:
-        pct = float(probs[i]) * 100
-        top = " top" if i == idx else ""
-        bad = " bad" if (i == idx and not healthy) else ""
-        bars += (
-            f'<div class="prob{top}{bad}"><div class="lbl"><span>{escape(remedies[classes[i]]["title"])}</span>'
-            f'<b>{pct:.1f}%</b></div><div class="pt"><div class="pf" style="width:{max(pct, 1):.1f}%"></div></div></div>'
-        )
-    scan = "".join(
-        f'<span class="c{" win" if k == crop_key else ""}">{CROPS[k]["emoji"]} {CROPS[k]["label"]} {v * 100:.0f}%</span>'
-        for k, v in top_conf.items()
-    )
-    scan_title = "पीक जुळणी:" if not forced_crop else "पीक (हाताने निवडलेले):"
-    st.markdown(flat(f"""
-    <div class="probs">{bars}<div class="crop-scan"><span>{scan_title}</span>{scan}</div></div>
-    """), unsafe_allow_html=True)
-
-    # ---- Advisory ----
-    st.markdown('<div class="sec"><div class="bar"></div><h3>४. सल्ला व उपाययोजना</h3></div>', unsafe_allow_html=True)
-    cure_cls = "adv cure okc" if healthy else "adv cure"
-    st.markdown(flat(f"""
-    <div class="{cure_cls}">
-      <div class="head"><div class="ico">{'🌱' if healthy else '💊'}</div><h4>तात्काळ रासायनिक / जैविक उपाय</h4></div>
-      <ul class="lst"><li>{bold_dose(info['cure'])}</li></ul>
-    </div>
-    <div class="adv care">
-      <div class="head"><div class="ico">🛡</div><h4>शेतकरी प्रतिबंधात्मक सल्ला व काळजी</h4></div>
-      <ul class="lst"><li>{bold_dose(info['prevention'])}</li></ul>
-    </div>
-    <div class="note">📌 औषधांचे प्रमाण व फवारणी करण्यापूर्वी स्थानिक कृषी अधिकारी / कृषी विज्ञान केंद्राचा सल्ला घ्या.</div>
-    """), unsafe_allow_html=True)
-
-elif source is None and models_ready:
-    st.markdown(flat("""
-    <div class="note" style="text-align:center;">📸 सुरुवात करण्यासाठी वर फोटो निवडा किंवा कॅमेऱ्याने काढा.</div>
-    """), unsafe_allow_html=True)
-
-st.markdown('<div class="foot">🌾 कृषी-AI · स्वयंचलित पीक निदान · Avishkar Research Convention</div>', unsafe_allow_html=True)
-EOF
-python3 - <<'EOF'
-def rd(n): return open(n, encoding='utf-8').read()
-out = rd('top.txt') + "# =====================================================================\n# 7. STYLES + LOGO\n# =====================================================================\n" + rd('css2.txt') + "\n" + rd('logo2.txt') + rd('rest.txt')
-open('/mnt/user-data/outputs/app.py', 'w', encoding='utf-8').write(out)
-import ast; ast.parse(out); print('syntax ok', out.count('"""'), 'triple quotes', len(out.splitlines()), 'lines')
-EOF
-grep -n "api_key\|genai\|API_KEY" /mnt/user-data/outputs/app.py | head
+        except Exception as pred_err:
+            st.error(f"विश्लेषण करताना अडचण आली: {pred_err}")
+            
