@@ -5,7 +5,7 @@ import numpy as np
 import streamlit.components.v1 as components
 
 # 1. Page Config
-st.set_page_config(page_title="कृषी-AI : Smart Agro Diagnostics", page_icon="🌿", layout="wide")
+st.set_page_config(page_title="Krushi-AI : Smart Agro Diagnostics", page_icon="🌿", layout="wide")
 
 # 2. Styling
 st.markdown("""
@@ -42,6 +42,9 @@ html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', 'Mukta', sans-ser
 .schedule-box {
     background: #fafafa; border: 1px solid #e5e7eb; border-radius: 12px; padding: 0.8rem 1rem; margin-bottom: 8px;
 }
+.morph-box {
+    background: #fdfdfd; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem; margin-bottom: 10px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -50,7 +53,7 @@ st.markdown("""
 <div class="kai-hero">
     <div style="font-size: 11px; font-weight: 800; letter-spacing: 1px; color: #a7f3d0; margin-bottom: 4px;">AVISHKAR RESEARCH CONVENTION 2026</div>
     <h2 style="margin: 0; font-size: 1.6rem; font-weight: 800;">🌿 कृषी-AI : स्मार्ट पीक रोग निदान प्रणाली</h2>
-    <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #d1fae5;">Deep Learning Crop Vision Engine (Potato • Soybean • Cotton)</p>
+    <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #d1fae5;">Deep Learning Crop Vision Engine with Morphological Profiling</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -181,223 +184,225 @@ TREATMENTS = {
     }
 }
 
-# 5. Input Controls (पीक निवड डीफॉल्ट ठेवली आहे जेणेकरून क्रॉस-प्रेडिक्शन होणार नाही)
-with st.container():
-    st.markdown('<div class="kai-card">', unsafe_allow_html=True)
-    c1, c2 = st.columns([1, 1])
-    with c1:
-        crop_mode = st.selectbox(
-            "🌾 पीक निवडा (Select Crop):",
-            ("🌱 सोयाबीन (Soybean)", "☁️ कापूस (Cotton)", "🥔 बटाटा (Potato)", "🤖 ऑटो-डिटेक्ट (Auto-Detect Mode)")
-        )
-    with c2:
-        input_mode = st.radio("माध्यम निवडा:", ("गॅलरी (Upload)", "कॅमेरा (Camera)"), horizontal=True)
-
-    if input_mode == "गॅलरी (Upload)":
-        uploaded_file = st.file_uploader("पानाचा फोटो निवडा:", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
-    else:
-        uploaded_file = st.camera_input("फोटो काढा:", label_visibility="collapsed")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# 6. Inference
-if uploaded_file is not None and models_ready:
+# 5. Diagnostic Routine Function
+def run_diagnostic(model, classes, crop_name, uploaded_file, is_scaled=True):
     img = Image.open(uploaded_file).convert('RGB')
-
     st.markdown('<div class="kai-card">', unsafe_allow_html=True)
     st.image(img, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
     resized_img = img.resize((224, 224))
     arr = np.array(resized_img, dtype=np.float32)
+    in_arr = (arr / 255.0) if is_scaled else arr
 
-    # 1. Predictions
-    preds_p = potato_model(np.expand_dims(arr, axis=0), training=False).numpy()[0]
-    if np.sum(preds_p) > 1.05 or np.sum(preds_p) < 0.95:
-        preds_p = tf.nn.softmax(preds_p).numpy()
-    idx_p = int(np.argmax(preds_p))
-    conf_p = float(preds_p[idx_p])
+    preds = model(np.expand_dims(in_arr, axis=0), training=False).numpy()[0]
+    if np.sum(preds) > 1.05 or np.sum(preds) < 0.95:
+        preds = tf.nn.softmax(preds).numpy()
+    idx = int(np.argmax(preds))
+    conf = float(preds[idx]) * 100
+    diag_label = classes[idx]
 
-    preds_s = soybean_model(np.expand_dims(arr / 255.0, axis=0), training=False).numpy()[0]
-    if np.sum(preds_s) > 1.05 or np.sum(preds_s) < 0.95:
-        preds_s = tf.nn.softmax(preds_s).numpy()
-    idx_s = int(np.argmax(preds_s))
-    conf_s = float(preds_s[idx_s])
+    info = TREATMENTS[diag_label]
+    sev_text = info['severity']
+    sev_cls = 'sev-healthy' if 'सुरक्षित' in sev_text else ('sev-mod' if 'मध्यम' in sev_text else 'sev-crit')
 
-    preds_c = cotton_model(np.expand_dims(arr / 255.0, axis=0), training=False).numpy()[0]
-    if np.sum(preds_c) > 1.05 or np.sum(preds_c) < 0.95:
-        preds_c = tf.nn.softmax(preds_c).numpy()
-    idx_c = int(np.argmax(preds_c))
-    conf_c = float(preds_c[idx_c])
-
-    # 2. Out-of-Scope Rejection (केवळ बटाट्यावरील टोमॅटो अडवण्यासाठी)
-    gray = np.array(img.resize((150, 150)).convert('L'))
-    white_lines = np.sum(gray > 200) / (150 * 150)
-    r_c, g_c, b_c = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
-    mean_r, mean_g, mean_b = np.mean(r_c), np.mean(g_c), np.mean(b_c)
-    cyan_ratio = (mean_g - mean_r) / (mean_b + 1e-5)
-
-    is_out_of_scope = False
-    if "ऑटो" in crop_mode:
-        if idx_p == 0 and conf_p > 0.98 and (white_lines > 0.05 or (cyan_ratio > 0.18 and mean_b > 65.0)):
-            is_out_of_scope = True
-
-    if is_out_of_scope:
-        st.markdown("""
-        <div class="kai-card" style="border: 2px solid #ef4444; background: #fef2f2;">
-            <div style="background:#fee2e2; color:#b91c1c; font-weight:800; padding:6px 12px; border-radius:8px; display:inline-block; font-size:13px; margin-bottom:8px;">
-                ⚠️ अनोळखी पीक / OUT OF SCOPE PLANT
-            </div>
-            <h3 style="color:#991b1b; margin:6px 0;">हे पान अधिकृत ३ पिकांमधील नाही!</h3>
-            <p style="color:#374151; font-size:0.95rem; line-height: 1.6; margin:0;">
-                हे पान टोमॅटो, मिरची किंवा इतर बाहेरील वनस्पतीचे दिसते. <br>
-                <b>कृषी-AI</b> सध्या केवळ <b>बटाटा, सोयाबीन आणि कापूस</b> या ३ पिकांसाठी प्रमाणित आहे.
-            </p>
+    # Weather
+    st.markdown(f"""
+    <div class="weather-card">
+        <div style="font-weight: 800; font-size: 0.9rem; margin-bottom: 4px;">🌤️ प्रादेशिक हवामान आणि रोग जोखीम (Weather Correlation)</div>
+        <div style="font-size: 0.88rem; line-height: 1.5;">
+            स्थानिक तापमान: <b>२८°C</b> | हवेतील आर्द्रता: <b>७६%</b> (दमट वातावरण)<br>
+            <b>सल्ला:</b> हवेतील दमट वातावरणामुळे रोग वेगाने पसरू शकतात. औषध फवारणी पाऊस नसताना सकाळच्या वेळी करावी.
         </div>
-        """, unsafe_allow_html=True)
-    else:
-        # अचूक पीक वाटप (Explicit Crop Selection Priority)
-        if "सोयाबीन" in crop_mode:
-            selected_crop = "soybean"
-        elif "कापूस" in crop_mode:
-            selected_crop = "cotton"
-        elif "बटाटा" in crop_mode:
-            selected_crop = "potato"
-        else:
-            # ऑटो-डिटेक्ट: सोयाबीन कीटक प्रादुर्भावाला योग्य प्राधान्य
-            if idx_s in [0, 1] and conf_s > 0.50:
-                selected_crop = "soybean"
-            elif idx_c in [0, 1] and conf_c > 0.60:
-                selected_crop = "cotton"
-            elif idx_p in [0, 1] and conf_p > 0.50:
-                selected_crop = "potato"
-            else:
-                selected_crop = "soybean" if conf_s > conf_c else "cotton"
+    </div>
+    """, unsafe_allow_html=True)
 
-        if selected_crop == "soybean":
-            crop_name = "🌱 सोयाबीन (Soybean Leaf)"
-            diagnosed_label = SOYBEAN_CLASSES[idx_s]
-            final_conf = conf_s * 100
-            current_classes = SOYBEAN_CLASSES
-            current_preds = preds_s
-        elif selected_crop == "cotton":
-            crop_name = "☁️ कापूस (Cotton Leaf)"
-            diagnosed_label = COTTON_CLASSES[idx_c]
-            final_conf = conf_c * 100
-            current_classes = COTTON_CLASSES
-            current_preds = preds_c
-        else:
-            crop_name = "🥔 बटाटा (Potato Leaf)"
-            diagnosed_label = POTATO_CLASSES[idx_p]
-            final_conf = conf_p * 100
-            current_classes = POTATO_CLASSES
-            current_preds = preds_p
-
-        info = TREATMENTS[diagnosed_label]
-        sev_text = info['severity']
-        sev_cls = 'sev-healthy' if 'सुरक्षित' in sev_text else ('sev-mod' if 'मध्यम' in sev_text else 'sev-crit')
-
-        # १. हवामान जोखीम
-        st.markdown(f"""
-        <div class="weather-card">
-            <div style="font-weight: 800; font-size: 0.9rem; margin-bottom: 4px;">🌤️ प्रादेशिक हवामान आणि रोग जोखीम (Weather Correlation)</div>
-            <div style="font-size: 0.88rem; line-height: 1.5;">
-                स्थानिक तापमान: <b>२८°C</b> | हवेतील आर्द्रता: <b>७६%</b> (दमट वातावरण)<br>
-                <b>सल्ला:</b> हवेतील दमट वातावरणामुळे कीड व रोगांचा प्रादुर्भाव वाढू शकतो. फवारणी पाऊस नसताना करावी.
-            </div>
+    # Result Card
+    st.markdown(f"""
+    <div class="kai-card">
+        <div>
+            <span class="kai-pill kai-pill-dark">{crop_name}</span>
+            <span class="kai-pill">{diag_label}</span>
         </div>
-        """, unsafe_allow_html=True)
+        <div class="sev-tag {sev_cls}">● {sev_text}</div>
+        <div style="font-size: 2rem; font-weight: 800; color: #064E3B; margin-top: 10px;">{conf:.1f}%</div>
+        <div style="font-size: 12px; color: #64748B;">Top Model Confidence</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-        # २. निकाल कार्ड
+    # Audio
+    audio_speech_text = f"निदान: {crop_name}, {diag_label}. औषध: {info['fertilizer']}, प्रमाण: {info['dose']}."
+    components.html(f"""
+    <script>
+    function speakAdvisory() {{
+        window.speechSynthesis.cancel();
+        var msg = new SpeechSynthesisUtterance("{audio_speech_text}");
+        msg.lang = 'mr-IN';
+        window.speechSynthesis.speak(msg);
+    }}
+    </script>
+    <button onclick="speakAdvisory()" style="
+        background: linear-gradient(135deg, #059669, #10b981);
+        color: white; border: none; padding: 10px 18px; border-radius: 12px;
+        font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 10px rgba(5,150,105,0.25);
+    ">
+        🔊 ऑडिओ सल्ला ऐका (Listen Audio Advisory)
+    </button>
+    """, height=52)
+
+    # XAI
+    with st.expander("🔬 AI अटेंशन हीटमॅप पहा (Explainable AI - XAI Attention Map)"):
+        leaf_gray = np.array(resized_img.convert('L'), dtype=np.float32)
+        leaf_grad = np.abs(leaf_gray - np.mean(leaf_gray))
+        heatmap_norm = np.clip((leaf_grad / (np.max(leaf_grad) + 1e-5)) * 255.0, 0, 255).astype(np.uint8)
+        heatmap_color = np.zeros((224, 224, 3), dtype=np.uint8)
+        heatmap_color[:, :, 0] = heatmap_norm
+        heatmap_color[:, :, 1] = 255 - heatmap_norm
+        heatmap_color[:, :, 2] = 50
+        blended = (0.6 * np.array(resized_img) + 0.4 * heatmap_color).astype(np.uint8)
+        c_x1, c_x2 = st.columns(2)
+        with c_x1:
+            st.image(resized_img, caption="मूळ नमुना (Original Sample)", use_container_width=True)
+        with c_x2:
+            st.image(blended, caption="AI अटेंशन हीटमॅप (Lesion Focus Map)", use_container_width=True)
+
+    # Probs
+    st.markdown('<div class="kai-card">', unsafe_allow_html=True)
+    st.markdown("<b>संभाव्यता विवरण (Probabilities):</b>", unsafe_allow_html=True)
+    order = np.argsort(preds)[::-1]
+    for i in order:
+        cls_n = classes[i]
+        pct = float(preds[i]) * 100
+        st.write(f"• **{cls_n}** : `{pct:.1f}%`")
+        st.progress(min(max(float(preds[i]), 0.0), 1.0))
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Advisory
+    adv_c1, adv_c2 = st.columns(2)
+    with adv_c1:
         st.markdown(f"""
-        <div class="kai-card">
-            <div>
-                <span class="kai-pill kai-pill-dark">{crop_name}</span>
-                <span class="kai-pill">{diagnosed_label}</span>
-            </div>
-            <div class="sev-tag {sev_cls}">● {sev_text}</div>
-            <div style="font-size: 2rem; font-weight: 800; color: #064E3B; margin-top: 10px;">{final_conf:.1f}%</div>
-            <div style="font-size: 12px; color: #64748B;">Top Model Confidence</div>
+        <div class="adv-chem">
+            <h4 style="margin:0 0 6px 0; color:#b45309;">🧪 रासायनिक उपचार:</h4>
+            <p style="margin:0 0 4px 0;"><b>औषध:</b> {info['fertilizer']}</p>
+            <p style="margin:0 0 6px 0;"><b>प्रमाण:</b> {info['dose']}</p>
+            <small style="color:#64748b;">{info['tips']}</small>
         </div>
         """, unsafe_allow_html=True)
 
-        # ३. ऑडिओ सल्ला
-        audio_speech_text = f"निदान: {crop_name}, {diagnosed_label}. औषध: {info['fertilizer']}, प्रमाण: {info['dose']}."
-        components.html(f"""
-        <script>
-        function speakAdvisory() {{
-            window.speechSynthesis.cancel();
-            var msg = new SpeechSynthesisUtterance("{audio_speech_text}");
-            msg.lang = 'mr-IN';
-            window.speechSynthesis.speak(msg);
-        }}
-        </script>
-        <button onclick="speakAdvisory()" style="
-            background: linear-gradient(135deg, #059669, #10b981);
-            color: white; border: none; padding: 10px 18px; border-radius: 12px;
-            font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 10px rgba(5,150,105,0.25);
-        ">
-            🔊 ऑडिओ सल्ला ऐका (Listen Audio Advisory)
-        </button>
-        """, height=52)
-
-        # ४. XAI Attention Map
-        with st.expander("🔬 AI अटेंशन हीटमॅप पहा (Explainable AI - XAI Attention Map)"):
-            st.markdown("<small style='color:#64748b;'>मॉडेलने पानावरील नेमक्या कोणत्या भागावर लक्ष केंद्रित केले ते खालील हीटमॅपमध्ये दिसते:</small>", unsafe_allow_html=True)
-            leaf_gray = np.array(resized_img.convert('L'), dtype=np.float32)
-            leaf_grad = np.abs(leaf_gray - np.mean(leaf_gray))
-            heatmap_norm = np.clip((leaf_grad / (np.max(leaf_grad) + 1e-5)) * 255.0, 0, 255).astype(np.uint8)
-            heatmap_color = np.zeros((224, 224, 3), dtype=np.uint8)
-            heatmap_color[:, :, 0] = heatmap_norm
-            heatmap_color[:, :, 1] = 255 - heatmap_norm
-            heatmap_color[:, :, 2] = 50
-            blended = (0.6 * np.array(resized_img) + 0.4 * heatmap_color).astype(np.uint8)
-            col_x1, col_x2 = st.columns(2)
-            with col_x1:
-                st.image(resized_img, caption="मूळ नमुना (Original Sample)", use_container_width=True)
-            with col_x2:
-                st.image(blended, caption="AI अटेंशन हीटमॅप (Lesion Focus Map)", use_container_width=True)
-
-        # ५. संभाव्यता विवरण
-        st.markdown('<div class="kai-card">', unsafe_allow_html=True)
-        st.markdown("<b>संभाव्यता विवरण (Probabilities):</b>", unsafe_allow_html=True)
-        order = np.argsort(current_preds)[::-1]
-        for i in order:
-            cls_name = current_classes[i]
-            pct = float(current_preds[i]) * 100
-            st.write(f"• **{cls_name}** : `{pct:.1f}%`")
-            st.progress(min(max(float(current_preds[i]), 0.0), 1.0))
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # ६. सल्ला व औषधोपचार
-        adv_col1, adv_col2 = st.columns(2)
-        with adv_col1:
-            st.markdown(f"""
-            <div class="adv-chem">
-                <h4 style="margin:0 0 6px 0; color:#b45309;">🧪 रासायनिक उपचार:</h4>
-                <p style="margin:0 0 4px 0;"><b>औषध:</b> {info['fertilizer']}</p>
-                <p style="margin:0 0 6px 0;"><b>प्रमाण:</b> {info['dose']}</p>
-                <small style="color:#64748b;">{info['tips']}</small>
-            </div>
-            """, unsafe_allow_html=True)
-
-        with adv_col2:
-            st.markdown(f"""
-            <div class="adv-bio">
-                <h4 style="margin:0 0 6px 0; color:#047857;">🌿 जैविक उपाय:</h4>
-                <p style="margin:0 0 4px 0;"><b>सेंद्रिय घटक:</b> {info['bio']}</p>
-                <small style="color:#64748b;">{info['tips']}</small>
-            </div>
-            """, unsafe_allow_html=True)
-
-        # ७. प्रतिबंधात्मक वेळापत्रक
-        st.markdown("""
-        <div class="kai-card">
-            <h4 style="margin:0 0 10px 0; color:#064e3b;">📅 पुढील फवारणी व काळजी वेळापत्रक (Treatment Timeline):</h4>
-        """, unsafe_allow_html=True)
+    with adv_c2:
         st.markdown(f"""
+        <div class="adv-bio">
+            <h4 style="margin:0 0 6px 0; color:#047857;">🌿 जैविक उपाय:</h4>
+            <p style="margin:0 0 4px 0;"><b>सेंद्रिय घटक:</b> {info['bio']}</p>
+            <small style="color:#64748b;">{info['tips']}</small>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Schedule
+    st.markdown(f"""
+    <div class="kai-card">
+        <h4 style="margin:0 0 10px 0; color:#064e3b;">📅 पुढील फवारणी व काळजी वेळापत्रक (Treatment Timeline):</h4>
         <div class="schedule-box"><b>दिवस १ (आज):</b> वरील शिफारसीत रासायनिक/जैविक घटकांची तातडीने फवारणी करा.</div>
         <div class="schedule-box"><b>दिवस ८ (८ दिवसांनी):</b> {info['day7']}</div>
         <div class="schedule-box"><b>दिवस १५ (१५ दिवसांनी):</b> {info['day15']}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# 6. Main Navigation Tabs (Diagnostic + Leaf Botany Reference)
+tab_cotton, tab_soybean, tab_potato, tab_botany = st.tabs([
+    "☁️ कापूस (Cotton)", 
+    "🌱 सोयाबीन (Soybean)", 
+    "🥔 बटाटा (Potato)", 
+    "🔬 पान ओळख संदर्भ (Leaf Identification Guide)"
+])
+
+# TAB 1: कापूस
+with tab_cotton:
+    st.markdown("### ☁️ कापूस पीक नमुना (Cotton Leaf Sample)")
+    c_file = st.file_uploader("कापसाच्या पानाचा फोटो अपलोड करा:", type=["jpg", "jpeg", "png"], key="cotton_upl")
+    if c_file and models_ready:
+        run_diagnostic(cotton_model, COTTON_CLASSES, "☁️ कापूस (Cotton Leaf)", c_file, is_scaled=True)
+
+# TAB 2: सोयाबीन
+with tab_soybean:
+    st.markdown("### 🌱 सोयाबीन पीक नमुना (Soybean Leaf Sample)")
+    s_file = st.file_uploader("सोयाबीनच्या पानाचा फोटो अपलोड करा:", type=["jpg", "jpeg", "png"], key="soy_upl")
+    if s_file and models_ready:
+        run_diagnostic(soybean_model, SOYBEAN_CLASSES, "🌱 सोयाबीन (Soybean Leaf)", s_file, is_scaled=True)
+
+# TAB 3: बटाटा
+with tab_potato:
+    st.markdown("### 🥔 बटाटा पीक नमुना (Potato Leaf Sample)")
+    p_file = st.file_uploader("बटाट्याच्या पानाचा फोटो अपलोड करा:", type=["jpg", "jpeg", "png"], key="pot_upl")
+    if p_file and models_ready:
+        test_img = Image.open(p_file).convert('RGB').resize((150, 150))
+        gray = np.array(test_img.convert('L'))
+        white_lines = np.sum(gray > 200) / (150 * 150)
+        if white_lines > 0.08:
+            st.markdown("""
+            <div class="kai-card" style="border: 2px solid #ef4444; background: #fef2f2;">
+                <h4 style="color:#991b1b; margin:0 0 6px 0;">⚠️ अनोळखी पीक / टोमॅटोचे पान आढळले!</h4>
+                <p style="color:#374151; font-size:0.9rem; margin:0;">हे पान बटाट्याचे वाटत नाही. कृपया केवळ बटाट्याचे पान अपलोड करा.</p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            run_diagnostic(potato_model, POTATO_CLASSES, "🥔 बटाटा (Potato Leaf)", p_file, is_scaled=False)
+
+# TAB 4: शास्त्रीय पान रचना व ओळख मार्गदर्शक (Morphology & Dimensions Data)
+with tab_botany:
+    st.markdown("### 🌿 तिन्ही पिकांमधील पानाच्या रचनेचा शास्त्रीय फरक (Botanical Features)")
+    st.markdown("<p style='color:#64748b; font-size:0.95rem;'>कॉम्प्युटर व्हिजन आणि वनस्पतीशास्त्राच्या आधारे पानांचा प्रकार, रंग, पोत आणि आकारमानातील तुलना खालीलप्रमाणे आहे:</p>", unsafe_allow_html=True)
+    
+    col_b1, col_b2, col_b3 = st.columns(3)
+    
+    with col_b1:
+        st.markdown("""
+        <div class="morph-box" style="border-top: 4px solid #064E3B;">
+            <h4 style="color:#064E3B; margin-top:0;">🥔 बटाटा (Potato Leaf)</h4>
+            <p><b>पानाचा प्रकार:</b> संयुक्त पान (Pinnately Compound) - एका दांड्यावर अनेक उप-पाने.</p>
+            <p><b>आकार व कडा:</b> लंबगोलाकार/अंडाकृती (Ovate), कडा पूर्णपणे गुळगुळीत (Entire).</p>
+            <p><b>रंग:</b> गडद हिरवा ते पिवळसर-हिरवा (Yellowish-Dark Green).</p>
+            <p><b>पोत:</b> जाडसर, मांसल, विशिष्ट गंधयुक्त.</p>
+            <p><b>शिरांची रचना:</b> Pinnate (मध्यशिर जाळीदार रचना).</p>
+            <p><b>आकारमान:</b> संपूर्ण लांबी १५-२५ सें.मी., उप-पान रुंदी ३-६ सें.मी.</p>
+            <p style="color:#b45309; font-size:0.85rem;"><b>टोमॅटोशी फरक:</b> टोमॅटोच्या कडा करवतीसारख्या दातेरी (Serrated) असतात, बटाट्याच्या गुळगुळीत असतात.</p>
         </div>
         """, unsafe_allow_html=True)
-        
+
+    with col_b2:
+        st.markdown("""
+        <div class="morph-box" style="border-top: 4px solid #059669;">
+            <h4 style="color:#059669; margin-top:0;">☁️ कापूस (Cotton Leaf)</h4>
+            <p><b>पानाचा प्रकार:</b> साधे पान (Simple Lobed Leaf).</p>
+            <p><b>आकार व कडा:</b> तळहातासारखा पंजा (Palmate), ३ ते ५ खोल खाचा (Lobes).</p>
+            <p><b>रंग:</b> गडद ते काळसर हिरवा (Dull / Dark Green).</p>
+            <p><b>पोत:</b> चिवट, कातडीसारखा (Leathery), उंचवट्यासारख्या शिरा.</p>
+            <p><b>शिरांची रचना:</b> Palmate (एकाच तळापासून ३-५ मुख्य शिरा).</p>
+            <p><b>आकारमान:</b> लांबी ८-१६ सें.मी., रुंदी ७-१५ सें.मी. (विस्तृत रुंद).</p>
+            <p style="color:#059669; font-size:0.85rem;"><b>मुख्य ओळख:</b> पानावरील पंजासारखे ३-५ लोब्स स्पष्ट दिसतात.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_b3:
+        st.markdown("""
+        <div class="morph-box" style="border-top: 4px solid #10B981;">
+            <h4 style="color:#10B981; margin-top:0;">🌱 सोयाबीन (Soybean Leaf)</h4>
+            <p><b>पानाचा प्रकार:</b> त्रिपर्णी संयुक्त पान (Trifoliate Leaf) - ३ उप-पाने.</p>
+            <p><b>आकार व कडा:</b> अंडाकृती ते भाल्यासारखे (Ovate/Elliptic), अखंड कडा.</p>
+            <p><b>रंग:</b> उजळ, चमकदार पोपटी ते मध्यम हिरवा (Light Green).</p>
+            <p><b>पोत:</b> मऊ, लवचिक, पाठीमागे व पुढे मखमली बारीक लव (Pubescence).</p>
+            <p><b>शिरांची रचना:</b> Reticulate (बारीक जाळीदार शिरा).</p>
+            <p><b>आकारमान:</b> प्रत्येक उप-पानाची लांबी ६-१० सें.मी., रुंदी ३-५ सें.मी.</p>
+            <p style="color:#10B981; font-size:0.85rem;"><b>मुख्य ओळख:</b> एकाच देठावर बरोबर ३ पानांची रचना आणि बारीक लव.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("#### 📊 गुणधर्म तुलनात्मक तक्ता (Quick Comparison Matrix):")
+    st.markdown("""
+| गुणधर्म / घटक | 🥔 बटाटा (Potato) | ☁️ कापूस (Cotton) | 🌱 सोयाबीन (Soybean) |
+| :--- | :--- | :--- | :--- |
+| **रचना प्रकार** | संयुक्त (Compound Leaflets) | साधे, पंजाकार (3-5 Lobes) | त्रिपर्णी (Trifoliate - 3 Leaflets) |
+| **पानाचा पोत** | जाडसर व सपाट | चिवट, जाड शिरा (Leathery) | मऊ, मखमली लव (Pubescent) |
+| **रंग** | मध्यम ते गडद हिरवा | गडद काळसर हिरवा | उजळ पोपटी/हिरवा |
+| **सरासरी रुंदी** | ३ ते ६ सें.मी. (उप-पान) |
