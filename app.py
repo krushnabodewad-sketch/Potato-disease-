@@ -10,7 +10,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# २. आधुनिक व आकर्षक Agri-Tech डिझाइन
+# २. कॉम्पॅक्ट आणि प्रीमियम ॲग्री-टेक CSS
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Mukta:wght@400;600;700;800&family=Poppins:wght@500;600;700&display=swap');
@@ -75,7 +75,19 @@ if "GEMINI_API_KEY" not in st.secrets:
 
 api_key = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=api_key)
-gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+
+# मॉडेल फॉलबॅक सेटअप (404 एरर रोखण्यासाठी)
+def get_working_model():
+    candidates = ['gemini-1.5-flash-latest', 'gemini-1.5-flash', 'gemini-pro-vision']
+    for cand in candidates:
+        try:
+            m = genai.GenerativeModel(cand)
+            return m
+        except Exception:
+            continue
+    return genai.GenerativeModel('gemini-1.5-flash-latest')
+
+gemini_model = get_working_model()
 
 # ४. लोगो व हेडर बॅनर
 logo_svg = """
@@ -162,4 +174,4 @@ if uploaded_file is not None:
 
         except Exception as e:
             st.error(f"विश्लेषण करताना त्रुटी आली: {e}")
-          
+            
