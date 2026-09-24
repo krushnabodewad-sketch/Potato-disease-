@@ -216,7 +216,7 @@ TREATMENTS = {
 # ============================================================
 # INPUT SECTION
 # ============================================================
-st.markdown('<p class="kai-section-label">पान अपलोड करा · Upload Leaf Sample</p>', unsafe_allow_html=True)
+st.markdown('<p style="font-size:0.8rem; font-weight:700; color:#059669; text-transform:uppercase;">पान अपलोड करा · Upload Leaf Sample</p>', unsafe_allow_html=True)
 
 with st.container():
     st.markdown('<div class="kai-card">', unsafe_allow_html=True)
@@ -236,7 +236,7 @@ with st.container():
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================================
-# INFERENCE WITH HARDCODED OUT-OF-SCOPE REJECTION
+# INFERENCE & OUT-OF-SCOPE FILTER
 # ============================================================
 if uploaded_file is not None and models_ready:
     img = Image.open(uploaded_file).convert('RGB')
@@ -267,22 +267,18 @@ if uploaded_file is not None and models_ready:
     idx_c = int(np.argmax(preds_c))
     conf_c = float(preds_c[idx_c])
 
-    # २. कॉम्प्युटर व्हिजन - टोमॅटो / अनोळखी वनस्पती तपासणी
+    # २. टोमॅटो / अनोळखी वनस्पती स्पेक्ट्रल तपासणी
     r_chan, g_chan, b_chan = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
     mean_r, mean_g, mean_b = np.mean(r_chan), np.mean(g_chan), np.mean(b_chan)
-    
-    # टोमॅटोच्या पानाचा विशेष स्पेक्ट्रल रेशो:
-    # बटाट्याचे पान पिवळसर-हिरवे असते (Red जास्त), तर टोमॅटोचे पान गडद हिरवे/Cyan असते (Blue & Green जास्त)
     cyan_green_ratio = (mean_g - mean_r) / (mean_b + 1e-5)
-    is_tomato_spectral = (cyan_green_ratio > 0.20 and mean_b > 65.0)
+    is_tomato_spectral = (cyan_green_ratio > 0.18 and mean_b > 60.0)
 
-    # जर ऑटो-डिटेक्ट सुरू असेल आणि टोमॅटोचे पान बटाटा करपा म्हणून पकडले जात असेल:
     is_out_of_scope = False
     if crop_mode == "🤖 ऑटो-डिटेक्ट (Auto-Detect Mode)":
         if is_tomato_spectral and idx_p == 0:
             is_out_of_scope = True
 
-    # ३. रिझल्ट दाखवणे किंवा ब्लॉक करणे
+    # ३. निकाल किंवा चेतावणी
     if is_out_of_scope:
         st.markdown("""
         <div class="kai-card" style="border: 2px solid #ef4444; background: #fef2f2;">
@@ -292,12 +288,12 @@ if uploaded_file is not None and models_ready:
             <h3 style="color:#991b1b; margin:0 0 8px 0; font-size:1.25rem;">हे पान टोमॅटो किंवा इतर वनस्पतीचे आहे!</h3>
             <p style="color:#374151; font-size:0.95rem; line-height:1.6; margin:0;">
                 टोमॅटो आणि बटाटा हे दोन्ही <b>Solanaceae</b> कुळातील असल्याने बुरशीची लक्षणे (Early Blight) सारखीच दिसतात. <br>
-                परंतु हे मॉडेल सध्या केवळ <b>बटाटा, सोयाबीन आणि कापूस</b> या ३ पिकांसाठी प्रशिक्षित आहे. इतर पिकांसाठी खते अथवा औषध शिफारस केली जाणार नाही.
+                परंतु हे मॉडेल सध्या केवळ <b>बटाटा, सोयाबीन आणि कापूस</b> या ३ पिकांसाठी प्रमाणित आहे. इतर वनस्पतींसाठी चुकीचा सल्ला देणे टाळण्यासाठी हे निकाल थांबवले आहेत.
             </p>
         </div>
         """, unsafe_allow_html=True)
     else:
-        # अधिकृत ३ पिकांचे वर्गीकरण
+        # पीक वर्गीकरण
         if "बटाटा" in crop_mode:
             selected_crop = "potato"
         elif "सोयाबीन" in crop_mode:
@@ -372,7 +368,7 @@ if uploaded_file is not None and models_ready:
         """, unsafe_allow_html=True)
 
         # संभाव्यता विवरण
-        st.markdown('<p class="kai-section-label">संभाव्यता विश्लेषण · Probability Distribution</p>', unsafe_allow_html=True)
+        st.markdown('<p style="font-size:0.8rem; font-weight:700; color:#059669; text-transform:uppercase;">संभाव्यता विश्लेषण · Probability Distribution</p>', unsafe_allow_html=True)
         st.markdown('<div class="kai-card">', unsafe_allow_html=True)
         order = np.argsort(current_preds)[::-1]
         for i in order:
@@ -392,7 +388,7 @@ if uploaded_file is not None and models_ready:
         st.markdown('</div>', unsafe_allow_html=True)
 
         # सल्ला व औषधोपचार कार्ड्स
-        st.markdown('<p class="kai-section-label">उपचार सल्ला · Treatment Advisory</p>', unsafe_allow_html=True)
+        st.markdown('<p style="font-size:0.8rem; font-weight:700; color:#059669; text-transform:uppercase;">उपचार सल्ला · Treatment Advisory</p>', unsafe_allow_html=True)
         adv_col1, adv_col2 = st.columns(2)
         with adv_col1:
             st.markdown(f"""
@@ -413,8 +409,9 @@ if uploaded_file is not None and models_ready:
             </div>
             """, unsafe_allow_html=True)
 
-        # अहवाल डाउनलोड
+        # सुरक्षित अहवाल स्ट्रिंग (No multiline f-string crash)
         st.markdown("<br>", unsafe_allow_html=True)
-        report_text = f"""\ufeff========================================================
-                 कृषी-AI : पीक रोग निदान अहवाल
-==========
+        date_str = datetime.now().strftime('%d-%m-%Y %I:%M %p')
+        report_lines = [
+            "========================================================",
+            "             कृषी-AI : पीक रोग न
