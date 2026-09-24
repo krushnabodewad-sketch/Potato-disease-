@@ -33,7 +33,7 @@ html, body, [class*="css"] { font-family:'Plus Jakarta Sans','Mukta',sans-serif;
 
 .kai-hero {
     background:linear-gradient(135deg,var(--forest) 0%,#0B6B52 100%);
-    border-radius:24px; padding:2rem 2.2rem; margin-bottom:1.5rem;
+    border-radius:24px; padding:2rem 2.2rem; margin-bottom:1.2rem;
     box-shadow:0 20px 40px -12px rgba(6,78,59,0.35); position:relative; overflow:hidden;
 }
 .kai-hero-top { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; }
@@ -46,6 +46,18 @@ html, body, [class*="css"] { font-family:'Plus Jakarta Sans','Mukta',sans-serif;
 }
 .kai-status { display:inline-flex; align-items:center; gap:8px; margin-top:12px; color:var(--mint); font-size:0.85rem; }
 .kai-dot { width:8px; height:8px; border-radius:50%; background:#4ADE80; box-shadow:0 0 0 4px rgba(74,222,128,0.25); }
+
+/* Disclaimer Banner */
+.kai-disclaimer {
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-left: 4px solid var(--emerald);
+    border-radius: 12px;
+    padding: 10px 16px;
+    margin-bottom: 1.4rem;
+    font-size: 0.88rem;
+    color: #065f46;
+}
 
 .kai-section-label { font-size:0.78rem; font-weight:700; color:var(--emerald); text-transform:uppercase; letter-spacing:0.06em; margin:0 0 10px 2px; }
 .kai-card { background:#fff; border:1px solid var(--border); border-radius:18px; padding:1.5rem; box-shadow:0 10px 25px -5px rgba(0,0,0,0.05); margin-bottom:1.2rem; }
@@ -103,6 +115,10 @@ hero_html = """
     <span class="kai-badge">Avishkar Research Convention 2026</span>
   </div>
   <div class="kai-status"><span class="kai-dot"></span> Deep Learning Engine Active</div>
+</div>
+
+<div class="kai-disclaimer">
+  📢 <b>टीप / Scope Notice:</b> हे AI मॉडेल सध्या केवळ <b>🥔 बटाटा (Potato)</b>, <b>🌱 सोयाबीन (Soybean)</b> आणि <b>☁️ कापूस (Cotton)</b> या ३ पिकांच्या रोगनिदानासाठी प्रशिक्षित (Trained) आहे. इतर पिकांची पाने अपलोड केल्यास अनपेक्षित निकाल दिसू शकतात.
 </div>
 """
 st.markdown(hero_html, unsafe_allow_html=True)
@@ -258,29 +274,26 @@ if uploaded_file is not None and models_ready:
     resized_img = img.resize((224, 224))
     arr = np.array(resized_img, dtype=np.float32)
 
-    # १. प्रेडिक्शन्स काढणे
-    # बटाटा (0-255 scale)
+    # १. प्रेडिक्शन्स
     preds_p = potato_model(np.expand_dims(arr, axis=0), training=False).numpy()[0]
     if np.sum(preds_p) > 1.05 or np.sum(preds_p) < 0.95:
         preds_p = tf.nn.softmax(preds_p).numpy()
     idx_p = int(np.argmax(preds_p))
     conf_p = float(preds_p[idx_p])
 
-    # सोयाबीन (0-1 scale)
     preds_s = soybean_model(np.expand_dims(arr / 255.0, axis=0), training=False).numpy()[0]
     if np.sum(preds_s) > 1.05 or np.sum(preds_s) < 0.95:
         preds_s = tf.nn.softmax(preds_s).numpy()
     idx_s = int(np.argmax(preds_s))
     conf_s = float(preds_s[idx_s])
 
-    # कापूस (0-1 scale)
     preds_c = cotton_model(np.expand_dims(arr / 255.0, axis=0), training=False).numpy()[0]
     if np.sum(preds_c) > 1.05 or np.sum(preds_c) < 0.95:
         preds_c = tf.nn.softmax(preds_c).numpy()
     idx_c = int(np.argmax(preds_c))
     conf_c = float(preds_c[idx_c])
 
-    # २. पीक निवड निर्णय (Decision Logic)
+    # २. पीक निवड निर्णय
     if "बटाटा" in crop_mode:
         selected_crop = "potato"
     elif "सोयाबीन" in crop_mode:
@@ -288,7 +301,6 @@ if uploaded_file is not None and models_ready:
     elif "कापूस" in crop_mode:
         selected_crop = "cotton"
     else:
-        # ऑटो-डिटेक्ट: जर बटाट्याच्या पानावर करपा (Early/Late Blight) असेल तर बटाटाच निवडला जाईल
         is_potato_disease = (idx_p in [0, 1] and conf_p > 0.40)
         is_soybean_pest = (idx_s in [0, 1] and conf_s > 0.60)
         
@@ -398,10 +410,8 @@ if uploaded_file is not None and models_ready:
 </div>"""
         st.markdown(bio_html, unsafe_allow_html=True)
 
-    # ---------------- अहवाल डाउनलोड (Clean UTF-8 Marathi Support) ----------------
+    # स्वच्छ UTF-8 अहवाल डाउनलोड
     st.markdown("<br>", unsafe_allow_html=True)
-    
-    # \ufeff मुळे मोबाईल व्ह्यूअरला कळते की ही UTF-8 मराठी फाईल आहे
     report_text = f"""\ufeff========================================================
              कृषी-AI : पीक रोग निदान अहवाल
 ========================================================
@@ -430,7 +440,7 @@ if uploaded_file is not None and models_ready:
 
     st.download_button(
         label="📥 निदान अहवाल डाउनलोड करा (Download Report)",
-        data=report_text.encode('utf-8-sig'),  # UTF-8 with BOM ज्यामुळे मराठी फॉन्ट फुटणार नाही
+        data=report_text.encode('utf-8-sig'),
         file_name=f"krushi_ai_report_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
         mime="text/plain; charset=utf-8",
     )
