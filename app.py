@@ -3,7 +3,7 @@ import tensorflow as tf
 from PIL import Image
 import numpy as np
 
-# 1. Page Configuration
+# १. पेज सेटअप
 st.set_page_config(
     page_title="कृषी-AI : स्मार्ट पीक संरक्षण",
     page_icon="🌿",
@@ -11,11 +11,11 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. Modern Agri-Tech Styling
+# २. कॉम्पॅक्ट व आकर्षक ॲग्री डिझाइन CSS
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Mukta:wght@400;600;700;800&family=Poppins:wght@500;600;700&display=swap');
-    * { font-family: 'Mukta', 'Poppins', sans-serif; }
+    @import url('https://fonts.googleapis.com/css2?family=Mukta:wght@400;600;700;800&display=swap');
+    * { font-family: 'Mukta', sans-serif; }
     .stApp { background-color: #f4f8f4; }
 
     .hero-banner {
@@ -120,7 +120,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 3. Load Offline Models Safely
+# ३. मॉडेल्स लोड करणे
 @st.cache_resource
 def load_models():
     p_m = tf.keras.models.load_model('potato_disease_model (1).h5', compile=False)
@@ -134,9 +134,9 @@ try:
     models_loaded = True
 except Exception as e:
     models_loaded = False
-    st.error(f"मॉडेल लोड करताना त्रुटी: {e}")
+    st.error(f"मॉडेल लोड करताना त्रुटी आली: {e}")
 
-# 4. Agro Remedies Database
+# ४. डेटाबेस
 POTATO_CLASSES = ['Potato___Early_blight', 'Potato___Late_blight', 'Potato___healthy']
 POTATO_REMEDIES = {
     'Potato___Early_blight': {
@@ -209,7 +209,7 @@ SOYBEAN_REMEDIES = {
     }
 }
 
-# 5. Plant Part Detection (Leaf / Flower / Fruit / Boll)
+# ५. वनस्पती अवयव ओळखणे
 def identify_part(img_pil):
     resized = img_pil.resize((224, 224))
     x = tf.keras.applications.mobilenet_v2.preprocess_input(np.expand_dims(np.array(resized, dtype=np.float32), axis=0))
@@ -228,9 +228,9 @@ def identify_part(img_pil):
             
     return "🍃 पान (Leaf / Foliage)"
 
-# 6. Minimalist SVG Logo + Hero Banner
+# ६. हेडर
 logo_svg = """
-<svg width="46" height="46" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="44" height="44" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#34D399"/>
@@ -238,7 +238,7 @@ logo_svg = """
     </linearGradient>
   </defs>
   <path d="M50 12C28 26 18 50 28 74C37 92 63 92 72 74C82 50 72 26 50 12Z" fill="url(#leafGrad)"/>
-  <path d="M50 24V80" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+  <path d="M50 24V80" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round"/>
   <path d="M50 42L36 32M50 56L32 50M50 70L38 66" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
   <path d="M50 42L64 32M50 56L68 50M50 70L62 66" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round"/>
   <circle cx="36" cy="32" r="3.5" fill="#FFFFFF"/>
@@ -253,48 +253,41 @@ st.markdown(f"""
     <div>{logo_svg}</div>
     <h1>🌱 कृषी-AI : स्मार्ट पीक व रोग निदान प्रणाली</h1>
     <p>आविष्कार संशोधन प्रकल्प • ऑटो-डिटेक्ट व्हिजन प्रणाली</p>
-    <div class="badge-pill">⚡ 100% Offline Edge Model Active</div>
+    <div class="badge-pill">⚡ Multi-Crop AI Engine Active</div>
 </div>
 """, unsafe_allow_html=True)
 
-# 7. Image Input Form
+# ७. इनपुट कार्ड
 st.markdown('<div class="main-card">', unsafe_allow_html=True)
-st.markdown("##### 📷 पिकाचे पान, फूल किंवा फळाचा फोटो द्या:")
-source_option = st.radio("फोटो कसा निवडायचा?", ("गॅलरीतून निवडा (Upload)", "कॅमेरा वापरा (Camera)"), horizontal=True)
+col_mode, col_src = st.columns([1.2, 1])
+
+with col_mode:
+    mode_selection = st.radio(
+        "🌾 पीक निवड पद्धत:",
+        ("🤖 स्वयंचलित ओळख (Auto Detect)", "🥔 बटाटा (Potato)", "🌱 सोयाबीन (Soybean)", "☁️ कापूस (Cotton)"),
+        index=0
+    )
+
+with col_src:
+    source_option = st.radio("📷 फोटो स्रोत:", ("गॅलरीतून निवडा", "कॅमेरा वापरा"), horizontal=True)
 
 uploaded_file = None
-if source_option == "गॅलरीतून निवडा (Upload)":
+if source_option == "गॅलरीतून निवडा":
     uploaded_file = st.file_uploader("छायाचित्र निवडा (JPG / PNG)", type=["jpg", "jpeg", "png"])
 else:
-    uploaded_file = st.camera_input("कॅमेरा समोर धरून फोटो क्लिक करा")
+    uploaded_file = st.camera_input("कॅमेऱ्याने फोटो काढा")
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 8. Automated Multi-Model Prediction
+# ८. प्रेडिक्शन व अचूक राऊटिंग
 if uploaded_file is not None and models_loaded:
     image = Image.open(uploaded_file).convert('RGB')
     st.image(image, caption="विश्लेषणासाठी निवडलेले छायाचित्र", use_container_width=True)
 
-    with st.spinner("🤖 AI आपोआप पीक, अवयव व रोग शोधत आहे..."):
+    with st.spinner("🤖 AI विश्लेषण करत आहे..."):
         try:
             detected_part = identify_part(image)
 
-            # 1. Soybean
-            img_s = image.resize((224, 224))
-            arr_s = tf.convert_to_tensor(np.expand_dims(np.array(img_s, dtype=np.float32) / 255.0, axis=0))
-            raw_s = soybean_model(arr_s, training=False).numpy()[0]
-            prob_s = tf.nn.softmax(raw_s).numpy() if (np.sum(raw_s) > 1.05 or np.sum(raw_s) < 0.95) else raw_s
-            idx_s = int(np.argmax(prob_s))
-            conf_s = float(prob_s[idx_s])
-
-            # 2. Cotton
-            img_c = image.resize((224, 224))
-            arr_c = tf.convert_to_tensor(np.expand_dims(np.array(img_c, dtype=np.float32) / 255.0, axis=0))
-            raw_c = cotton_model(arr_c, training=False).numpy()[0]
-            prob_c = tf.nn.softmax(raw_c).numpy() if (np.sum(raw_c) > 1.05 or np.sum(raw_c) < 0.95) else raw_c
-            idx_c = int(np.argmax(prob_c))
-            conf_c = float(prob_c[idx_c])
-
-            # 3. Potato
+            # १. बटाटा
             img_p = image.resize((224, 224))
             arr_p = tf.convert_to_tensor(np.expand_dims(np.array(img_p, dtype=np.float32), axis=0))
             try:
@@ -305,31 +298,56 @@ if uploaded_file is not None and models_loaded:
             idx_p = int(np.argmax(prob_p))
             conf_p = float(prob_p[idx_p])
 
-            # Smart Routing: Rebalance weights so Soybean doesn't default to Potato
-            adj_p = conf_p * 0.70
-            adj_s = conf_s * 1.30
-            adj_c = conf_c * 1.15
+            # २. सोयाबीन
+            img_s = image.resize((224, 224))
+            arr_s = tf.convert_to_tensor(np.expand_dims(np.array(img_s, dtype=np.float32) / 255.0, axis=0))
+            raw_s = soybean_model(arr_s, training=False).numpy()[0]
+            prob_s = tf.nn.softmax(raw_s).numpy() if (np.sum(raw_s) > 1.05 or np.sum(raw_s) < 0.95) else raw_s
+            idx_s = int(np.argmax(prob_s))
+            conf_s = float(prob_s[idx_s])
 
-            if adj_s >= adj_c and adj_s >= adj_p:
-                chosen_crop = "soybean"
-                crop_title = "सोयाबीन (Soybean)"
-                label = SOYBEAN_CLASSES[idx_s]
-                info = SOYBEAN_REMEDIES[label]
-                conf = conf_s * 100
-            elif adj_c >= adj_s and adj_c >= adj_p:
-                chosen_crop = "cotton"
-                crop_title = "कापूस (Cotton)"
-                label = COTTON_CLASSES[idx_c]
-                info = COTTON_REMEDIES[label]
-                conf = conf_c * 100
-            else:
+            # ३. कापूस
+            img_c = image.resize((224, 224))
+            arr_c = tf.convert_to_tensor(np.expand_dims(np.array(img_c, dtype=np.float32) / 255.0, axis=0))
+            raw_c = cotton_model(arr_c, training=False).numpy()[0]
+            prob_c = tf.nn.softmax(raw_c).numpy() if (np.sum(raw_c) > 1.05 or np.sum(raw_c) < 0.95) else raw_c
+            idx_c = int(np.argmax(prob_c))
+            conf_c = float(prob_c[idx_c])
+
+            # निर्णय लॉजिक
+            if "बटाटा" in mode_selection:
                 chosen_crop = "potato"
+            elif "सोयाबीन" in mode_selection:
+                chosen_crop = "soybean"
+            elif "कापूस" in mode_selection:
+                chosen_crop = "cotton"
+            else:
+                # स्वयंचलित निर्णय: कोणतीही कृत्रिम पेनल्टी न लावता थेट नैसर्गिक कॉन्फिडन्स
+                if conf_p >= conf_s and conf_p >= conf_c:
+                    chosen_crop = "potato"
+                elif conf_s >= conf_p and conf_s >= conf_c:
+                    chosen_crop = "soybean"
+                else:
+                    chosen_crop = "cotton"
+
+            # रिझल्ट मॅपिंग
+            if chosen_crop == "potato":
                 crop_title = "बटाटा (Potato)"
                 label = POTATO_CLASSES[idx_p]
                 info = POTATO_REMEDIES[label]
                 conf = conf_p * 100
+            elif chosen_crop == "soybean":
+                crop_title = "सोयाबीन (Soybean)"
+                label = SOYBEAN_CLASSES[idx_s]
+                info = SOYBEAN_REMEDIES[label]
+                conf = conf_s * 100
+            else:
+                crop_title = "कापूस (Cotton)"
+                label = COTTON_CLASSES[idx_c]
+                info = COTTON_REMEDIES[label]
+                conf = conf_c * 100
 
-            # Output UI Display
+            # चिप्स
             st.markdown(f"""
             <div style="margin-top: 14px;">
                 <span class="detection-chip chip-crop">🌾 ओळखलेले पीक: <b>{crop_title}</b></span>
@@ -337,6 +355,7 @@ if uploaded_file is not None and models_loaded:
             </div>
             """, unsafe_allow_html=True)
 
+            # रिझल्ट कार्ड
             if info['type'] == 'निरोगी':
                 st.markdown(f"""
                 <div class="result-success">
@@ -352,6 +371,7 @@ if uploaded_file is not None and models_loaded:
                 </div>
                 """, unsafe_allow_html=True)
 
+            # उपाय
             st.markdown(f"""
             <div class="remedy-card">
                 <div class="remedy-title">💊 तात्काळ रासायनिक / जैविक उपाय:</div>
@@ -362,6 +382,11 @@ if uploaded_file is not None and models_loaded:
                 <p class="remedy-text">{info['prevention']}</p>
             </div>
             """, unsafe_allow_html=True)
+
+            with st.expander("📊 तिन्ही मॉडेलचे स्वतंत्र स्कोअर"):
+                st.write(f"• **बटाटा मॉडेल स्कोअर**: {conf_p*100:.2f}%")
+                st.write(f"• **सोयाबीन मॉडेल स्कोअर**: {conf_s*100:.2f}%")
+                st.write(f"• **कापूस मॉडेल स्कोअर**: {conf_c*100:.2f}%")
 
         except Exception as pred_err:
             st.error(f"विश्लेषण करताना अडचण आली: {pred_err}")
