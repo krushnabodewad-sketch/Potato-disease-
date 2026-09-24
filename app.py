@@ -158,4 +158,46 @@ if uploaded_file is not None:
 
         except Exception as e:
             st.error(f"विश्लेषण करताना तांत्रिक त्रुटी आली: {e}")
-            
+            if uploaded_file is not None:
+    image = Image.open(uploaded_file).convert('RGB')
+    st.image(image, caption="विश्लेषणासाठी निवडलेले छायाचित्र", use_container_width=True)
+
+    # १. जलद प्रक्रियेसाठी फोटो रिझाईझ करणे (फक्त काही KB मध्ये रूपांतर)
+    fast_image = image.copy()
+    fast_image.thumbnail((512, 512))
+
+    with st.spinner("⚡ AI सेकंदात विश्लेषण करत आहे..."):
+        try:
+            analysis_prompt = """
+            तुम्ही कृषी शास्त्रज्ञ आहात. या वनस्पती/पिकाच्या फोटोचे निरीक्षण करून खालील फॉरमॅटमध्ये थेट व संक्षिप्त मराठीत उत्तर द्या:
+
+            ### 🌾 १. पीक व अवयव:
+            * **ओळखलेले पीक:** [सोयाबीन / कापूस / बटाटा किंवा इतर]
+            * **ओळखलेला अवयव:** [पान / फूल / फळ / बोंड]
+            * **अचूकता (Confidence):** [उदा. ९५%]
+
+            ### 🔍 २. रोग निदान:
+            * **स्थिती व रोग:** [निरोगी किंवा रोगाचे नाव]
+            * **लक्षणे:** [१ ओळीत]
+
+            ### 💊 ३. तात्काळ उपाय:
+            * **औषध व प्रमाण:** [नेमके नाव व लिटर पाण्याचे प्रमाण]
+
+            ### 🛡️ ४. शेतकरी सल्ला:
+            * [१-२ ओळीत खबरदारी]
+            """
+
+            # २. जलद निकालासाठी Streaming वापरणे (१-२ सेकंदात रिस्पॉन्स सुरू होतो)
+            response = gemini_model.generate_content([analysis_prompt, fast_image], stream=True)
+
+            st.markdown('<div class="result-card">', unsafe_allow_html=True)
+            output_container = st.empty()
+            full_text = ""
+            for chunk in response:
+                full_text += chunk.text
+                output_container.markdown(full_text)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        except Exception as e:
+            st.error(f"विश्लेषण करताना त्रुटी आली: {e}")
+
