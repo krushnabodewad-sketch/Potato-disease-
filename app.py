@@ -240,7 +240,7 @@ with st.container():
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================================
-# INFERENCE & RESULTS
+# SMART INFERENCE & CALIBRATION LOGIC
 # ============================================================
 if uploaded_file is not None and models_ready:
     img = Image.open(uploaded_file).convert('RGB')
@@ -252,46 +252,53 @@ if uploaded_file is not None and models_ready:
     resized_img = img.resize((224, 224))
     arr = np.array(resized_img, dtype=np.float32)
 
+    # १. बटाटा मॉडेल (0-255 range)
     preds_p = potato_model(np.expand_dims(arr, axis=0), training=False).numpy()[0]
     if np.sum(preds_p) > 1.05 or np.sum(preds_p) < 0.95:
         preds_p = tf.nn.softmax(preds_p).numpy()
     idx_p = int(np.argmax(preds_p))
     conf_p = float(preds_p[idx_p])
 
+    # २. सोयाबीन मॉडेल (0-1 normalisation)
     preds_s = soybean_model(np.expand_dims(arr / 255.0, axis=0), training=False).numpy()[0]
     if np.sum(preds_s) > 1.05 or np.sum(preds_s) < 0.95:
         preds_s = tf.nn.softmax(preds_s).numpy()
     idx_s = int(np.argmax(preds_s))
     conf_s = float(preds_s[idx_s])
 
+    # ३. कापूस मॉडेल (0-1 normalisation)
     preds_c = cotton_model(np.expand_dims(arr / 255.0, axis=0), training=False).numpy()[0]
     if np.sum(preds_c) > 1.05 or np.sum(preds_c) < 0.95:
         preds_c = tf.nn.softmax(preds_c).numpy()
     idx_c = int(np.argmax(preds_c))
     conf_c = float(preds_c[idx_c])
 
-    score_potato = conf_p * 1.35
-    score_soybean = conf_s * 1.30
-    score_cotton = conf_c * 0.70
+    # --- स्मार्ट कॅलिब्रेशन (बटाट्याचा फॉल्स पॉझिटिव्ह रोखणे) ---
+    # बटाटा मॉडेल कोणत्याही हिरव्या पानाला 'Healthy' म्हणून हाय स्कोअर देते, म्हणून त्याला पेनल्टी
+    potato_multiplier = 0.55 if idx_p == 2 else 1.0  # idx_p == 2 म्हणजे 'Potato Healthy Leaf'
+    score_p = conf_p * potato_multiplier
+    score_s = conf_s * 1.25  # सोयाबीनला योग्य वजन
+    score_c = conf_c * 1.35  # कापूस मॉडेलला जास्त प्राधान्य, जेणेकरून कापसाचे पान नक्की ओळखले जाईल
 
-    if score_soybean >= score_potato and score_soybean >= score_cotton:
+    # निर्णय घेणे (Crop Decision)
+    if score_s >= score_p and score_s >= score_c:
         crop_name = "🌱 सोयाबीन (Soybean Leaf)"
         diagnosed_label = SOYBEAN_CLASSES[idx_s]
         final_conf = conf_s * 100
         current_classes = SOYBEAN_CLASSES
         current_preds = preds_s
-    elif score_potato >= score_soybean and score_potato >= score_cotton:
-        crop_name = "🥔 बटाटा (Potato Leaf)"
-        diagnosed_label = POTATO_CLASSES[idx_p]
-        final_conf = conf_p * 100
-        current_classes = POTATO_CLASSES
-        current_preds = preds_p
-    else:
+    elif score_c >= score_p and score_c >= score_s:
         crop_name = "☁️ कापूस (Cotton Leaf)"
         diagnosed_label = COTTON_CLASSES[idx_c]
         final_conf = conf_c * 100
         current_classes = COTTON_CLASSES
         current_preds = preds_c
+    else:
+        crop_name = "🥔 बटाटा (Potato Leaf)"
+        diagnosed_label = POTATO_CLASSES[idx_p]
+        final_conf = conf_p * 100
+        current_classes = POTATO_CLASSES
+        current_preds = preds_p
 
     info = TREATMENTS[diagnosed_label]
     sev_text = info['severity']
@@ -318,7 +325,7 @@ if uploaded_file is not None and models_ready:
   </div>
   <div style="flex:1;">
     <div class="kai-prob-track" style="height:14px;">
-      <div class="kai-prob-fill" style="width:{final_conf:.1f}%;"></div>
+      <div class="kai-prob-fill" style="width:{min(final_conf, 100.0):.1f}%;"></div>
     </div>
   </div>
 </div>
@@ -339,7 +346,7 @@ if uploaded_file is not None and models_ready:
   <span class="kai-prob-pct">{pct:.1f}%</span>
 </div>
 <div class="kai-prob-track">
-  <div class="kai-prob-fill" style="width:{pct:.1f}%;"></div>
+  <div class="kai-prob-fill" style="width:{min(pct, 100.0):.1f}%;"></div>
 </div>
 </div>"""
         st.markdown(row_html, unsafe_allow_html=True)
@@ -391,4 +398,4 @@ Avishkar Research Convention 2026 | कृषी-AI Smart Agro Diagnostics
         file_name=f"krushi_ai_report_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
         mime="text/plain",
     )
-
+    
