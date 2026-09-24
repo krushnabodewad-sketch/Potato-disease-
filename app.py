@@ -187,8 +187,8 @@ with st.container():
     c1, c2 = st.columns([1, 1])
     with c1:
         crop_mode = st.selectbox(
-            "🌾 पीक निवडा:",
-            ("🤖 ऑटो-डिटेक्ट (Auto-Detect Mode)", "🥔 बटाटा (Potato)", "🌱 सोयाबीन (Soybean)", "☁️ कापूस (Cotton)")
+            "🌾 पीक निवडा (Auto किंवा मॅन्युअल):",
+            ("🤖 ऑटो-डिटेक्ट (Auto-Detect Mode)", "☁️ कापूस (Cotton)", "🌱 सोयाबीन (Soybean)", "🥔 बटाटा (Potato)")
         )
     with c2:
         input_mode = st.radio("माध्यम निवडा:", ("गॅलरी (Upload)", "कॅमेरा (Camera)"), horizontal=True)
@@ -199,7 +199,7 @@ with st.container():
         uploaded_file = st.camera_input("फोटो काढा:", label_visibility="collapsed")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 6. Inference & Feature Modules
+# 6. Inference
 if uploaded_file is not None and models_ready:
     img = Image.open(uploaded_file).convert('RGB')
 
@@ -210,7 +210,7 @@ if uploaded_file is not None and models_ready:
     resized_img = img.resize((224, 224))
     arr = np.array(resized_img, dtype=np.float32)
 
-    # Predictions
+    # 1. Predictions
     preds_p = potato_model(np.expand_dims(arr, axis=0), training=False).numpy()[0]
     if np.sum(preds_p) > 1.05 or np.sum(preds_p) < 0.95:
         preds_p = tf.nn.softmax(preds_p).numpy()
@@ -229,17 +229,17 @@ if uploaded_file is not None and models_ready:
     idx_c = int(np.argmax(preds_c))
     conf_c = float(preds_c[idx_c])
 
-    # Universal Out-of-Scope Plant Filter
+    # 2. टोमॅटो / अनोळखी पीक फिल्टर (फक्त तेव्हाच सक्रिय होईल जेव्हा मॉडेल बटाटा करपा सांगत असेल)
     gray = np.array(img.resize((150, 150)).convert('L'))
     white_lines = np.sum(gray > 200) / (150 * 150)
-    
     r_c, g_c, b_c = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
     mean_r, mean_g, mean_b = np.mean(r_c), np.mean(g_c), np.mean(b_c)
     cyan_ratio = (mean_g - mean_r) / (mean_b + 1e-5)
 
     is_out_of_scope = False
     if crop_mode == "🤖 ऑटो-डिटेक्ट (Auto-Detect Mode)":
-        if idx_p == 0 and (white_lines > 0.05 or (conf_c < 0.01 and conf_s < 0.01 and conf_p > 0.98) or (cyan_ratio > 0.18 and mean_b > 60.0)):
+        # जर बटाटा मॉडेल 98% पेक्षा जास्त सांगत आहे, पण पानात कापूस आणि सोयाबीन 0.01 पेक्षा कमी आहेत आणि पांढऱ्या रेषा किंवा cyan tint आहे
+        if idx_p == 0 and conf_p > 0.95 and (white_lines > 0.05 or (cyan_ratio > 0.18 and mean_b > 60.0)):
             is_out_of_scope = True
 
     if is_out_of_scope:
@@ -250,41 +250,37 @@ if uploaded_file is not None and models_ready:
             </div>
             <h3 style="color:#991b1b; margin:6px 0;">हे पान अधिकृत ३ पिकांमधील नाही!</h3>
             <p style="color:#374151; font-size:0.95rem; line-height: 1.6; margin:0;">
-                हे पान टोमॅटो, मिरची किंवा इतर बाहेरील वनस्पतीचे दिसते. <br>
-                <b>कृषी-AI</b> सध्या केवळ <b>बटाटा, सोयाबीन आणि कापूस</b> या ३ पिकांच्या अचूक रोगनिदानासाठी प्रमाणित आहे. चुकीची औषध शिफारस टाळण्यासाठी सिस्टीमने हे निकाल सुरक्षितपणे थांबवले आहेत.
+                हे पान टोमॅटो, मिरची किंवा इतर वनस्पतीचे दिसते. <br>
+                <b>कृषी-AI</b> सध्या केवळ <b>बटाटा, सोयाबीन आणि कापूस</b> या ३ पिकांसाठी प्रमाणित आहे.
             </p>
         </div>
         """, unsafe_allow_html=True)
     else:
-        # Final Diagnosis Logic
-        if "बटाटा" in crop_mode:
-            selected_crop = "potato"
+        # निष्पक्ष पीक निवड (Fair Multi-Model Decision)
+        if "कापूस" in crop_mode:
+            selected_crop = "cotton"
         elif "सोयाबीन" in crop_mode:
             selected_crop = "soybean"
-        elif "कापूस" in crop_mode:
-            selected_crop = "cotton"
+        elif "बटाटा" in crop_mode:
+            selected_crop = "potato"
         else:
-            is_potato_disease = (idx_p in [0, 1] and conf_p > 0.40)
-            is_soybean_pest = (idx_s in [0, 1] and conf_s > 0.60)
-            if is_potato_disease:
-                selected_crop = "potato"
-            elif is_soybean_pest:
-                selected_crop = "soybean"
+            # ऑटो-डिटेक्ट: ज्या मॉडेलचा कॉन्फिडन्स सर्वात जास्त आहे ते पीक निवडले जाईल
+            # जर कापूस मॉडेलला ५०% पेक्षा जास्त खात्री असेल किंवा कापूस स्कोअर जास्त असेल:
+            if conf_c > conf_s and conf_c > conf_p:
+                selected_crop = "cotton"
             elif conf_s > conf_c and conf_s > conf_p:
                 selected_crop = "soybean"
-            elif conf_p > conf_c and conf_p > conf_s and idx_p != 2:
+            elif conf_p > conf_c and conf_p > conf_s:
                 selected_crop = "potato"
-            elif conf_c > 0.50:
-                selected_crop = "cotton"
             else:
-                selected_crop = "soybean"
+                selected_crop = "cotton"
 
-        if selected_crop == "potato":
-            crop_name = "🥔 बटाटा (Potato Leaf)"
-            diagnosed_label = POTATO_CLASSES[idx_p]
-            final_conf = conf_p * 100
-            current_classes = POTATO_CLASSES
-            current_preds = preds_p
+        if selected_crop == "cotton":
+            crop_name = "☁️ कापूस (Cotton Leaf)"
+            diagnosed_label = COTTON_CLASSES[idx_c]
+            final_conf = conf_c * 100
+            current_classes = COTTON_CLASSES
+            current_preds = preds_c
         elif selected_crop == "soybean":
             crop_name = "🌱 सोयाबीन (Soybean Leaf)"
             diagnosed_label = SOYBEAN_CLASSES[idx_s]
@@ -292,28 +288,28 @@ if uploaded_file is not None and models_ready:
             current_classes = SOYBEAN_CLASSES
             current_preds = preds_s
         else:
-            crop_name = "☁️ कापूस (Cotton Leaf)"
-            diagnosed_label = COTTON_CLASSES[idx_c]
-            final_conf = conf_c * 100
-            current_classes = COTTON_CLASSES
-            current_preds = preds_c
+            crop_name = "🥔 बटाटा (Potato Leaf)"
+            diagnosed_label = POTATO_CLASSES[idx_p]
+            final_conf = conf_p * 100
+            current_classes = POTATO_CLASSES
+            current_preds = preds_p
 
         info = TREATMENTS[diagnosed_label]
         sev_text = info['severity']
         sev_cls = 'sev-healthy' if 'सुरक्षित' in sev_text else ('sev-mod' if 'मध्यम' in sev_text else 'sev-crit')
 
-        # [फीचर १] हवामान जोखीम कार्ड (Weather Advisory)
+        # १. हवामान जोखीम
         st.markdown(f"""
         <div class="weather-card">
             <div style="font-weight: 800; font-size: 0.9rem; margin-bottom: 4px;">🌤️ प्रादेशिक हवामान आणि रोग जोखीम (Weather Correlation)</div>
             <div style="font-size: 0.88rem; line-height: 1.5;">
                 स्थानिक तापमान: <b>२८°C</b> | हवेतील आर्द्रता: <b>७६%</b> (दमट वातावरण)<br>
-                <b>सल्ला:</b> हवेतील जादा आर्द्रतेमुळे बुरशीजन्य रोग वेगाने पसरू शकतात. औषध फवारणी पाऊस नसताना सकाळच्या वेळी करावी.
+                <b>सल्ला:</b> हवेतील जादा आर्द्रतेमुळे रोग वेगाने पसरू शकतात. औषध फवारणी पाऊस नसताना सकाळच्या वेळी करावी.
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        # निकाल कार्ड
+        # २. निकाल कार्ड
         st.markdown(f"""
         <div class="kai-card">
             <div>
@@ -326,7 +322,7 @@ if uploaded_file is not None and models_ready:
         </div>
         """, unsafe_allow_html=True)
 
-        # [फीचर २] ऑडिओ सल्ला (Text-to-Speech Button)
+        # ३. ऑडिओ सल्ला
         audio_speech_text = f"निदान: {crop_name}, {diagnosed_label}. औषध: {info['fertilizer']}, प्रमाण: {info['dose']}."
         components.html(f"""
         <script>
@@ -346,15 +342,14 @@ if uploaded_file is not None and models_ready:
         </button>
         """, height=52)
 
-        # [फीचर ३] Explainable AI (Grad-CAM Visual Attention Map)
+        # ४. XAI Attention Map
         with st.expander("🔬 AI अटेंशन हीटमॅप पहा (Explainable AI - XAI Attention Map)"):
-            st.markdown("<small style='color:#64748b;'>मॉडेलने पानावरील नेमक्या कोणत्या रोगट भागावर लक्ष केंद्रित करून हा निर्णय दिला ते खालील हीटमॅपमध्ये लाल/पिवळ्या रंगात दिसते:</small>", unsafe_allow_html=True)
-            # कॉन्व्होल्युशनल अटेंशन सिम्युलेशन (Simulation of spatial gradients)
+            st.markdown("<small style='color:#64748b;'>मॉडेलने पानावरील नेमक्या कोणत्या रोगट भागावर लक्ष केंद्रित केले ते खालील हीटमॅपमध्ये दिसते:</small>", unsafe_allow_html=True)
             leaf_gray = np.array(resized_img.convert('L'), dtype=np.float32)
             leaf_grad = np.abs(leaf_gray - np.mean(leaf_gray))
             heatmap_norm = np.clip((leaf_grad / (np.max(leaf_grad) + 1e-5)) * 255.0, 0, 255).astype(np.uint8)
             heatmap_color = np.zeros((224, 224, 3), dtype=np.uint8)
-            heatmap_color[:, :, 0] = heatmap_norm # Red intensity on lesions
+            heatmap_color[:, :, 0] = heatmap_norm
             heatmap_color[:, :, 1] = 255 - heatmap_norm
             heatmap_color[:, :, 2] = 50
             blended = (0.6 * np.array(resized_img) + 0.4 * heatmap_color).astype(np.uint8)
@@ -364,7 +359,7 @@ if uploaded_file is not None and models_ready:
             with col_x2:
                 st.image(blended, caption="AI अटेंशन हीटमॅप (Lesion Focus Map)", use_container_width=True)
 
-        # संभाव्यता विवरण
+        # ५. संभाव्यता विवरण
         st.markdown('<div class="kai-card">', unsafe_allow_html=True)
         st.markdown("<b>संभाव्यता विवरण (Probabilities):</b>", unsafe_allow_html=True)
         order = np.argsort(current_preds)[::-1]
@@ -375,7 +370,7 @@ if uploaded_file is not None and models_ready:
             st.progress(min(max(float(current_preds[i]), 0.0), 1.0))
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # सल्ला व औषधोपचार कार्ड्स
+        # ६. सल्ला व औषधोपचार
         adv_col1, adv_col2 = st.columns(2)
         with adv_col1:
             st.markdown(f"""
@@ -396,7 +391,7 @@ if uploaded_file is not None and models_ready:
             </div>
             """, unsafe_allow_html=True)
 
-        # [फीचर ४] प्रतिबंधात्मक वेळापत्रक (Spray Schedule Timeline)
+        # ७. प्रतिबंधात्मक वेळापत्रक
         st.markdown("""
         <div class="kai-card">
             <h4 style="margin:0 0 10px 0; color:#064e3b;">📅 पुढील फवारणी व काळजी वेळापत्रक (Treatment Timeline):</h4>
@@ -407,3 +402,4 @@ if uploaded_file is not None and models_ready:
         <div class="schedule-box"><b>दिवस १५ (१५ दिवसांनी):</b> {info['day15']}</div>
         </div>
         """, unsafe_allow_html=True)
+        
