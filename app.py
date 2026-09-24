@@ -408,7 +408,12 @@ if uploaded_file is not None:
         current_preds = preds_c
 
     info = TREATMENTS[diagnosed_label]
-    sev_class = severity_class(info['severity'])
+    sev_text = info['severity']
+    fertilizer_text = info['fertilizer']
+    dose_text = info['dose']
+    bio_text = info['bio']
+    tips_text = info['tips']
+    sev_class = severity_class(sev_text)
 
     # ---------------- RESULTS HEADER ----------------
     st.markdown('<p class="kai-section-label">निदान परिणाम · Diagnosis Result</p>', unsafe_allow_html=True)
@@ -420,7 +425,7 @@ if uploaded_file is not None:
           <span class="kai-pill kai-pill-dark">{crop_name}</span>
           <span class="kai-pill">{diagnosed_label}</span>
         </div>
-        <div class="kai-severity {sev_class}">● {info['severity']}</div>
+        <div class="kai-severity {sev_class}">● {sev_text}</div>
         """,
         unsafe_allow_html=True,
     )
@@ -478,9 +483,9 @@ if uploaded_file is not None:
             f"""
             <div class="kai-adv-card kai-adv-chem">
               <div class="kai-adv-title">🧪 रासायनिक उपचार (Chemical Treatment)</div>
-              <div class="kai-adv-row"><b>औषध:</b> {info['fertilizer']}</div>
-              <div class="kai-adv-row"><b>प्रमाण/डोस:</b> {info['dose']}</div>
-              <div class="kai-adv-tip">{info['tips']}</div>
+              <div class="kai-adv-row"><b>औषध:</b> {fertilizer_text}</div>
+              <div class="kai-adv-row"><b>प्रमाण/डोस:</b> {dose_text}</div>
+              <div class="kai-adv-tip">{tips_text}</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -489,4 +494,37 @@ if uploaded_file is not None:
     with adv_col2:
         st.markdown(
             f"""
-            <div class="kai-adv-card kai-
+            <div class="kai-adv-card kai-adv-bio">
+              <div class="kai-adv-title">🌿 सेंद्रिय उपाय (Organic / Bio Alternative)</div>
+              <div class="kai-adv-row"><b>सेंद्रिय उपाय:</b> {bio_text}</div>
+              <div class="kai-adv-row"><b>व्यवस्थापन सल्ला:</b> {tips_text}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    # ---------------- EXPORT REPORT ----------------
+    st.markdown("<br>", unsafe_allow_html=True)
+    report_text = f"""कृषी-AI (Krushi-AI) — निदान अहवाल / Diagnostic Report
+Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}
+
+Crop: {crop_name}
+Diagnosis: {diagnosed_label}
+Confidence: {final_conf:.2f}%
+Severity: {sev_text}
+
+Chemical Treatment (औषध): {fertilizer_text}
+Dose (प्रमाण/डोस): {dose_text}
+
+Organic Alternative (सेंद्रिय उपाय): {bio_text}
+Management Tip (व्यवस्थापन सल्ला): {tips_text}
+
+--
+Avishkar Research Convention 2026 | कृषी-AI Smart Agro Diagnostics
+"""
+    st.download_button(
+        label="📥 निदान अहवाल डाउनलोड करा (Download Report)",
+        data=report_text,
+        file_name=f"krushi_ai_report_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+        mime="text/plain",
+    )
