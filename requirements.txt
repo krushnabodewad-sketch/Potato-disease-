@@ -2,3 +2,6 @@ streamlit
 tensorflow
 pillow
 numpy
+streamlit
+google-generativeai
+Pillow
