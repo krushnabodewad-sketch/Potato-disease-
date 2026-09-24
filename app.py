@@ -5,12 +5,12 @@ import numpy as np
 
 st.set_page_config(page_title="कृषी-AI: बहुविध पीक रोग निदान", page_icon="🌿", layout="centered")
 
-# तिन्ही मॉडेल्स लोड करणे
+# तिन्ही मॉडेल्स सुरक्षितपणे लोड करणे
 @st.cache_resource
 def load_models():
-    potato_m = tf.keras.models.load_model('potato_disease_model (1).h5')
-    cotton_m = tf.keras.models.load_model('cotton_model.h5')
-    soybean_m = tf.keras.models.load_model('soybean_model.h5')
+    potato_m = tf.keras.models.load_model('potato_disease_model (1).h5', compile=False)
+    cotton_m = tf.keras.models.load_model('cotton_model.h5', compile=False)
+    soybean_m = tf.keras.models.load_model('soybean_model.h5', compile=False)
     return potato_m, cotton_m, soybean_m
 
 try:
@@ -18,7 +18,7 @@ try:
     models_ready = True
 except Exception as e:
     models_ready = False
-    st.error("मॉडेल लोड करताना समस्या आली. सर्व मॉडेल फाईल्स रिपॉझिटरीमध्ये असल्याची खात्री करा.")
+    st.error("मॉडेल फाईल्स लोड करताना अडचण आली. कृपया तिन्ही .h5 फाईल्स रिपॉझिटरीमध्ये असल्याची खात्री करा.")
 
 # १. बटाटा रोग वर्ग व उपाय
 POTATO_CLASSES = ['Potato___Early_blight', 'Potato___Late_blight', 'Potato___healthy']
@@ -71,12 +71,12 @@ SOYBEAN_REMEDIES = {
     'Caterpillar': {
         'title': 'सोयाबीन - लष्करी अळी / पाने खाणारी अळी (Caterpillar)',
         'type': 'कीड/रोगग्रस्त',
-        'cure': 'इमामेक्टिन बेन्झोएट ५% एस.जी. ४ ग्रॅम किंवा क्लोरँट्रानिलीप्रोल (कोराजन) ३ मिली प्रति १० लिटर पाण्यात मिसळून फवारणी करावी.'
+        'cure': 'इमामेक्टिन बेन्झोएट ५% एस.जी. ४ ग्रॅम किंवा कोराजन ३ मिली प्रति १० लिटर पाण्यात फवारावे.'
     },
     'Diabrotica speciosa': {
-        'title': 'सोयाबीन - पानांवरील किडे/भुंगा (Leaf Beetle / Diabrotica)',
+        'title': 'सोयाबीन - पानांवरील किडे/भुंगा (Leaf Beetle)',
         'type': 'कीड/रोगग्रस्त',
-        'cure': 'थायमेथॉक्सम १२.६% + लॅम्बडा सायहॅलोथ्रीन ९.५% झेड.सी. (अलिका) ३ ते ४ मिली प्रति १० लिटर पाण्यात फवारावे.'
+        'cure': 'अलिका (थायमेथॉक्सम + लॅम्बडा सायहॅलोथ्रीन) ३ ते ४ मिली प्रति १० लिटर पाण्यात फवारावे.'
     },
     'Healthy': {
         'title': 'निरोगी सोयाबीन पान (Healthy Leaf)',
@@ -105,15 +105,21 @@ if uploaded_file is not None and models_ready:
     
     with st.spinner("AI मॉडेल विश्लेषण करत आहे..."):
         if crop_choice == "बटाटा (Potato)":
-            img_resized = image.resize((256, 256))
-            img_arr = np.array(img_resized, dtype=np.float32) / 255.0
-            predictions = potato_model.predict(np.expand_dims(img_arr, axis=0))[0]
+            img = image.resize((256, 256))
+            img_arr = np.array(img, dtype=np.float32)
+            img_batch = np.expand_dims(img_arr, axis=0)
             
-            if np.sum(predictions) > 1.05 or np.sum(predictions) < 0.95:
-                predictions = tf.nn.softmax(predictions).numpy()
+            raw_pred = potato_model.predict(img_batch)[0]
+            
+            # सॉफ्टमॅक्स व नॉर्मलायझेशन हँडलिंग
+            if np.sum(raw_pred) > 1.05 or np.sum(raw_pred) < 0.95:
+                predictions = tf.nn.softmax(raw_pred).numpy()
+            else:
+                predictions = raw_pred
                 
             pred_idx = int(np.argmax(predictions))
             conf = float(predictions[pred_idx]) * 100
+            
             if pred_idx != 2 and (conf < 50.0 or abs(predictions[pred_idx] - predictions[2]) < 0.08):
                 pred_idx = 2
                 conf = float(predictions[2]) * 100
@@ -123,12 +129,15 @@ if uploaded_file is not None and models_ready:
             classes_list = POTATO_CLASSES
 
         elif crop_choice == "कापूस (Cotton)":
-            img_resized = image.resize((224, 224))
-            img_arr = np.array(img_resized, dtype=np.float32) / 255.0
-            predictions = cotton_model.predict(np.expand_dims(img_arr, axis=0))[0]
+            img = image.resize((224, 224))
+            img_arr = np.array(img, dtype=np.float32) / 255.0
+            img_batch = np.expand_dims(img_arr, axis=0)
             
-            if np.sum(predictions) > 1.05 or np.sum(predictions) < 0.95:
-                predictions = tf.nn.softmax(predictions).numpy()
+            raw_pred = cotton_model.predict(img_batch)[0]
+            if np.sum(raw_pred) > 1.05 or np.sum(raw_pred) < 0.95:
+                predictions = tf.nn.softmax(raw_pred).numpy()
+            else:
+                predictions = raw_pred
                 
             pred_idx = int(np.argmax(predictions))
             conf = float(predictions[pred_idx]) * 100
@@ -137,12 +146,15 @@ if uploaded_file is not None and models_ready:
             classes_list = COTTON_CLASSES
 
         else:  # सोयाबीन (Soybean)
-            img_resized = image.resize((224, 224))
-            img_arr = np.array(img_resized, dtype=np.float32) / 255.0
-            predictions = soybean_model.predict(np.expand_dims(img_arr, axis=0))[0]
+            img = image.resize((224, 224))
+            img_arr = np.array(img, dtype=np.float32) / 255.0
+            img_batch = np.expand_dims(img_arr, axis=0)
             
-            if np.sum(predictions) > 1.05 or np.sum(predictions) < 0.95:
-                predictions = tf.nn.softmax(predictions).numpy()
+            raw_pred = soybean_model.predict(img_batch)[0]
+            if np.sum(raw_pred) > 1.05 or np.sum(raw_pred) < 0.95:
+                predictions = tf.nn.softmax(raw_pred).numpy()
+            else:
+                predictions = raw_pred
                 
             pred_idx = int(np.argmax(predictions))
             conf = float(predictions[pred_idx]) * 100
