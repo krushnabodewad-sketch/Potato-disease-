@@ -1,373 +1,405 @@
-"""
-कृषी-AI : स्मार्ट पीक व रोग निदान प्रणाली
-Gemini Vision powered crop / plant-part / disease detection with Marathi advisory.
-
-Run:      streamlit run app_gemini.py
-Install:  pip install streamlit google-generativeai Pillow
-
-API KEY (choose one):
-  1) Paste it into API_KEY below (quick local testing only), or
-  2) Streamlit secrets (recommended). Create .streamlit/secrets.toml:
-         GEMINI_API_KEY = "your-key-here"
-     On Streamlit Cloud: App -> Settings -> Secrets -> paste the same line.
-  3) Environment variable GEMINI_API_KEY.
-"""
-
-import os
-import re
-import hashlib
-from io import BytesIO
-from html import escape
-
 import streamlit as st
-from PIL import Image, ImageOps
-
-try:
-    import google.generativeai as genai
-    GENAI_OK = True
-    GENAI_IMPORT_ERROR = ""
-except Exception as _e:  # library missing / broken
-    genai = None
-    GENAI_OK = False
-    GENAI_IMPORT_ERROR = str(_e)
+import tensorflow as tf
+from PIL import Image
+import numpy as np
 
 # =====================================================================
-# 1. CONFIG
+# 1. PAGE CONFIG
 # =====================================================================
-API_KEY = "PASTE_YOUR_GEMINI_API_KEY_HERE"
-
-# Tried in this order. "gemini-1.5-flash" has been retired by Google, so newer
-# Flash models are tried first and it is kept only as the last fallback.
-MODEL_CANDIDATES = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
-
-MAX_IMAGE_SIDE = 1280
-
 st.set_page_config(
-    page_title="कृषी-AI: स्मार्ट पीक व रोग निदान प्रणाली",
+    page_title="कृषी-AI: स्वयंचलित पीक व रोग निदान",
     page_icon="🌿",
     layout="centered",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="collapsed"
 )
 
-
-def get_api_key():
-    try:
-        v = st.secrets.get("GEMINI_API_KEY", "")
-        if v:
-            return str(v).strip()
-    except Exception:
-        pass
-    v = os.environ.get("GEMINI_API_KEY", "").strip()
-    if v:
-        return v
-    if API_KEY and not API_KEY.startswith("PASTE_YOUR"):
-        return API_KEY.strip()
-    return ""
-
+# =====================================================================
+# 2. MODELS LOADING  (unchanged)
+# =====================================================================
+@st.cache_resource
+def load_all_models():
+    p_m = tf.keras.models.load_model('potato_disease_model (1).h5', compile=False)
+    c_m = tf.keras.models.load_model('cotton_model.h5', compile=False)
+    s_m = tf.keras.models.load_model('soybean_model.h5', compile=False)
+    feat_m = tf.keras.applications.MobileNetV2(weights='imagenet', include_top=True)
+    return p_m, c_m, s_m, feat_m
 
 # =====================================================================
-# 2. GEMINI PROMPT (forces a strict, parseable Markdown template)
+# 3. REMEDIES DATABASE  (unchanged)
 # =====================================================================
-PROMPT = """
-You are a senior Indian agronomist and plant pathologist. Analyse the attached photo
-for a farmer in Maharashtra, India. Detect the crop (Cotton, Soybean, Potato or any other crop),
-the plant part, the health status, and any disease / pest / nutrient problem.
-
-RULES
-- If the photo does not clearly show a plant or crop, set IS_PLANT: NO.
-- If the photo is blurry or you are unsure, use STATUS: UNCERTAIN, give a low CONFIDENCE and say so. Never guess.
-- Write every *_MR field and every bullet in simple, farmer-friendly MARATHI (Devanagari). Product names and units may stay in English.
-- CURE section: 3 to 5 bullets. Give products/active ingredients commonly registered in India with EXACT dosages
-  "per litre of water" AND "per 15-litre pump". Include at least one biological / organic option
-  (e.g. Trichoderma, Neem seed kernel extract 5%, Beauveria, Pseudomonas). If the crop is healthy, say no spraying is needed
-  and give 1 to 2 optional routine tips.
-- PREVENTION section: 4 to 6 bullets on cultural practices, field hygiene, irrigation, crop rotation and monitoring.
-- Do not invent product names or dosages. End the CURE section with one bullet telling the farmer to read the label
-  and confirm with the local Krishi Vigyan Kendra / agriculture officer.
-- Reply with ONLY the template below. No introduction, no code fences, no extra text.
-
-TEMPLATE
-IS_PLANT: YES or NO
-CROP_MR: crop name in Marathi
-CROP_EN: crop name in English
-PART: one of LEAF | FLOWER | FRUIT | STEM | WHOLE_PLANT | OTHER
-STATUS: one of HEALTHY | DISEASED | PEST | NUTRIENT | UNCERTAIN
-DIAGNOSIS_MR: disease / pest / condition name in Marathi (add the English name in brackets)
-DIAGNOSIS_EN: disease / pest / condition name in English
-CONFIDENCE: integer from 0 to 100
-SEVERITY: one of NONE | LOW | MEDIUM | HIGH
-SYMPTOMS_MR: one or two Marathi sentences describing what is visible in the photo
-NOT_PLANT_MESSAGE: Marathi message (fill only when IS_PLANT is NO, otherwise write -)
-
-## CURE
-- bullet
-## PREVENTION
-- bullet
-""".strip()
-
-FIELDS = ["IS_PLANT", "CROP_MR", "CROP_EN", "PART", "STATUS", "DIAGNOSIS_MR",
-          "DIAGNOSIS_EN", "CONFIDENCE", "SEVERITY", "SYMPTOMS_MR", "NOT_PLANT_MESSAGE"]
-
-
-# =====================================================================
-# 3. IMAGE PREP + GEMINI CALL + PARSING
-# =====================================================================
-def prepare_image(raw_bytes):
-    img = Image.open(BytesIO(raw_bytes))
-    img = ImageOps.exif_transpose(img).convert("RGB")
-    img.thumbnail((MAX_IMAGE_SIDE, MAX_IMAGE_SIDE))
-    buf = BytesIO()
-    img.save(buf, format="JPEG", quality=90)
-    return img, buf.getvalue()
-
-
-@st.cache_data(show_spinner=False, ttl=3600)
-def analyze_image(img_bytes, api_key):
-    """Returns (markdown_text, model_used). Cached per image so reruns cost no API calls."""
-    genai.configure(api_key=api_key)
-    img = Image.open(BytesIO(img_bytes))
-    last_err = None
-    for name in MODEL_CANDIDATES:
-        try:
-            model = genai.GenerativeModel(
-                name,
-                generation_config={"temperature": 0.2, "max_output_tokens": 2048},
-            )
-            resp = model.generate_content([PROMPT, img])
-            try:
-                text = resp.text
-            except ValueError:
-                raise RuntimeError("BLOCKED")
-            return text, name
-        except Exception as e:
-            last_err = e
-            m = str(e).lower()
-            if "404" in m or "not found" in m or "not supported" in m or "no longer available" in m:
-                continue  # try the next model name
-            raise
-    raise last_err if last_err else RuntimeError("No model available")
-
-
-def friendly_error(e):
-    m = str(e).lower()
-    if "blocked" in m:
-        return "हा फोटो सुरक्षितता कारणास्तव तपासता आला नाही. कृपया दुसरा स्पष्ट फोटो वापरा."
-    if "api key" in m or "api_key" in m or "permission" in m or "401" in m or "403" in m:
-        return "API Key चुकीची किंवा अवैध आहे. कृपया Key तपासा."
-    if "429" in m or "quota" in m or "rate" in m or "exhausted" in m:
-        return "आजची मोफत मर्यादा (quota) संपली आहे. थोड्या वेळाने पुन्हा प्रयत्न करा."
-    if "timeout" in m or "deadline" in m or "connect" in m or "unavailable" in m or "503" in m:
-        return "इंटरनेट किंवा सर्व्हरची अडचण आहे. कृपया पुन्हा प्रयत्न करा."
-    if "404" in m or "not found" in m:
-        return "निवडलेले Gemini मॉडेल उपलब्ध नाही. कोडमधील MODEL_CANDIDATES अद्ययावत करा."
-    return "विश्लेषण करताना अडचण आली. कृपया पुन्हा प्रयत्न करा."
-
-
-def parse_response(text):
-    text = re.sub(r"```[a-zA-Z]*", "", text).strip()
-    data = {}
-    for f in FIELDS:
-        m = re.search(rf"^[\s>*_\-]*{f}[\s*_]*:[\s*_]*(.+?)\s*$", text, re.M | re.I)
-        data[f] = m.group(1).strip().strip("*_ ") if m else ""
-
-    def section(name):
-        m = re.search(rf"##\s*{name}\s*\n(.*?)(?=\n##\s|\Z)", text, re.S | re.I)
-        if not m:
-            return []
-        items = []
-        for line in m.group(1).splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            line = re.sub(r"^([-*•]|\d+[.)])\s*", "", line).strip()
-            line = line.replace("**", "").strip()
-            if line:
-                items.append(line)
-        return items
-
-    data["CURE"] = section("CURE")
-    data["PREVENTION"] = section("PREVENTION")
-    return data
-
-
-# =====================================================================
-# 4. LABEL MAPS
-# =====================================================================
-PART_LABELS = {
-    "LEAF": "🍃 पान (Leaf)",
-    "FLOWER": "🌸 फूल (Flower)",
-    "FRUIT": "🍏 फळ / बोंड / शेंग (Fruit / Boll / Pod)",
-    "STEM": "🌿 खोड / फांदी (Stem)",
-    "WHOLE_PLANT": "🌱 संपूर्ण झाड (Whole plant)",
-    "OTHER": "🌾 इतर भाग (Other)",
+POTATO_CLASSES = ['Potato___Early_blight', 'Potato___Late_blight', 'Potato___healthy']
+POTATO_REMEDIES = {
+    'Potato___Early_blight': {
+        'title': 'अर्ली ब्लाइट (अगाती करपा)',
+        'type': 'रोगग्रस्त',
+        'badge': 'बुरशीजन्य संसर्ग',
+        'cure': 'मॅन्कोझेब (Mancozeb 75% WP) २ ते २.५ ग्रॅम प्रति लिटर पाण्यात मिसळून संपूर्ण पानांवर फवारावे.',
+        'prevention': 'पिकांची फेरपालट करा व रोगट पाने गोळा करून नष्ट करा.'
+    },
+    'Potato___Late_blight': {
+        'title': 'लेट ब्लाइट (उशिरा येणारा करपा)',
+        'type': 'रोगग्रस्त',
+        'badge': 'गंभीर रोग धोका',
+        'cure': 'मेटॅलॅक्सिल + मॅन्कोझेब (रिडोमिल गोल्ड) २ ग्रॅम प्रति लिटर पाण्यात फवारावे.',
+        'prevention': 'ढगाळ व दमट हवामानात त्वरित प्रतिबंधात्मक फवारणी करावी.'
+    },
+    'Potato___healthy': {
+        'title': 'निरोगी पीक (Healthy)',
+        'type': 'निरोगी',
+        'badge': 'उत्कृष्ट आरोग्य',
+        'cure': 'पीक पूर्णपणे सुदृढ आहे. कोणत्याही औषधाची गरज नाही.',
+        'prevention': 'वेळोवेळी योग्य खत आणि पाणी व्यवस्थापन ठेवा.'
+    }
 }
-STATUS_LABELS = {
-    "HEALTHY": "निरोगी", "DISEASED": "रोगग्रस्त", "PEST": "किडीचा प्रादुर्भाव",
-    "NUTRIENT": "अन्नद्रव्य कमतरता", "UNCERTAIN": "निदान अनिश्चित",
+
+COTTON_CLASSES = ['diseased cotton leaf', 'diseased cotton plant', 'fresh cotton leaf', 'fresh cotton plant']
+COTTON_REMEDIES = {
+    'diseased cotton leaf': {
+        'title': 'रोगग्रस्त पान / बोंड (Bacterial Blight / करपा)',
+        'type': 'रोगग्रस्त',
+        'badge': 'जिवाणू संसर्ग',
+        'cure': 'कॉपर ऑक्सिक्लोराईड (COC) २५ ग्रॅम + स्ट्रेप्टोसायक्लिन १ ते २ ग्रॅम प्रति १० लिटर पाण्यात फवारावे.',
+        'prevention': 'शेतात पाणी साचू देऊ नका आणि गळून पडलेले रोगट भाग नष्ट करा.'
+    },
+    'diseased cotton plant': {
+        'title': 'रोगग्रस्त झाड (Infected Plant)',
+        'type': 'रोगग्रस्त',
+        'badge': 'संसर्गग्रस्त पीक',
+        'cure': 'बाधित झाडे नष्ट करावीत व मुळांशी ट्रायकोडर्मा किंवा बुरशीनाशकाचे आळवणी करावी.',
+        'prevention': 'रोगप्रतिकारक वाण वापरा.'
+    },
+    'fresh cotton leaf': {
+        'title': 'निरोगी कापूस पान / बोंड (Fresh)',
+        'type': 'निरोगी',
+        'badge': 'उत्कृष्ट आरोग्य',
+        'cure': 'कापसाचे पीक निरोगी आहे. अनावश्यक फवारणी टाळावी.',
+        'prevention': 'रसशोषक किडींचे नियमित निरीक्षण ठेवा.'
+    },
+    'fresh cotton plant': {
+        'title': 'निरोगी कापूस पीक (Fresh Plant)',
+        'type': 'निरोगी',
+        'badge': 'उत्कृष्ट आरोग्य',
+        'cure': 'कापूस झाड सशक्त व निरोगी आहे.',
+        'prevention': 'संतुलित खतांचा वापर ठेवा.'
+    }
 }
-SEVERITY_LABELS = {"NONE": "धोका नाही", "LOW": "सौम्य तीव्रता", "MEDIUM": "मध्यम तीव्रता", "HIGH": "तीव्र प्रादुर्भाव"}
+
+SOYBEAN_CLASSES = ['Caterpillar', 'Diabrotica speciosa', 'Healthy']
+SOYBEAN_REMEDIES = {
+    'Caterpillar': {
+        'title': 'लष्करी अळी / पाने खाणारी अळी (Caterpillar)',
+        'type': 'रोगग्रस्त',
+        'badge': 'कीड प्रादुर्भाव',
+        'cure': 'इमामेक्टिन बेन्झोएट ५% एस.जी. ४ ग्रॅम किंवा कोराजन ३ मिली प्रति १० लिटर पाण्यात फवारावे.',
+        'prevention': 'शेतात एकरी ३ कामगंध सापळे (Pheromone Traps) लावा.'
+    },
+    'Diabrotica speciosa': {
+        'title': 'पानांवरील भुंगा/किडे (Leaf Beetle)',
+        'type': 'रोगग्रस्त',
+        'badge': 'कीड प्रादुर्भाव',
+        'cure': 'अलिका (थायमेथॉक्सम + लॅम्बडा सायहॅलोथ्रीन) ३ ते ४ मिली प्रति १० लिटर पाण्यात फवारावे.',
+        'prevention': 'सुरुवातीला निंबोळी अर्क ५% फवारा.'
+    },
+    'Healthy': {
+        'title': 'निरोगी सोयाबीन पीक (Healthy Leaf)',
+        'type': 'निरोगी',
+        'badge': 'उत्कृष्ट आरोग्य',
+        'cure': 'सोयाबीनचे पीक निरोगी आहे! अतिरिक्त फवारण्या टाळा.',
+        'prevention': 'पाण्याचा ताण पडू देऊ नका.'
+    }
+}
+
+# Crop registry (used by the routing + UI layer)
+CROPS = {
+    'potato': {'label': 'बटाटा', 'emoji': '🥔', 'classes': POTATO_CLASSES, 'remedies': POTATO_REMEDIES},
+    'cotton': {'label': 'कापूस', 'emoji': '☁️', 'classes': COTTON_CLASSES, 'remedies': COTTON_REMEDIES},
+    'soybean': {'label': 'सोयाबीन', 'emoji': '🫘', 'classes': SOYBEAN_CLASSES, 'remedies': SOYBEAN_REMEDIES},
+}
+
+# =====================================================================
+# 4. PLANT PART DETECTION  (unchanged)
+# =====================================================================
+def get_part_and_features(img_pil):
+    resized = img_pil.resize((224, 224))
+    pre = tf.keras.applications.mobilenet_v2.preprocess_input(np.expand_dims(np.array(resized, dtype=np.float32), axis=0))
+    raw_pred = feature_model(pre, training=False)
+    decoded = tf.keras.applications.mobilenet_v2.decode_predictions(raw_pred.numpy(), top=8)[0]
+
+    flower_kw = ['flower', 'daisy', 'rose', 'blossom', 'petal', 'sunflower', 'dahlia', 'marigold', 'tulip', 'pot']
+    fruit_kw = ['fruit', 'boll', 'berry', 'apple', 'orange', 'pomegranate', 'pod', 'cotton', 'seed', 'vegetable', 'cucumber']
+
+    part = "🍃 पान (Leaf / Foliage)"
+    for _, name, score in decoded:
+        n = name.lower()
+        if any(k in n for k in flower_kw) and score > 0.15:
+            part = "🌸 फूल (Flower)"
+            break
+        elif any(k in n for k in fruit_kw) and score > 0.15:
+            part = "🍏 फळ / बोंड / शेंग (Fruit / Boll / Pod)"
+            break
+
+    return part
+
+# =====================================================================
+# 5. ENSEMBLE ROUTING & PREDICTION
+#    Every crop model sees the image; the most confident model wins.
+#    Input size and scaling are read from each model so shapes never clash.
+# =====================================================================
+def _has_builtin_rescaling(layer_or_model, depth=0):
+    """True if the model already scales pixels itself (Rescaling / Normalization)."""
+    if depth > 3:
+        return False
+    for layer in getattr(layer_or_model, 'layers', [])[:8]:
+        if layer.__class__.__name__ in ('Rescaling', 'Normalization'):
+            return True
+        if hasattr(layer, 'layers') and _has_builtin_rescaling(layer, depth + 1):
+            return True
+    return False
 
 
-def crop_emoji(crop_en):
-    c = crop_en.lower()
-    if "cotton" in c:
-        return "☁️"
-    if "soy" in c:
-        return "🫘"
-    if "potato" in c:
-        return "🥔"
-    return "🌾"
+def _model_input_size(model):
+    shape = model.input_shape
+    if isinstance(shape, list):
+        shape = shape[0]
+    h = shape[1] if len(shape) > 2 and shape[1] else 224
+    w = shape[2] if len(shape) > 2 and shape[2] else 224
+    return int(h), int(w)
 
 
-def flat(s):
-    """Flatten indented HTML so Markdown never renders it as a code block."""
+def _prepare_input(img_pil, model):
+    h, w = _model_input_size(model)
+    arr = np.array(img_pil.convert('RGB').resize((w, h)), dtype=np.float32)
+    if not _has_builtin_rescaling(model):
+        arr = arr / 255.0
+    return np.expand_dims(arr, axis=0)
+
+
+def _predict_probs(model, img_pil):
+    x = _prepare_input(img_pil, model)
+    out = model(x, training=False)
+    probs = np.array(out.numpy()[0], dtype=np.float64).flatten()
+    total = probs.sum()
+    if probs.min() < 0 or abs(total - 1.0) > 1e-3:
+        e = np.exp(probs - probs.max())
+        probs = e / e.sum()
+    return probs
+
+
+def run_ensemble(img_pil, forced_crop=None):
+    """Returns the routed crop key, its probabilities and every crop's top confidence."""
+    model_map = {'potato': potato_model, 'cotton': cotton_model, 'soybean': soybean_model}
+    all_probs, top_conf = {}, {}
+    for key, mdl in model_map.items():
+        n_classes = len(CROPS[key]['classes'])
+        p = _predict_probs(mdl, img_pil)[:n_classes]
+        all_probs[key] = p
+        top_conf[key] = float(p.max())
+    crop = forced_crop if forced_crop else max(top_conf, key=top_conf.get)
+    return crop, all_probs[crop], top_conf
+
+# =====================================================================
+# 6. UI: STYLES
+# =====================================================================
+def html(s):
+    """Flatten indented HTML so Markdown never turns it into a code block."""
     return "".join(line.strip() for line in s.strip().splitlines())
 
 
-QTY_RE = re.compile(
-    r"([०-९0-9]+(?:[.,/][०-९0-9]+)?(?:\s*(?:ते|-|–)\s*[०-९0-9]+(?:[.,][०-९0-9]+)?)?"
-    r"\s*(?:ग्रॅम|ग्राम|मि\.ली\.|मिली|मिलि|ml|mL|ML|gm|kg|किलो|लिटर|g|%|टक्के)(?![A-Za-z]))"
-)
-
-
-def li(items):
-    """Bullet list; dosages (e.g. २ ग्रॅम, 3 ml, ५%) are auto-bolded."""
-    out = []
-    for i in items:
-        out.append("<li>" + QTY_RE.sub(r"<b>\1</b>", escape(i)) + "</li>")
-    return "<ul class='lst'>" + "".join(out) + "</ul>"
-
-
-# =====================================================================
-# 5. STYLES
-# =====================================================================
 CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Mukta:wght@400;500;600;700;800&family=Poppins:wght@500;600;700&display=swap');
+
 :root{
-  --em-950:#073B22; --em-900:#0B4F30; --em-800:#0F6639; --em-700:#167A49; --em-600:#1E874B; --em-500:#22A061; --em-100:#DFF2E5;
-  --teal:#00D2B4; --gold:#F5C453;
-  --mint:#F4F8F4; --line:#E2EDE3; --ink:#12281D; --muted:#5B7264;
+  --em-900:#0B4F30; --em-700:#167A49; --em-100:#DCF0E3;
+  --mint:#F4FAF6; --line:#D8EBD9; --ink:#12281D; --muted:#5B7264;
   --red-700:#B42318; --red-100:#FDECEA; --red-line:#F5C2BD;
-  --amb-700:#8A5A00; --amb-100:#FFF6E0; --amb-line:#F0D9A0;
+  --card:rgba(255,255,255,.82);
 }
-html, body, [class*="css"], .stApp, .stMarkdown, p, label, button, input{font-family:'Mukta','Poppins',sans-serif !important;}
+html, body, [class*="css"], .stApp, .stMarkdown, p, label, button, input{
+  font-family:'Mukta','Poppins',sans-serif !important;
+}
 .stApp{
-  background:radial-gradient(800px 320px at 100% -5%, #E3F4E9 0%, transparent 60%),
-             radial-gradient(600px 280px at -10% 0%, #EAF6EE 0%, transparent 55%), var(--mint);
+  background:
+    radial-gradient(900px 380px at 100% -5%, #E2F4E8 0%, transparent 60%),
+    radial-gradient(700px 320px at -10% 0%, #EAF7EE 0%, transparent 55%),
+    var(--mint);
   color:var(--ink);
 }
 header[data-testid="stHeader"], #MainMenu, footer, [data-testid="stToolbar"], [data-testid="stDecoration"]{display:none !important;}
-.block-container{max-width:720px !important; padding:.9rem .9rem 2.5rem !important;}
-div[data-testid="stVerticalBlock"]{gap:.6rem !important;}
-div[data-testid="stElementContainer"]:empty, div.element-container:empty{display:none !important;}
-div[data-testid="stMarkdownContainer"] p:empty{display:none !important;}
+.block-container{max-width:760px !important; padding:1.1rem 1rem 3rem !important;}
 
-/* ---------- Compact hero ---------- */
-.hero{position:relative; overflow:hidden; border-radius:20px; padding:.8rem .95rem;
-  background:linear-gradient(135deg,#073B22 0%,#0F6639 55%,#1E874B 100%); color:#fff;
-  border:1px solid rgba(255,255,255,.22);
-  box-shadow:0 10px 26px rgba(7,59,34,.28), inset 0 1px 0 rgba(255,255,255,.18);}
-.hero::before{content:""; position:absolute; right:-40px; top:-60px; width:190px; height:190px; border-radius:50%;
-  background:radial-gradient(circle,rgba(0,210,180,.28) 0%,transparent 68%); pointer-events:none;}
-.hero-row{position:relative; display:flex; align-items:center; justify-content:space-between; gap:.6rem; flex-wrap:wrap;}
-.brand{display:flex; align-items:center; gap:.65rem;}
-.brand svg{width:46px; height:46px; flex-shrink:0;}
-.bt b{display:block; font-size:1.42rem; font-weight:800; line-height:1.05; letter-spacing:.2px;}
-.bt b i{font-style:normal; color:#7DF3E0; font-family:'Poppins',sans-serif !important; font-weight:700;}
-.bt small{display:block; font-size:.8rem; opacity:.88; margin-top:.2rem; font-weight:500;}
-.status{display:inline-flex; align-items:center; gap:.4rem; padding:.24rem .7rem; border-radius:999px; background:rgba(255,255,255,.14);
-  border:1px solid rgba(255,255,255,.32); font-size:.76rem; font-weight:600; white-space:nowrap; backdrop-filter:blur(6px);}
-.status .dot{width:7px;height:7px;border-radius:50%;background:#6BFFA6; animation:pulse 2s infinite;}
+/* ---------- Hero ---------- */
+.hero{
+  position:relative; overflow:hidden; border-radius:24px; padding:1.5rem 1.35rem 1.35rem;
+  background:linear-gradient(135deg,var(--em-900) 0%,var(--em-700) 100%);
+  color:#fff; box-shadow:0 14px 34px rgba(11,79,48,.28);
+}
+.hero::after{
+  content:"🌿"; position:absolute; right:-6px; bottom:-28px; font-size:8.5rem; opacity:.13; transform:rotate(-12deg);
+}
+.hero-top{display:flex; align-items:center; justify-content:space-between; gap:.6rem; flex-wrap:wrap;}
+.brand{font-family:'Poppins','Mukta',sans-serif !important; font-weight:700; font-size:1.05rem; letter-spacing:.2px; opacity:.95;}
+.status{
+  display:inline-flex; align-items:center; gap:.4rem; padding:.28rem .75rem; border-radius:999px;
+  background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.35); font-size:.86rem; font-weight:600;
+  backdrop-filter:blur(6px);
+}
+.status .dot{width:8px;height:8px;border-radius:50%;background:#6BFFA6; box-shadow:0 0 0 0 rgba(107,255,166,.7); animation:pulse 2s infinite;}
 .status.off .dot{background:#FFB4A9; animation:none;}
-@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(107,255,166,.7);}70%{box-shadow:0 0 0 7px rgba(107,255,166,0);}100%{box-shadow:0 0 0 0 rgba(107,255,166,0);}}
+@keyframes pulse{70%{box-shadow:0 0 0 8px rgba(107,255,166,0);}100%{box-shadow:0 0 0 0 rgba(107,255,166,0);}}
+.hero h1{font-size:1.85rem !important; line-height:1.25; font-weight:800; margin:.9rem 0 .35rem !important; padding:0 !important; color:#fff !important;}
+.hero p{font-size:1.02rem; margin:0; max-width:34ch; opacity:.92; line-height:1.5;}
+.chips{display:flex; gap:.45rem; flex-wrap:wrap; margin-top:1rem;}
+.chip{padding:.22rem .7rem; border-radius:999px; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.28); font-size:.88rem; font-weight:500;}
 
 /* ---------- Section titles ---------- */
-.sec{display:flex; align-items:center; gap:.5rem; margin:1.1rem 0 .25rem;}
-.sec .bar{width:4px; height:18px; border-radius:4px; background:linear-gradient(180deg,var(--em-500),var(--em-800));}
-.sec h3{font-size:1.1rem !important; font-weight:700; margin:0 !important; padding:0 !important; color:var(--em-900);}
-.hint{color:var(--muted); font-size:.9rem; margin:0 0 .2rem; line-height:1.5;}
+.sec{display:flex; align-items:center; gap:.55rem; margin:1.6rem 0 .7rem;}
+.sec .bar{width:5px; height:22px; border-radius:4px; background:var(--em-700);}
+.sec h3{font-size:1.2rem !important; font-weight:700; margin:0 !important; padding:0 !important; color:var(--em-900);}
+.hint{color:var(--muted); font-size:.95rem; margin:-.3rem 0 .7rem;}
 
-/* ---------- Input card ---------- */
-.st-key-inputcard, div[data-testid="stVerticalBlockBorderWrapper"]{
-  background:#fff !important; border:1px solid var(--line) !important; border-radius:20px !important;
-  padding:.95rem !important; box-shadow:0 8px 24px rgba(11,79,48,.09);}
-.card-h{display:flex; align-items:center; gap:.5rem; margin:0 0 .15rem;}
-.card-h .ico{width:32px; height:32px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:var(--em-100); font-size:1rem;}
-.card-h b{font-size:1.08rem; color:var(--em-900); font-weight:700;}
-
+/* ---------- Radio -> segmented control ---------- */
 div[data-testid="stRadio"] > label{display:none !important;}
-div[role="radiogroup"]{display:flex !important; gap:.3rem; background:#EEF5EF; border:1px solid var(--line); padding:.28rem; border-radius:14px;}
-div[role="radiogroup"] > label{flex:1; justify-content:center; margin:0 !important; padding:.55rem .3rem !important; border-radius:11px; cursor:pointer; transition:background .2s, box-shadow .2s; text-align:center;}
+div[role="radiogroup"]{display:flex !important; gap:.5rem; background:#fff; border:1px solid var(--line); padding:.35rem; border-radius:16px; box-shadow:0 2px 8px rgba(11,79,48,.05);}
+div[role="radiogroup"] > label{
+  flex:1; justify-content:center; margin:0 !important; padding:.62rem .5rem !important; border-radius:12px; cursor:pointer;
+  transition:background .2s, color .2s; text-align:center;
+}
 div[role="radiogroup"] > label > div:first-child{display:none !important;}
-div[role="radiogroup"] > label p{font-weight:600; font-size:.9rem; margin:0; color:var(--muted); line-height:1.3;}
-div[role="radiogroup"] > label:has(input:checked){background:linear-gradient(135deg,#0F6639,#1E874B); box-shadow:0 4px 12px rgba(15,102,57,.35);}
+div[role="radiogroup"] > label p{font-weight:600; font-size:1rem; margin:0; color:var(--muted);}
+div[role="radiogroup"] > label:has(input:checked){background:var(--em-900);}
 div[role="radiogroup"] > label:has(input:checked) p{color:#fff;}
 
+/* ---------- Uploader & camera ---------- */
 [data-testid="stFileUploader"] label{display:none !important;}
-[data-testid="stFileUploaderDropzone"]{background:#F6FBF7 !important; border:2px dashed #9CCFAE !important; border-radius:16px !important; padding:1.1rem .8rem !important; transition:border-color .2s, background .2s;}
-[data-testid="stFileUploaderDropzone"]:hover{border-color:var(--em-600) !important; background:#fff !important;}
-[data-testid="stFileUploaderDropzone"] button{background:linear-gradient(135deg,#0F6639,#1E874B) !important; color:#fff !important; border:none !important; border-radius:999px !important; padding:.45rem 1.1rem !important; font-weight:600;}
-[data-testid="stCameraInput"]{border-radius:16px; overflow:hidden; border:1px solid var(--line); background:#F6FBF7;}
-[data-testid="stCameraInput"] button{background:linear-gradient(135deg,#0F6639,#1E874B) !important; color:#fff !important; border-radius:999px !important; border:none !important;}
+[data-testid="stFileUploaderDropzone"]{
+  background:var(--card) !important; border:2px dashed #9CCFAE !important; border-radius:20px !important; padding:1.6rem 1rem !important;
+  transition:border-color .2s, background .2s;
+}
+[data-testid="stFileUploaderDropzone"]:hover{border-color:var(--em-700) !important; background:#fff !important;}
+[data-testid="stFileUploaderDropzone"] button{
+  background:var(--em-900) !important; color:#fff !important; border:none !important; border-radius:999px !important; padding:.5rem 1.2rem !important; font-weight:600;
+}
+[data-testid="stCameraInput"]{border-radius:20px; overflow:hidden; border:1px solid var(--line); background:#fff;}
+[data-testid="stCameraInput"] button{background:var(--em-900) !important; color:#fff !important; border-radius:999px !important; border:none !important;}
 [data-testid="stCameraInput"] label{display:none !important;}
-[data-testid="stImage"] img{border-radius:18px; border:1px solid var(--line); box-shadow:0 8px 22px rgba(11,79,48,.14);}
+[data-testid="stImage"] img{border-radius:18px; border:1px solid var(--line); box-shadow:0 8px 22px rgba(11,79,48,.12);}
+
+/* ---------- Expander ---------- */
+[data-testid="stExpander"]{background:var(--card); border:1px solid var(--line) !important; border-radius:16px !important;}
+[data-testid="stExpander"] summary p{font-weight:600; color:var(--em-900);}
 
 /* ---------- Pills ---------- */
-.pills{display:flex; gap:.45rem; flex-wrap:wrap; margin:.5rem 0 .1rem;}
-.pill{display:inline-flex; align-items:center; gap:.4rem; padding:.38rem .85rem; border-radius:999px; background:#fff; border:1px solid var(--line);
-  font-weight:600; font-size:.95rem; color:var(--em-900); box-shadow:0 2px 6px rgba(11,79,48,.06);}
-.pill small{font-weight:500; color:var(--muted); font-size:.8rem;}
+.pills{display:flex; gap:.5rem; flex-wrap:wrap; margin:.9rem 0 .2rem;}
+.pill{
+  display:inline-flex; align-items:center; gap:.4rem; padding:.4rem .9rem; border-radius:999px;
+  background:#fff; border:1px solid var(--line); font-weight:600; font-size:.98rem; color:var(--em-900);
+  box-shadow:0 2px 6px rgba(11,79,48,.06);
+}
+.pill small{font-weight:500; color:var(--muted); font-size:.82rem;}
 .pill.crop{background:var(--em-100); border-color:#B9DDC5;}
 
-/* ---------- Status card ---------- */
-.result{border-radius:20px; padding:1.05rem 1rem; margin-top:.6rem; border:1px solid var(--line); box-shadow:0 10px 26px rgba(11,79,48,.12);}
-.result.ok{background:linear-gradient(160deg,#FFFFFF 0%,#E1F4E8 100%); border-left:7px solid var(--em-500);}
-.result.bad{background:linear-gradient(160deg,#FFFFFF 0%,var(--red-100) 100%); border-color:var(--red-line); border-left:7px solid var(--red-700);}
-.result.warn{background:linear-gradient(160deg,#FFFFFF 0%,var(--amb-100) 100%); border-color:var(--amb-line); border-left:7px solid #E0A93B;}
-.result .row{display:flex; align-items:flex-start; gap:.75rem;}
-.ico-lg{width:46px; height:46px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:1.45rem; flex-shrink:0; background:#fff; box-shadow:0 4px 12px rgba(0,0,0,.08);}
-.grow{flex:1; min-width:0;}
-.tag{display:inline-flex; align-items:center; font-weight:700; font-size:.86rem; padding:.2rem .65rem; border-radius:999px;}
-.ok .tag{background:var(--em-100); color:var(--em-900);}
-.bad .tag{background:#fff; color:var(--red-700); border:1px solid var(--red-line);}
-.warn .tag{background:#fff; color:var(--amb-700); border:1px solid var(--amb-line);}
-.result h2{font-size:1.28rem !important; line-height:1.35; font-weight:800; margin:.5rem 0 .1rem !important; padding:0 !important;}
-.ok h2{color:var(--em-900) !important;} .bad h2{color:var(--red-700) !important;} .warn h2{color:var(--amb-700) !important;}
-.result .en{color:var(--muted); font-size:.9rem; font-family:'Poppins',sans-serif !important;}
-.result .sym{margin-top:.75rem; font-size:1rem; line-height:1.6; color:#26392E;}
+/* ---------- Result card ---------- */
+.result{
+  border-radius:22px; padding:1.25rem 1.2rem; margin-top:.9rem; border:1px solid var(--line);
+  box-shadow:0 12px 30px rgba(11,79,48,.12); position:relative; overflow:hidden;
+}
+.result.ok{background:linear-gradient(160deg,#FFFFFF 0%,#E4F5EA 100%); border-left:8px solid var(--em-700);}
+.result.bad{background:linear-gradient(160deg,#FFFFFF 0%,var(--red-100) 100%); border-color:var(--red-line); border-left:8px solid var(--red-700);}
+.result .row{display:flex; justify-content:space-between; align-items:flex-start; gap:1rem;}
+.status-tag{display:inline-flex; align-items:center; gap:.4rem; font-weight:700; font-size:.95rem; padding:.28rem .75rem; border-radius:999px;}
+.ok .status-tag{background:var(--em-100); color:var(--em-900);}
+.bad .status-tag{background:#fff; color:var(--red-700); border:1px solid var(--red-line);}
+.result h2{font-size:1.45rem !important; line-height:1.3; font-weight:800; margin:.75rem 0 .2rem !important; padding:0 !important;}
+.ok h2{color:var(--em-900) !important;} .bad h2{color:var(--red-700) !important;}
+.result .sub{color:var(--muted); font-size:.98rem;}
 .metric{text-align:right; flex-shrink:0;}
-.metric .num{font-family:'Poppins',sans-serif !important; font-weight:700; font-size:1.7rem; line-height:1;}
-.ok .num{color:var(--em-700);} .bad .num{color:var(--red-700);} .warn .num{color:var(--amb-700);}
-.metric .cap{font-size:.72rem; color:var(--muted); margin-top:.2rem; max-width:92px; line-height:1.25;}
-.track{height:8px; border-radius:999px; background:rgba(0,0,0,.07); overflow:hidden; margin-top:.85rem;}
-.fill{height:100%; border-radius:999px; transition:width .8s ease;}
-.ok .fill{background:linear-gradient(90deg,var(--em-500),var(--em-900));}
-.bad .fill{background:linear-gradient(90deg,#EF7B6E,var(--red-700));}
-.warn .fill{background:linear-gradient(90deg,#F3C766,#C48A12);}
+.metric .num{font-family:'Poppins',sans-serif !important; font-weight:700; font-size:2rem; line-height:1;}
+.ok .num{color:var(--em-700);} .bad .num{color:var(--red-700);}
+.metric .cap{font-size:.82rem; color:var(--muted); margin-top:.25rem;}
 
-/* ---------- Advice cards ---------- */
-.adv{border-radius:20px; padding:1rem 1rem .8rem; margin-top:.7rem; background:#fff; border:1px solid var(--line); box-shadow:0 6px 18px rgba(11,79,48,.07);}
+/* ---------- Probability bars ---------- */
+.probs{background:var(--card); border:1px solid var(--line); border-radius:20px; padding:1rem 1.1rem; box-shadow:0 6px 18px rgba(11,79,48,.07);}
+.prob{margin:.55rem 0;}
+.prob .lbl{display:flex; justify-content:space-between; gap:.6rem; font-size:.96rem; font-weight:500; margin-bottom:.28rem;}
+.prob .lbl b{font-family:'Poppins',sans-serif !important; font-weight:600; font-size:.9rem;}
+.prob .track{height:10px; border-radius:999px; background:#E6F1E9; overflow:hidden;}
+.prob .fill{height:100%; border-radius:999px; background:linear-gradient(90deg,#8FD0A6,var(--em-700)); transition:width .8s ease;}
+.prob.top .fill{background:linear-gradient(90deg,var(--em-700),var(--em-900));}
+.prob.top.bad .fill{background:linear-gradient(90deg,#EF7B6E,var(--red-700));}
+.prob.top .lbl{font-weight:700;}
+.crop-scan{display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.9rem; padding-top:.8rem; border-top:1px dashed var(--line); font-size:.88rem; color:var(--muted);}
+.crop-scan span{background:#fff; border:1px solid var(--line); padding:.15rem .6rem; border-radius:999px;}
+.crop-scan span.win{background:var(--em-100); color:var(--em-900); font-weight:600;}
+
+/* ---------- Advisory ---------- */
+.adv{border-radius:20px; padding:1.1rem 1.15rem; margin-top:.8rem; background:var(--card); border:1px solid var(--line); box-shadow:0 6px 18px rgba(11,79,48,.07);}
 .adv.cure{border-top:5px solid var(--red-700);}
-.adv.cure.okc{border-top-color:var(--em-500);}
-.adv.care{border-top:5px solid var(--em-500);}
-.adv .head{display:flex; align-items:center; gap:.55rem; margin-bottom:.3rem;}
-.adv .ico{width:36px; height:36px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.15rem; background:var(--red-100);}
+.adv.care{border-top:5px solid var(--em-700);}
+.adv.cure.okc{border-top-color:var(--em-700);}
+.adv .head{display:flex; align-items:center; gap:.6rem; margin-bottom:.5rem;}
+.adv .ico{width:38px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.2rem; background:var(--red-100);}
 .adv.care .ico, .adv.cure.okc .ico{background:var(--em-100);}
-.adv h4{margin:0 !important; padding:0 !important; font-size:1.02rem !important; font-weight:700; color:var(--ink);}
-.lst{margin:.25rem 0 0; padding-left:1.1rem;}
-.lst li{font-size:1rem; line-height:1.65; color:#26392E; margin:.4rem 0;}
-.lst li::marker{color:var(--em-500);}
-.lst li b{color:var(--em-900); background:linear-gradient(transparent 62%, #CBEFD6 62%); padding:0 .1rem; font-weight:700;}
-.adv.cure:not(.okc) .lst li b{color:#7A1A12; background:linear-gradient(transparent 62%, #FAD3CF 62%);}
+.adv h4{margin:0 !important; padding:0 !important; font-size:1.08rem !important; font-weight:700; color:var(--ink);}
+.adv p{margin:0; font-size:1.05rem; line-height:1.65; color:#26392E;}
 
-.notplant{border-radius:20px; padding:1.3rem 1.1rem; margin-top:.7rem; background:var(--amb-100); border:1px solid var(--amb-line); text-align:center;}
-.notplant .big{font-size:2.2rem;}
-.notplant h3{margin:.3rem 0 .4rem !important; padding:0 !important; color:var(--amb-700); font-size:1.2rem !important;}
-.notplant p{margin:0 0 .5rem; color:#5f4700; font-size:1rem; line-height:1.6;}
-.note{margin-top:.7rem; padding:.65rem .85rem; border-radius:14px; background:#fff; border:1px solid var(--line); color:var(--muted); font-size:.9rem; line-height:1.55;}
-.setup{border-radius:18px; padding:1rem; margin-top:.7rem; background:#fff; border:1px solid var(--amb-line); border-left:6px solid #E0A93B; color:#3d3200; line-height:1.65; font-size:.95rem;}
-.setup code{background:#F4F1E4; padding:.1rem .4rem; border-radius:6px; font-size:.88rem;}
-.foot{text-align:center; color:var(--muted); font-size:.82rem; margin-top:1.6rem;}
+.note{margin-top:.9rem; padding:.7rem .9rem; border-radius:14px; background:#FFF7E6; border:1px solid #F3DDA6; color:#7A5A00; font-size:.95rem;}
+.foot{text-align:center; color:var(--muted); font-size:.85rem; margin-top:2rem;}
 
-@media (max-width:
+@media (max-width:480px){
+  .hero{padding:1.25rem 1.05rem;} .hero h1{font-size:1.55rem !important;}
+  .result .row{flex-direction:column; gap:.6rem;} .metric{text-align:left;}
+}
+@media (prefers-reduced-motion:reduce){ *{animation:none !important; transition:none !important;} }
+</style>
+"""
+st.markdown(CSS, unsafe_allow_html=True)
+
+# =====================================================================
+# 7. UI: LOAD MODELS + HERO
+# =====================================================================
+try:
+    potato_model, cotton_model, soybean_model, feature_model = load_all_models()
+    models_ready = True
+except Exception as e:
+    models_ready = False
+    st.error(f"मॉडेल लोड करताना त्रुटी आली: {e}")
+
+status_html = (
+    '<span class="status"><span class="dot"></span>⚡ AI Active</span>'
+    if models_ready else
+    '<span class="status off"><span class="dot"></span>⚠️ AI Offline</span>'
+)
+
+st.markdown(html(f"""
+<div class="hero">
+  <div class="hero-top">
+    <span class="brand">🌿 कृषी-AI</span>
+    {status_html}
+  </div>
+  <h1>पिकाचा फोटो द्या, रोगाचे निदान मिळवा</h1>
+  <p>बटाटा, कापूस आणि सोयाबीन पिकांचे रोग व किडी ओळखून मराठीत उपाय सुचवतो.</p>
+  <div class="chips">
+    <span class="chip">🥔 बटाटा</span><span class="chip">☁️ कापूस</span><span class="chip">🫘 सोयाबीन</span>
+    <span class="chip">🍃 पान</span><span class="chip">🌸 फूल</span><span class="chip">🍏 फळ / बोंड</span>
+  </div>
+</div>
+"""), unsafe_allow_html=True)
+
+# =====================================================================
+# 8. UI: INPUT
+# =====================================================================
+st.markdown(html("""
+<div class="sec"><div class="bar"></div><h3>१. पिकाचा फोटो द्या</h3></div>
+<div class="hint">फोटो स्पष्ट व दिवसाच्या प्रकाशात घ्या. पान, फूल किंवा बोंड जवळून दिसू द्या.</div>
+"""), unsafe_allow_html=True)
+
+input_method = st.radio(
+    "फोटो पद्धत",
+    ["📁 फोटो अपलोड करा", "📷 कॅमेऱ्याने काढा"],
+    horizontal=True,
+    label_visibility="collapsed",
+)
+
+def safe_widget(fn, *args, **kwargs):
+    """Call a Streamlit widget; on older Streamlit ver
