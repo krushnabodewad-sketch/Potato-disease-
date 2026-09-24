@@ -401,6 +401,5 @@ input_method = st.radio(
     label_visibility="collapsed",
 )
 
-image_source = None
-if input_method == "📁 फोटो अपलोड करा":
-    image_source = st.file_uploa
+def safe_widget(fn, *args, **kwargs):
+    """Call a Streamlit widget; on older Streamlit ver
