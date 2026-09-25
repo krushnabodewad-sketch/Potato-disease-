@@ -173,6 +173,33 @@ div[data-testid="stFileUploaderDropzone"] {
     color: #94A3B8; margin: 4px 0 8px 2px;
 }
 
+/* ---------- UI POLISH ---------- */
+.kai-hero {
+    background: linear-gradient(135deg, #052e22 0%, #065f46 45%, #10b981 100%);
+    border-radius: 24px; padding: 2rem 2.2rem; box-shadow: 0 20px 40px rgba(6,78,59,0.30);
+}
+.kai-hero h1 { font-size: 2.05rem; letter-spacing: -0.3px; }
+.kai-card {
+    border-radius: 20px; border: 1px solid #E2E8F0;
+    box-shadow: 0 6px 24px rgba(15,23,42,0.06); transition: box-shadow 0.2s ease;
+}
+.kai-card:hover { box-shadow: 0 10px 30px rgba(15,23,42,0.10); }
+.kai-card-title { font-size: 0.8rem; letter-spacing: 0.8px; }
+.kai-pill { box-shadow: 0 2px 6px rgba(6,78,59,0.08); }
+.sev-tag { box-shadow: inset 0 0 0 1px rgba(0,0,0,0.04); }
+.conf-big { background: linear-gradient(90deg, #064E3B, #10B981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.conf-fill { box-shadow: 0 0 10px rgba(16,185,129,0.4); }
+.adv-chem, .adv-bio { transition: transform 0.15s ease; }
+.adv-chem:hover, .adv-bio:hover { transform: translateY(-2px); }
+.timeline-dot { box-shadow: 0 4px 10px rgba(6,78,59,0.18); }
+.weather-card { border-radius: 18px; }
+div[data-testid="stFileUploaderDropzone"] { padding: 1.6rem !important; }
+@media (max-width: 640px) {
+    .kai-hero { padding: 1.4rem 1.2rem; }
+    .kai-hero h1 { font-size: 1.35rem; }
+    .block-container { padding-left: 0.8rem; padding-right: 0.8rem; }
+}
+
 /* ---------- RESPONSIVE ---------- */
 @media (max-width: 640px) {
     .kai-hero { padding: 1.3rem 1.2rem; border-radius: 18px; }
@@ -426,229 +453,4 @@ if uploaded_file is not None and models_ready:
     # Chlorophyll & Lesion Pixel Analysis
     r_chan, g_chan, b_chan = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
     healthy_green = (g_chan > r_chan * 1.15) & (g_chan > b_chan * 1.15) & (g_chan > 38)
-    necrotic_lesions = (r_chan >= 40) & (r_chan <= 140) & (g_chan >= 25) & (g_chan <= 100) & (b_chan >= 10) & (b_chan <= 60) & (r_chan > g_chan * 1.08)
-    total_pixels = 224 * 224
-
-    green_ratio = float(np.sum(healthy_green)) / total_pixels
-    lesion_ratio = float(np.sum(necrotic_lesions)) / total_pixels
-
-    # Tomato / Out-of-Scope check
-    gray_arr = np.array(resized_img.convert('L'), dtype=np.float32)
-    white_trails = float(np.sum(gray_arr > 215)) / total_pixels
-
-    if crop_mode == "🤖 ऑटो-डिटेक्ट (Auto-Detect Mode)":
-        if white_trails > 0.05 and lesion_ratio < 0.02:
-            is_out_of_scope = True
-
-    if is_out_of_scope:
-        with col_right:
-            st.markdown("""
-            <div class="oos-card">
-                <div class="oos-tag">⚠️ अनोळखी पीक / OUT OF SCOPE PLANT</div>
-                <h3 style="color:#991B1B; margin:6px 0;">हे पान अधिकृत ३ पिकांमधील नाही!</h3>
-                <p style="color:#374151; font-size:0.95rem; line-height: 1.6; margin:0;">
-                    हे पान टोमॅटो किंवा इतर वनस्पतीचे दिसते. <br>
-                    <b>कृषी-AI</b> सध्या केवळ <b>बटाटा, कापूस आणि सोयाबीन</b> या ३ पिकांसाठी प्रमाणित आहे.
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-    else:
-        # Crop Selection
-        if "बटाटा" in crop_mode:
-            selected_crop = "potato"
-        elif "कापूस" in crop_mode:
-            selected_crop = "cotton"
-        elif "सोयाबीन" in crop_mode:
-            selected_crop = "soybean"
-        else:
-            if (idx_p in [0, 1] and conf_p > 0.85) or (lesion_ratio > 0.03 and conf_p > conf_s):
-                selected_crop = "potato"
-            elif idx_s in [0, 1] and conf_s > 0.65:
-                selected_crop = "soybean"
-            elif conf_c > 0.60:
-                selected_crop = "cotton"
-            elif conf_p >= conf_s and conf_p >= conf_c:
-                selected_crop = "potato"
-            elif conf_s >= conf_c:
-                selected_crop = "soybean"
-            else:
-                selected_crop = "cotton"
-
-        # Healthy Gate (Leaves with <2.5% lesion and green dominance are forced healthy)
-        is_clean_healthy = bool(green_ratio > 0.45 and lesion_ratio < 0.025)
-
-        if selected_crop == "potato":
-            crop_name = "🥔 बटाटा (Potato Leaf)"
-            current_classes = POTATO_CLASSES
-            current_preds = preds_p
-            if is_clean_healthy:
-                diagnosed_label = POTATO_CLASSES[2]
-                final_conf = 96.5
-            else:
-                diagnosed_label = POTATO_CLASSES[idx_p]
-                final_conf = conf_p * 100
-        elif selected_crop == "cotton":
-            crop_name = "☁️ कापूस (Cotton Leaf)"
-            current_classes = COTTON_CLASSES
-            current_preds = preds_c
-            if is_clean_healthy:
-                diagnosed_label = COTTON_CLASSES[2]
-                final_conf = 95.8
-            else:
-                diagnosed_label = COTTON_CLASSES[idx_c]
-                final_conf = conf_c * 100
-        else:
-            crop_name = "🌱 सोयाबीन (Soybean Leaf)"
-            current_classes = SOYBEAN_CLASSES
-            current_preds = preds_s
-            if is_clean_healthy:
-                diagnosed_label = SOYBEAN_CLASSES[2]
-                final_conf = 97.2
-            else:
-                diagnosed_label = SOYBEAN_CLASSES[idx_s]
-                final_conf = conf_s * 100
-
-        info = TREATMENTS[diagnosed_label]
-        sev_text = info['severity']
-        sev_cls = 'sev-healthy' if 'सुरक्षित' in sev_text else ('sev-mod' if 'मध्यम' in sev_text else 'sev-crit')
-
-        # ---------- RIGHT COLUMN: DIAGNOSTIC TERMINAL ----------
-        with col_right:
-            conf_pct = max(0.0, min(100.0, final_conf))
-            st.markdown(f"""
-            <div class="kai-card">
-                <div class="kai-card-title">🩺 निदान टर्मिनल · Diagnostic Terminal</div>
-                <div>
-                    <span class="kai-pill kai-pill-dark">{crop_name}</span>
-                    <span class="kai-pill">{diagnosed_label}</span>
-                </div>
-                <div class="sev-tag {sev_cls}">● {sev_text}</div>
-                <div class="conf-label" style="margin-top:14px;">Top Model Confidence</div>
-                <div class="conf-big">{final_conf:.1f}%</div>
-                <div class="conf-track"><div class="conf-fill" style="width:{conf_pct}%;"></div></div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            audio_speech_text = "निदान: " + crop_name + ", " + diagnosed_label + ". औषध: " + info['fertilizer'] + ", प्रमाण: " + info['dose'] + "."
-            components.html("""
-            <script>
-            function speakAdvisory() {
-                window.speechSynthesis.cancel();
-                var msg = new SpeechSynthesisUtterance(\"""" + audio_speech_text + """\");
-                msg.lang = 'mr-IN';
-                window.speechSynthesis.speak(msg);
-            }
-            </script>
-            <button onclick="speakAdvisory()" style="
-                width: 100%; background: linear-gradient(135deg, #059669, #10b981);
-                color: white; border: none; padding: 12px 18px; border-radius: 12px;
-                font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center;
-                justify-content: center; gap: 8px; box-shadow: 0 4px 10px rgba(5,150,105,0.25);
-                font-family: 'Plus Jakarta Sans', 'Mukta', sans-serif;
-            ">
-                🔊 ऑडिओ सल्ला ऐका (Listen Audio Advisory)
-            </button>
-            """, height=56)
-
-        # ---------- WEATHER RISK CORRELATION ----------
-        st.markdown("""
-        <div class="weather-card">
-            <div class="wtitle">🌤️ प्रादेशिक हवामान आणि रोग जोखीम (Weather Correlation)</div>
-            <div class="wbody">
-                स्थानिक तापमान: <b>२८°C</b> | हवेतील आर्द्रता: <b>७६%</b> (दमट वातावरण)<br>
-                <b>सल्ला:</b> हवेतील जादा आर्द्रतेमुळे बुरशीजन्य रोग वेगाने पसरू शकतात. औषध फवारणी पाऊस नसताना सकाळच्या वेळी करावी.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # ---------- PROBABILITIES ----------
-        with st.expander("📊 संभाव्यता विवरण (Model Probabilities)", expanded=False):
-            order = np.argsort(current_preds)[::-1]
-            for rank, i in enumerate(order):
-                cls_name = current_classes[i]
-                pct = float(current_preds[i]) * 100
-                bar_color = "#059669" if rank == 0 else "#CBD5E1"
-                st.markdown(
-                    "<div style='display:flex; justify-content:space-between; font-size:0.85rem; margin-top:8px;'>"
-                    "<span>" + cls_name + "</span><b>" + f"{pct:.1f}%" + "</b></div>"
-                    "<div style='background:#E2E8F0; border-radius:999px; height:8px; margin-top:4px;'>"
-                    "<div style='background:" + bar_color + "; width:" + f"{pct}" + "%; height:100%; border-radius:999px;'></div></div>",
-                    unsafe_allow_html=True
-                )
-
-        # ---------- TREATMENT GRID ----------
-        st.markdown('<div class="kai-card-title" style="margin-top:6px;">💊 उपचार शिफारस · Treatment Recommendation</div>', unsafe_allow_html=True)
-        adv_col1, adv_col2 = st.columns(2, gap="medium")
-        with adv_col1:
-            st.markdown(f"""
-            <div class="adv-chem">
-                <h4 style="color:#B45309;">🧪 रासायनिक उपचार</h4>
-                <p><b>औषध:</b> {info['fertilizer']}</p>
-                <p><b>प्रमाण:</b> {info['dose']}</p>
-                <small>{info['tips']}</small>
-            </div>
-            """, unsafe_allow_html=True)
-        with adv_col2:
-            st.markdown(f"""
-            <div class="adv-bio">
-                <h4 style="color:#047857;">🌿 जैविक उपाय</h4>
-                <p><b>सेंद्रिय घटक:</b> {info['bio']}</p>
-                <p>&nbsp;</p>
-                <small>{info['tips']}</small>
-            </div>
-            """, unsafe_allow_html=True)
-
-        # ---------- 15-DAY TIMELINE ----------
-        st.markdown(f"""
-        <div class="kai-card" style="margin-top:1rem;">
-            <div class="kai-card-title">📅 पुढील फवारणी व काळजी वेळापत्रक · 15-Day Treatment Timeline</div>
-            <div class="timeline-wrap">
-                <div class="timeline-step">
-                    <div class="timeline-dot">D1</div>
-                    <div class="timeline-body"><b>दिवस १ (आज)</b><div>वरील शिफारसीत रासायनिक/जैविक घटकांची तातडीने फवारणी करा.</div></div>
-                </div>
-                <div class="timeline-step">
-                    <div class="timeline-dot">D8</div>
-                    <div class="timeline-body"><b>दिवस ८ (८ दिवसांनी)</b><div>{info['day7']}</div></div>
-                </div>
-                <div class="timeline-step">
-                    <div class="timeline-dot">D15</div>
-                    <div class="timeline-body"><b>दिवस १५ (१५ दिवसांनी)</b><div>{info['day15']}</div></div>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # ---------- REPORT TEXT (SAFE UTF-8, SIMPLE CONCATENATION) ----------
-        report_text = "कृषी-AI : स्मार्ट पीक रोग निदान अहवाल\n"
-        report_text += "पीक: " + crop_name + "\n"
-        report_text += "निदान: " + diagnosed_label + "\n"
-        report_text += "विश्वास गुण: " + f"{final_conf:.1f}" + "%\n"
-        report_text += "तीव्रता: " + sev_text + "\n\n"
-        report_text += "रासायनिक औषध: " + info['fertilizer'] + "\n"
-        report_text += "प्रमाण: " + info['dose'] + "\n\n"
-        report_text += "सेंद्रिय उपाय: " + info['bio'] + "\n"
-        report_text += "सूचना: " + info['tips'] + "\n\n"
-        report_text += "दिवस ८ वेळापत्रक: " + info['day7'] + "\n"
-        report_text += "दिवस १५ वेळापत्रक: " + info['day15'] + "\n"
-
-        # ---------- BOTTOM ACTION DOCK ----------
-        st.markdown('<div class="action-dock-label">कृती · Actions</div>', unsafe_allow_html=True)
-        dock_col1, dock_col2 = st.columns(2, gap="medium")
-        with dock_col1:
-            st.download_button(
-                label="⬇️  Download Report",
-                data=report_text.encode("utf-8-sig"),
-                file_name="krushi_report_" + selected_crop + ".txt",
-                mime="text/plain; charset=utf-8",
-                use_container_width=True
-            )
-        with dock_col2:
-            st.button(
-                "🔄  Try Another Sample",
-                on_click=reset_sample,
-                use_container_width=True
-            )
-
-# ==========================================
-# EN
+    necrotic_lesions = (r_chan >= 40) & (r_chan <
