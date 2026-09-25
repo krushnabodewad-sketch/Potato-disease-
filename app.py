@@ -50,7 +50,7 @@ st.markdown("""
 <div class="kai-hero">
     <div style="font-size: 11px; font-weight: 800; letter-spacing: 1px; color: #a7f3d0; margin-bottom: 4px;">AVISHKAR RESEARCH CONVENTION 2026</div>
     <h2 style="margin: 0; font-size: 1.6rem; font-weight: 800;">🌿 कृषी-AI : स्मार्ट पीक रोग निदान प्रणाली</h2>
-    <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #d1fae5;">Deep Learning Automated Leaf Vision Engine (Potato • Cotton • Soybean)</p>
+    <p style="margin: 4px 0 0 0; font-size: 0.9rem; color: #d1fae5;">Automated Intelligent Crop Diagnostics (Potato • Cotton • Soybean)</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -239,7 +239,7 @@ if uploaded_file is not None and models_ready:
     idx_c = int(np.argmax(preds_c))
     conf_c = float(preds_c[idx_c])
 
-    # Pixel Analysis & Hard Chlorophyll Gate (Prevent false alarms on healthy leaves)
+    # Chlorophyll & Lesion Pixel Analysis
     r_chan, g_chan, b_chan = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
     healthy_green = (g_chan > r_chan * 1.15) & (g_chan > b_chan * 1.15) & (g_chan > 38)
     necrotic_lesions = (r_chan >= 40) & (r_chan <= 140) & (g_chan >= 25) & (g_chan <= 100) & (b_chan >= 10) & (b_chan <= 60) & (r_chan > g_chan * 1.08)
@@ -248,7 +248,7 @@ if uploaded_file is not None and models_ready:
     green_ratio = float(np.sum(healthy_green)) / total_pixels
     lesion_ratio = float(np.sum(necrotic_lesions)) / total_pixels
 
-    # Tomato Leaf Miner / Out-of-Scope check
+    # Tomato / Out-of-Scope check
     gray_arr = np.array(resized_img.convert('L'), dtype=np.float32)
     white_trails = float(np.sum(gray_arr > 215)) / total_pixels
 
@@ -271,7 +271,7 @@ if uploaded_file is not None and models_ready:
         </div>
         """, unsafe_allow_html=True)
     else:
-        # Crop Assignment
+        # Crop Selection
         if "बटाटा" in crop_mode:
             selected_crop = "potato"
         elif "कापूस" in crop_mode:
@@ -292,7 +292,7 @@ if uploaded_file is not None and models_ready:
             else:
                 selected_crop = "cotton"
 
-        # Deterministic Healthy vs Disease Resolution
+        # Healthy Gate (Leaves with <2.5% lesion and green dominance are forced healthy)
         is_clean_healthy = bool(green_ratio > 0.45 and lesion_ratio < 0.025)
 
         if selected_crop == "potato":
@@ -415,31 +415,24 @@ if uploaded_file is not None and models_ready:
         </div>
         """, unsafe_allow_html=True)
 
-        # 100% सुरक्षित टेक्स्ट रिपोर्ट (Clean Download Report)
-        report_text = f"""===========================================
-कृषी-AI : स्मार्ट पीक रोग निदान अहवाल
-Avishkar Research Convention 2026
-===========================================
-पीक: {crop_name}
-निदान: {diagnosed_label}
-विश्वास गुण (Confidence): {final_conf:.1f}%
-तीव्रता (Severity): {sev_text}
-
-[रासायनिक उपचार]
-औषध: {info['fertilizer']}
-प्रमाण: {info['dose']}
-
-[जैविक उपाय]
-घटक: {info['bio']}
-सूचना: {info['tips']}
-
-[१५ दिवसांचे फवारणी वेळापत्रक]
-दिवस १ (आज): बाधित पाने वेगळी करा व शिफारसीनुसार पहिली फवारणी करा.
-दिवस ८: {info['day7']}
-दिवस १५: {info['day15']}
-===========================================
-टीप: औषध वापरण्यापूर्वी स्थानिक कृषी तज्ज्ञांचा सल्ला घ्यावा.
-"""
+        # Download Report Section
+        summary_report = (
+            "कृषी-AI : पीक रोग निदान अहवाल\n"
+            f"पीक: {crop_name}\n"
+            f"निदान: {diagnosed_label}\n"
+            f"विश्वास गुण: {final_conf:.1f}%\n"
+            f"तीव्रता: {sev_text}\n"
+            f"औषध: {info['fertilizer']}\n"
+            f"प्रमाण: {info['dose']}\n"
+            f"जैविक उपाय: {info['bio']}\n"
+            f"वेळापत्रक दिवस ८: {info['day7']}\n"
+            f"वेळापत्रक दिवस १५: {info['day15']}\n"
+        )
 
         st.download_button(
-            label="📥 निद
+            label="Download Report",
+            data=summary_report,
+            file_name=f"report_{selected_crop}.txt",
+            mime="text/plain"
+        )
+        
