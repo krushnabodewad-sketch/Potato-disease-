@@ -5,7 +5,7 @@ import numpy as np
 import streamlit.components.v1 as components
 
 # 1. Page Config
-st.set_page_config(page_title="Krushi-AI : Smart Agro Diagnostics", page_icon="🌿", layout="wide")
+st.set_page_config(page_title="कृषी-AI : Smart Agro Diagnostics", page_icon="🌿", layout="wide")
 
 # 2. Styling
 st.markdown("""
@@ -102,7 +102,7 @@ TREATMENTS = {
     'Potato Late Blight (बटाटा उशिरा करपा)': {
         'crop': 'बटाटा · Potato',
         'severity': 'तीव्र / हाय रिस्क (High Risk)',
-        'fertilizer': 'Cymoxanil 8% + Mancozeb 64% WP (Curzate) / Metalaxyl 8% + Mancozeb 64% WP',
+        'fertilizer': 'Cymoxanil 8% + Mancozeb 64% WP (Curzate) / Ridomil Gold',
         'dose': '२.५ ग्रॅम प्रति लिटर पाणी (१५ लिटर पंपासाठी ३५-४० ग्रॅम)',
         'bio': 'स्यूडोमोनास फ्लुओरेसेन्स ५ मिली प्रति लिटर पाणी.',
         'tips': 'धुक्याच्या वातावरणात पाणी देणे टाळावे व झाडांच्या बुंध्याशी हवा खेळती ठेवावी.',
@@ -245,12 +245,12 @@ if uploaded_file is not None and models_ready:
     necrotic_lesions = (r_chan >= 40) & (r_chan <= 140) & (g_chan >= 25) & (g_chan <= 100) & (b_chan >= 10) & (b_chan <= 60) & (r_chan > g_chan * 1.08)
     total_pixels = 224 * 224
 
-    green_ratio = np.sum(healthy_green) / total_pixels
-    lesion_ratio = np.sum(necrotic_lesions) / total_pixels
+    green_ratio = float(np.sum(healthy_green)) / total_pixels
+    lesion_ratio = float(np.sum(necrotic_lesions)) / total_pixels
 
     # Tomato Leaf Miner / Out-of-Scope check
     gray_arr = np.array(resized_img.convert('L'), dtype=np.float32)
-    white_trails = np.sum(gray_arr > 215) / total_pixels
+    white_trails = float(np.sum(gray_arr > 215)) / total_pixels
 
     is_out_of_scope = False
     if crop_mode == "🤖 ऑटो-डिटेक्ट (Auto-Detect Mode)":
@@ -293,15 +293,14 @@ if uploaded_file is not None and models_ready:
                 selected_crop = "cotton"
 
         # Deterministic Healthy vs Disease Resolution
-        # If green dominance is high and lesions < 2.5%, force healthy diagnosis
-        is_clean_healthy = (green_ratio > 0.45 and lesion_ratio < 0.025)
+        is_clean_healthy = bool(green_ratio > 0.45 and lesion_ratio < 0.025)
 
         if selected_crop == "potato":
             crop_name = "🥔 बटाटा (Potato Leaf)"
             current_classes = POTATO_CLASSES
             current_preds = preds_p
             if is_clean_healthy:
-                diagnosed_label = POTATO_CLASSES[2] # Healthy
+                diagnosed_label = POTATO_CLASSES[2]
                 final_conf = 96.5
             else:
                 diagnosed_label = POTATO_CLASSES[idx_p]
@@ -311,7 +310,7 @@ if uploaded_file is not None and models_ready:
             current_classes = COTTON_CLASSES
             current_preds = preds_c
             if is_clean_healthy:
-                diagnosed_label = COTTON_CLASSES[2] # Fresh Cotton Leaf
+                diagnosed_label = COTTON_CLASSES[2]
                 final_conf = 95.8
             else:
                 diagnosed_label = COTTON_CLASSES[idx_c]
@@ -321,7 +320,7 @@ if uploaded_file is not None and models_ready:
             current_classes = SOYBEAN_CLASSES
             current_preds = preds_s
             if is_clean_healthy:
-                diagnosed_label = SOYBEAN_CLASSES[2] # Healthy
+                diagnosed_label = SOYBEAN_CLASSES[2]
                 final_conf = 97.2
             else:
                 diagnosed_label = SOYBEAN_CLASSES[idx_s]
@@ -332,7 +331,7 @@ if uploaded_file is not None and models_ready:
         sev_cls = 'sev-healthy' if 'सुरक्षित' in sev_text else ('sev-mod' if 'मध्यम' in sev_text else 'sev-crit')
 
         # Weather Card
-        st.markdown(f"""
+        st.markdown("""
         <div class="weather-card">
             <div style="font-weight: 800; font-size: 0.9rem; margin-bottom: 4px;">🌤️ प्रादेशिक हवामान आणि रोग जोखीम (Weather Correlation)</div>
             <div style="font-size: 0.88rem; line-height: 1.5;">
@@ -407,32 +406,40 @@ if uploaded_file is not None and models_ready:
             </div>
             """, unsafe_allow_html=True)
 
-        # Schedule Timeline & Printable HTML Report Download
-        report_html = f"""<!doctype html>
-<html lang="mr">
-<head>
-<meta charset="utf-8">
-<title>कृषी-AI निदान अहवाल</title>
-<style>
-body {{ font-family: Arial, sans-serif; color: #173a2f; max-width: 760px; margin: 30px auto; padding: 20px; }}
-header {{ border-bottom: 3px solid #059669; padding-bottom: 12px; }}
-h1 {{ margin: 0; color: #064E3B; font-size: 22px; }}
-table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
-td {{ padding: 10px; border-bottom: 1px solid #e2e8f0; font-size: 14px; }}
-td:first-child {{ font-weight: bold; width: 30%; background: #f8fafc; }}
-.schedule {{ background: #f0fdf4; padding: 15px; border-radius: 8px; margin-top: 15px; }}
-@media print {{ button {{ display: none; }} }}
-</style>
-</head>
-<body>
-<header>
-  <h1>कृषी—AI पीक निदान अहवाल</h1>
-  <small>Avishkar Research Convention 2026</small>
-</header>
-<table>
-  <tr><td>पीक</td><td>{crop_name}</td></tr>
-  <tr><td>निदान</td><td>{diagnosed_label}</td></tr>
-  <tr><td>विश्वास गुण</td><td>{final_conf:.1f}%</td></tr>
-  <tr><td>तीव्रता</td><td>{sev_text}</td></tr>
-  <tr><td>रासायनिक उपचार</td><td>{info['fertilizer']}</td></tr>
-  <tr><td>प्रमाण</td><td>{in
+        st.markdown(f"""
+        <div class="kai-card">
+            <h4 style="margin:0 0 10px 0; color:#064e3b;">📅 पुढील फवारणी व काळजी वेळापत्रक (Treatment Timeline):</h4>
+            <div class="schedule-box"><b>दिवस १ (आज):</b> वरील शिफारसीत रासायनिक/जैविक घटकांची तातडीने फवारणी करा.</div>
+            <div class="schedule-box"><b>दिवस ८ (८ दिवसांनी):</b> {info['day7']}</div>
+            <div class="schedule-box"><b>दिवस १५ (१५ दिवसांनी):</b> {info['day15']}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # 100% सुरक्षित टेक्स्ट रिपोर्ट (Clean Download Report)
+        report_text = f"""===========================================
+कृषी-AI : स्मार्ट पीक रोग निदान अहवाल
+Avishkar Research Convention 2026
+===========================================
+पीक: {crop_name}
+निदान: {diagnosed_label}
+विश्वास गुण (Confidence): {final_conf:.1f}%
+तीव्रता (Severity): {sev_text}
+
+[रासायनिक उपचार]
+औषध: {info['fertilizer']}
+प्रमाण: {info['dose']}
+
+[जैविक उपाय]
+घटक: {info['bio']}
+सूचना: {info['tips']}
+
+[१५ दिवसांचे फवारणी वेळापत्रक]
+दिवस १ (आज): बाधित पाने वेगळी करा व शिफारसीनुसार पहिली फवारणी करा.
+दिवस ८: {info['day7']}
+दिवस १५: {info['day15']}
+===========================================
+टीप: औषध वापरण्यापूर्वी स्थानिक कृषी तज्ज्ञांचा सल्ला घ्यावा.
+"""
+
+        st.download_button(
+            label="📥 निद
