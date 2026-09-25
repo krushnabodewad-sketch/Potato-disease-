@@ -292,7 +292,7 @@ if uploaded_file is not None and models_ready:
             else:
                 selected_crop = "cotton"
 
-        # Healthy Gate (Chlorophyll Dominance Check)
+        # Healthy Gate (Leaves with <2.5% lesion and green dominance are forced healthy)
         is_clean_healthy = bool(green_ratio > 0.45 and lesion_ratio < 0.025)
 
         if selected_crop == "potato":
@@ -415,23 +415,25 @@ if uploaded_file is not None and models_ready:
         </div>
         """, unsafe_allow_html=True)
 
-        # Clean UTF-8-SIG Encoded Report (No garbled text)
-        clean_report = (
-            "===========================================\n"
-            "कृषी-AI : स्मार्ट पीक रोग निदान अहवाल\n"
-            "Avishkar Research Convention 2026\n"
-            "===========================================\n\n"
-            f"पीक: {crop_name}\n"
-            f"निदान: {diagnosed_label}\n"
-            f"विश्वास गुण: {final_conf:.1f}%\n"
-            f"तीव्रता: {sev_text}\n\n"
-            f"[रासायनिक उपचार]\n"
-            f"औषध: {info['fertilizer']}\n"
-            f"प्रमाण: {info['dose']}\n\n"
-            f"[सेंद्रिय उपाय]\n"
-            f"घटक: {info['bio']}\n"
-            f"सूचना: {info['tips']}\n\n"
-            f"[१५ दिवसांचे वेळापत्रक]\n"
-            f"दिवस १: बाधित पाने वेगळी करा व पहिली फवारणी करा.\n"
-            f"दिवस ८: {info['day7']}\n"
+        # Safe Single-Line UTF-8 Report Generator
+        lines = [
+            "===========================================",
+            "कृषी-AI : स्मार्ट पीक रोग निदान अहवाल",
+            "Avishkar Research Convention 2026",
+            "===========================================",
+            f"पीक: {crop_name}",
+            f"निदान: {diagnosed_label}",
+            f"विश्वास गुण: {final_conf:.1f}%",
+            f"तीव्रता: {sev_text}",
+            "",
+            "[रासायनिक उपचार]",
+            f"औषध: {info['fertilizer']}",
+            f"प्रमाण: {info['dose']}",
+            "",
+            "[सेंद्रिय उपाय]",
+            f"घटक: {info['bio']}",
+            f"सूचना: {info['tips']}",
+            "",
+            "[१५ दिवसांचे वेळापत्रक]",
+            "दिवस १: बाधित पाने वेगळी करा व पहिली फवारणी करा.",
             
