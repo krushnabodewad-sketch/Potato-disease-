@@ -1,4 +1,5 @@
 import streamlit as st
+import json
 import tensorflow as tf
 from PIL import Image
 import numpy as np
@@ -453,4 +454,4 @@ if uploaded_file is not None and models_ready:
     # Chlorophyll & Lesion Pixel Analysis
     r_chan, g_chan, b_chan = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
     healthy_green = (g_chan > r_chan * 1.15) & (g_chan > b_chan * 1.15) & (g_chan > 38)
-    necrotic_lesions = (r_chan >= 40) & (r_chan <
+    necrotic_lesions = (r_chan >= 40)
