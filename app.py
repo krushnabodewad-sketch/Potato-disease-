@@ -1,4 +1,4 @@
-Import streamlit as st
+import streamlit as st
 import json
 import tensorflow as tf
 from PIL import Image
