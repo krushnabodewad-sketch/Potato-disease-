@@ -220,7 +220,7 @@ if uploaded_file is not None and models_ready:
     resized_img = img.resize((224, 224))
     arr = np.array(resized_img, dtype=np.float32)
 
-    # Predictions
+    # Model Predictions
     preds_p = potato_model(np.expand_dims(arr, axis=0), training=False).numpy()[0]
     if np.sum(preds_p) > 1.05 or np.sum(preds_p) < 0.95:
         preds_p = tf.nn.softmax(preds_p).numpy()
@@ -415,25 +415,19 @@ if uploaded_file is not None and models_ready:
         </div>
         """, unsafe_allow_html=True)
 
-        # Safe Single-Line UTF-8 Report Generator
-        lines = [
-            "===========================================",
-            "कृषी-AI : स्मार्ट पीक रोग निदान अहवाल",
-            "Avishkar Research Convention 2026",
-            "===========================================",
-            f"पीक: {crop_name}",
-            f"निदान: {diagnosed_label}",
-            f"विश्वास गुण: {final_conf:.1f}%",
-            f"तीव्रता: {sev_text}",
-            "",
-            "[रासायनिक उपचार]",
-            f"औषध: {info['fertilizer']}",
-            f"प्रमाण: {info['dose']}",
-            "",
-            "[सेंद्रिय उपाय]",
-            f"घटक: {info['bio']}",
-            f"सूचना: {info['tips']}",
-            "",
-            "[१५ दिवसांचे वेळापत्रक]",
-            "दिवस १: बाधित पाने वेगळी करा व पहिली फवारणी करा.",
-            
+        # Safe Single-Line UTF-8 Report Generator (No multiline bracket syntax)
+        report_text = "कृषी-AI : स्मार्ट पीक रोग निदान अहवाल\n"
+        report_text += f"पीक: {crop_name}\nनिदान: {diagnosed_label}\nविश्वास गुण: {final_conf:.1f}%\nतीव्रता: {sev_text}\n\n"
+        report_text += f"रासायनिक औषध: {info['fertilizer']}\nप्रमाण: {info['dose']}\n\n"
+        report_text += f"सेंद्रिय उपाय: {info['bio']}\nसूचना: {info['tips']}\n\n"
+        report_text += f"दिवस ८ वेळापत्रक: {info['day7']}\nदिवस १५ वेळापत्रक: {info['day15']}\n"
+
+        st.download_button(
+            label="Download Report",
+            data=report_text.encode("utf-8-sig"),
+            file_name=f"krushi_report_{selected_crop}.txt",
+            mime="text/plain; charset=utf-8"
+        )
+
+# ==========================================
+# EN
