@@ -11,7 +11,7 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="कृषी-AI : Smart Agro Diagnostics", page_icon="🌿", layout="wide")
 
 # ==========================================
-# 2. SESSION STATE (for "Try Another Sample" reset)
+# 2. SESSION STATE
 # ==========================================
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
@@ -33,14 +33,9 @@ html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', 'Mukta', sans-ser
 
 /* ---------- HERO ---------- */
 .kai-hero {
-    background: linear-gradient(135deg, #064E3B 0%, #0B6B52 55%, #059669 100%);
-    border-radius: 22px;
-    padding: 1.8rem 2rem;
-    margin-bottom: 1.4rem;
-    color: #ffffff;
-    box-shadow: 0 12px 30px rgba(6,78,59,0.25);
-    position: relative;
-    overflow: hidden;
+    background: linear-gradient(135deg, #052e22 0%, #065f46 45%, #10b981 100%);
+    border-radius: 24px; padding: 2rem 2.2rem; box-shadow: 0 20px 40px rgba(6,78,59,0.30);
+    margin-bottom: 1.4rem; color: #ffffff; position: relative; overflow: hidden;
 }
 .kai-hero::after {
     content: "";
@@ -55,12 +50,8 @@ html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', 'Mukta', sans-ser
     padding: 5px 12px; border-radius: 999px; margin-bottom: 10px;
     text-transform: uppercase;
 }
-.kai-hero h1 {
-    margin: 0; font-size: 1.85rem; font-weight: 800; line-height: 1.25;
-}
-.kai-hero p.sub {
-    margin: 6px 0 0 0; font-size: 0.95rem; color: #D1FAE5; font-weight: 500;
-}
+.kai-hero h1 { margin: 0; font-size: 2.05rem; font-weight: 800; line-height: 1.25; letter-spacing: -0.3px; }
+.kai-hero p.sub { margin: 6px 0 0 0; font-size: 0.95rem; color: #D1FAE5; font-weight: 500; }
 .kai-hero .chips { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
 .kai-chip {
     font-size: 12px; font-weight: 700; background: rgba(255,255,255,0.12);
@@ -70,12 +61,13 @@ html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', 'Mukta', sans-ser
 
 /* ---------- CARDS ---------- */
 .kai-card {
-    background: #ffffff; border: 1px solid #E2E8F0; border-radius: 18px;
-    padding: 1.3rem 1.4rem; box-shadow: 0 4px 18px rgba(15,23,42,0.05);
-    margin-bottom: 1rem;
+    background: #ffffff; border: 1px solid #E2E8F0; border-radius: 20px;
+    padding: 1.3rem 1.4rem; box-shadow: 0 6px 24px rgba(15,23,42,0.06);
+    margin-bottom: 1rem; transition: box-shadow 0.2s ease;
 }
+.kai-card:hover { box-shadow: 0 10px 30px rgba(15,23,42,0.10); }
 .kai-card-title {
-    font-size: 0.78rem; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase;
+    font-size: 0.8rem; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase;
     color: #059669; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
 }
 .placeholder-card {
@@ -88,32 +80,38 @@ html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', 'Mukta', sans-ser
 /* ---------- PILLS & TAGS ---------- */
 .kai-pill {
     display: inline-block; padding: 6px 14px; border-radius: 999px;
-    font-size: 0.85rem; font-weight: 700; background: #D1FAE5; color: #064E3B; margin: 0 8px 6px 0;
+    font-size: 0.85rem; font-weight: 700; background: #D1FAE5; color: #064E3B;
+    margin: 0 8px 6px 0; box-shadow: 0 2px 6px rgba(6,78,59,0.08);
 }
 .kai-pill-dark { background: #064E3B; color: #ffffff; }
 .sev-tag {
     display: inline-block; padding: 6px 14px; border-radius: 10px; font-weight: 800;
-    margin-top: 6px; font-size: 0.85rem;
+    margin-top: 6px; font-size: 0.85rem; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.04);
 }
 .sev-healthy { background: #DCFCE7; color: #15803D; }
 .sev-mod { background: #FEF3C7; color: #B45309; }
 .sev-crit { background: #FEE2E2; color: #B91C1C; }
 
 /* ---------- CONFIDENCE METER ---------- */
-.conf-big { font-size: 2.5rem; font-weight: 800; color: #064E3B; margin-top: 12px; line-height: 1; }
+.conf-big {
+    font-size: 2.5rem; font-weight: 800; margin-top: 12px; line-height: 1;
+    background: linear-gradient(90deg, #064E3B, #10B981);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
 .conf-label { font-size: 12px; color: #64748B; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; }
 .conf-track { background: #E2E8F0; border-radius: 999px; height: 10px; width: 100%; margin-top: 10px; overflow: hidden; }
-.conf-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #059669, #10B981); }
+.conf-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #059669, #10B981); box-shadow: 0 0 10px rgba(16,185,129,0.4); }
 
 /* ---------- TREATMENT CARDS ---------- */
 .adv-chem {
     background: #FFFBEB; border: 1px solid #FDE68A; border-left: 5px solid #D97706;
-    padding: 1.1rem 1.2rem; border-radius: 14px; height: 100%;
+    padding: 1.1rem 1.2rem; border-radius: 14px; height: 100%; transition: transform 0.15s ease;
 }
 .adv-bio {
     background: #ECFDF5; border: 1px solid #A7F3D0; border-left: 5px solid #059669;
-    padding: 1.1rem 1.2rem; border-radius: 14px; height: 100%;
+    padding: 1.1rem 1.2rem; border-radius: 14px; height: 100%; transition: transform 0.15s ease;
 }
+.adv-chem:hover, .adv-bio:hover { transform: translateY(-2px); }
 .adv-chem h4, .adv-bio h4 { margin: 0 0 8px 0; font-size: 0.95rem; }
 .adv-chem p, .adv-bio p { margin: 0 0 5px 0; font-size: 0.9rem; color: #334155; }
 .adv-chem small, .adv-bio small { color: #64748B; font-size: 0.8rem; line-height: 1.5; }
@@ -121,7 +119,7 @@ html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', 'Mukta', sans-ser
 /* ---------- WEATHER CARD ---------- */
 .weather-card {
     background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%);
-    border: 1px solid #BFDBFE; border-radius: 16px;
+    border: 1px solid #BFDBFE; border-radius: 18px;
     padding: 1.1rem 1.3rem; margin-bottom: 1rem; color: #1E3A8A;
 }
 .weather-card .wtitle { font-weight: 800; font-size: 0.88rem; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
@@ -137,7 +135,7 @@ html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', 'Mukta', sans-ser
 .timeline-dot {
     flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px;
     background: #064E3B; color: #ffffff; font-weight: 800; font-size: 0.8rem;
-    display: flex; align-items: center; justify-content: center;
+    display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(6,78,59,0.18);
 }
 .timeline-body b { color: #0F172A; font-size: 0.88rem; }
 .timeline-body div { color: #475569; font-size: 0.85rem; margin-top: 2px; line-height: 1.5; }
@@ -153,11 +151,10 @@ html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', 'Mukta', sans-ser
 }
 
 /* ---------- WIDGET OVERRIDES ---------- */
-.stSelectbox > div > div, .stFileUploader, .stCameraInput {
-    border-radius: 14px !important;
-}
+.stSelectbox > div > div, .stFileUploader, .stCameraInput { border-radius: 14px !important; }
 div[data-testid="stFileUploaderDropzone"] {
-    border-radius: 14px !important; border: 1.5px dashed #A7F3D0 !important; background: #F8FAFC !important;
+    border-radius: 14px !important; border: 1.5px dashed #A7F3D0 !important;
+    background: #F8FAFC !important; padding: 1.6rem !important;
 }
 .stButton>button, .stDownloadButton>button {
     border-radius: 12px !important; font-weight: 700 !important; padding: 0.6rem 1.2rem !important;
@@ -174,39 +171,12 @@ div[data-testid="stFileUploaderDropzone"] {
     color: #94A3B8; margin: 4px 0 8px 2px;
 }
 
-/* ---------- UI POLISH ---------- */
-.kai-hero {
-    background: linear-gradient(135deg, #052e22 0%, #065f46 45%, #10b981 100%);
-    border-radius: 24px; padding: 2rem 2.2rem; box-shadow: 0 20px 40px rgba(6,78,59,0.30);
-}
-.kai-hero h1 { font-size: 2.05rem; letter-spacing: -0.3px; }
-.kai-card {
-    border-radius: 20px; border: 1px solid #E2E8F0;
-    box-shadow: 0 6px 24px rgba(15,23,42,0.06); transition: box-shadow 0.2s ease;
-}
-.kai-card:hover { box-shadow: 0 10px 30px rgba(15,23,42,0.10); }
-.kai-card-title { font-size: 0.8rem; letter-spacing: 0.8px; }
-.kai-pill { box-shadow: 0 2px 6px rgba(6,78,59,0.08); }
-.sev-tag { box-shadow: inset 0 0 0 1px rgba(0,0,0,0.04); }
-.conf-big { background: linear-gradient(90deg, #064E3B, #10B981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.conf-fill { box-shadow: 0 0 10px rgba(16,185,129,0.4); }
-.adv-chem, .adv-bio { transition: transform 0.15s ease; }
-.adv-chem:hover, .adv-bio:hover { transform: translateY(-2px); }
-.timeline-dot { box-shadow: 0 4px 10px rgba(6,78,59,0.18); }
-.weather-card { border-radius: 18px; }
-div[data-testid="stFileUploaderDropzone"] { padding: 1.6rem !important; }
 @media (max-width: 640px) {
-    .kai-hero { padding: 1.4rem 1.2rem; }
+    .kai-hero { padding: 1.4rem 1.2rem; border-radius: 18px; }
     .kai-hero h1 { font-size: 1.35rem; }
-    .block-container { padding-left: 0.8rem; padding-right: 0.8rem; }
-}
-
-/* ---------- RESPONSIVE ---------- */
-@media (max-width: 640px) {
-    .kai-hero { padding: 1.3rem 1.2rem; border-radius: 18px; }
-    .kai-hero h1 { font-size: 1.3rem; }
     .kai-card { padding: 1rem; border-radius: 16px; }
     .conf-big { font-size: 2rem; }
+    .block-container { padding-left: 0.8rem; padding-right: 0.8rem; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -229,7 +199,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 5. MODEL LOADING (UNCHANGED)
+# 5. MODEL LOADING
 # ==========================================
 @st.cache_resource
 def load_all_models():
@@ -421,7 +391,7 @@ with col_right:
         """, unsafe_allow_html=True)
 
 # ==========================================
-# 7. ANALYSIS ENGINE (LOGIC UNCHANGED)
+# 7. ANALYSIS ENGINE
 # ==========================================
 is_out_of_scope = False
 diagnosed_label = None
@@ -432,7 +402,7 @@ if uploaded_file is not None and models_ready:
     resized_img = img.resize((224, 224))
     arr = np.array(resized_img, dtype=np.float32)
 
-    # Model Predictions
+    # Predictions
     preds_p = potato_model(np.expand_dims(arr, axis=0), training=False).numpy()[0]
     if np.sum(preds_p) > 1.05 or np.sum(preds_p) < 0.95:
         preds_p = tf.nn.softmax(preds_p).numpy()
@@ -454,4 +424,23 @@ if uploaded_file is not None and models_ready:
     # Chlorophyll & Lesion Pixel Analysis
     r_chan, g_chan, b_chan = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
     healthy_green = (g_chan > r_chan * 1.15) & (g_chan > b_chan * 1.15) & (g_chan > 38)
-    necrotic_lesions = (r_chan >= 40)
+    necrotic_lesions = (r_chan >= 40) & (r_chan <= 140) & (g_chan >= 25) & (g_chan <= 100) & (b_chan >= 10) & (b_chan <= 60) & (r_chan > g_chan * 1.08)
+    total_pixels = 224 * 224
+
+    green_ratio = float(np.sum(healthy_green)) / total_pixels
+    lesion_ratio = float(np.sum(necrotic_lesions)) / total_pixels
+
+    # Tomato / Out-of-Scope check
+    gray_arr = np.array(resized_img.convert('L'), dtype=np.float32)
+    white_trails = float(np.sum(gray_arr > 215)) / total_pixels
+
+    if crop_mode == "🤖 ऑटो-डिटेक्ट (Auto-Detect Mode)":
+        if white_trails > 0.05 and lesion_ratio < 0.02:
+            is_out_of_scope = True
+
+    if is_out_of_scope:
+        with col_right:
+            st.markdown("""
+            <div class="oos-card">
+                <div class="oos-tag">⚠️ अनोळखी पीक / OUT OF SCOPE PLANT</div>
+                <h3 style="color:#991B1B; margin:6px 0;"
