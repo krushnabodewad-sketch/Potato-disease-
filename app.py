@@ -34,19 +34,17 @@ def reset_sample():
     st.session_state.uploader_key += 1
 
 # ==========================================
-# 3. CYBER-AGRI / SCI-FI HUD STYLING (UI)
+# 3. REALISTIC BOTANICAL FROSTED-GLASS STYLING (UI)
 # ==========================================
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Mukta:wght@500;600;700&display=swap');
 
 :root {
-    --bg-deep: #0B0F19;
-    --bg-deep-2: #051311;
-    --panel: rgba(15, 23, 42, 0.55);
-    --panel-strong: rgba(10, 18, 32, 0.72);
-    --glass-border: rgba(16, 185, 129, 0.22);
-    --glass-border-strong: rgba(16, 185, 129, 0.45);
+    --panel: rgba(13, 34, 25, 0.70);
+    --panel-strong: rgba(8, 24, 17, 0.80);
+    --glass-border: rgba(52, 211, 153, 0.3);
+    --glass-border-strong: rgba(52, 211, 153, 0.55);
     --neon: #10B981;
     --neon-soft: rgba(16, 185, 129, 0.18);
     --neon-bright: #34D399;
@@ -54,23 +52,17 @@ st.markdown("""
     --amber-soft: rgba(245, 158, 11, 0.16);
     --red: #F43F5E;
     --red-soft: rgba(244, 63, 94, 0.16);
-    --text-main: #E5F3EC;
-    --text-dim: #8FA6A0;
+    --text-main: #F1F5F9;
+    --text-dim: #A9C2B8;
     --mono: 'JetBrains Mono', 'Space Grotesk', monospace;
     --tech: 'Space Grotesk', 'Mukta', sans-serif;
 }
 
 html, body, [class*="css"] { font-family: var(--tech); color: var(--text-main); }
 
-/* ---------- BASE / BACKGROUND ---------- */
+/* ---------- BASE / REALISTIC BOTANICAL BACKGROUND ---------- */
 .stApp {
-    background:
-        radial-gradient(circle at 15% 0%, rgba(16,185,129,0.10) 0%, transparent 45%),
-        radial-gradient(circle at 100% 20%, rgba(16,185,129,0.06) 0%, transparent 40%),
-        repeating-linear-gradient(0deg, rgba(16,185,129,0.035) 0px, rgba(16,185,129,0.035) 1px, transparent 1px, transparent 42px),
-        repeating-linear-gradient(90deg, rgba(16,185,129,0.035) 0px, rgba(16,185,129,0.035) 1px, transparent 1px, transparent 42px),
-        linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-deep-2) 100%);
-    background-attachment: fixed;
+    background: linear-gradient(135deg, rgba(6, 26, 18, 0.90) 0%, rgba(3, 15, 10, 0.94) 100%), url('https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?auto=format&fit=crop&w=1920&q=80') center/cover fixed no-repeat !important;
 }
 #MainMenu, footer, header { visibility: hidden; }
 .block-container { padding-top: 1rem; max-width: 1080px; }
@@ -83,33 +75,37 @@ h1, h2, h3, h4, h5, h6, p, span, label, li, div[data-testid="stMarkdownContainer
 /* ---------- HERO / BRAND HEADER ---------- */
 .k-hero {
     position: relative;
-    background: linear-gradient(135deg, rgba(6,78,59,0.55) 0%, rgba(4,20,18,0.85) 70%);
+    background: rgba(13, 34, 25, 0.75);
     border: 1px solid var(--glass-border-strong);
     border-radius: 20px;
     padding: 1.4rem 1.6rem;
     color: #fff;
     margin-bottom: 1.2rem;
-    backdrop-filter: blur(18px);
-    box-shadow: 0 0 40px rgba(16,185,129,0.12), inset 0 0 60px rgba(16,185,129,0.04);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 0 40px rgba(16,185,129,0.18), inset 0 0 60px rgba(16,185,129,0.05);
     overflow: hidden;
 }
-.k-hero::before {
-    content: "";
-    position: absolute; inset: 0;
-    background: repeating-linear-gradient(115deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 2px, transparent 2px, transparent 6px);
-    pointer-events: none;
-}
-.k-hero-top { display: flex; align-items: center; gap: 16px; position: relative; z-index: 1; }
+.k-hero-top { display: flex; align-items: center; gap: 18px; position: relative; z-index: 1; }
 .k-logo-wrap {
     flex-shrink: 0;
-    width: 58px; height: 58px;
-    display: flex; align-items: center; justify-content: center;
-    filter: drop-shadow(0 0 10px rgba(52,211,153,0.75));
-    animation: logoPulse 3.2s ease-in-out infinite;
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    padding: 3px;
+    background: conic-gradient(from 0deg, #10B981, #6EE7B7, #10B981);
+    box-shadow: 0 0 18px rgba(52,211,153,0.55), 0 0 40px rgba(16,185,129,0.25);
+    animation: ringGlow 3.5s ease-in-out infinite;
 }
-@keyframes logoPulse {
-    0%, 100% { filter: drop-shadow(0 0 6px rgba(52,211,153,0.55)); }
-    50% { filter: drop-shadow(0 0 16px rgba(52,211,153,0.95)); }
+.k-logo-wrap img {
+    width: 100%; height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+    border: 2px solid rgba(8,24,17,0.9);
+}
+@keyframes ringGlow {
+    0%, 100% { box-shadow: 0 0 14px rgba(52,211,153,0.45), 0 0 30px rgba(16,185,129,0.18); }
+    50% { box-shadow: 0 0 22px rgba(52,211,153,0.85), 0 0 50px rgba(16,185,129,0.35); }
 }
 .k-hero-kicker {
     font-family: var(--mono); font-size: 11px; font-weight: 700; color: #6EE7B7;
@@ -123,32 +119,33 @@ h1, h2, h3, h4, h5, h6, p, span, label, li, div[data-testid="stMarkdownContainer
     text-shadow: 0 0 30px rgba(16,185,129,0.35);
 }
 .k-hero-title span { color: #34D399; opacity: 0.7; }
-.k-hero-sub { font-size: 0.88rem; color: #B8E6D3; margin-top: 4px; font-family: var(--mono); }
+.k-hero-sub { font-size: 0.88rem; color: #C9E9D8; margin-top: 4px; font-family: var(--mono); }
 .k-status-row { position: relative; z-index: 1; margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
 .k-status-badge {
     font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 1px;
     padding: 5px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.15);
-    background: rgba(255,255,255,0.04);
+    background: rgba(255,255,255,0.05);
 }
-.k-status-on { color: #6EE7B7; border-color: rgba(110,231,183,0.4); box-shadow: 0 0 12px rgba(16,185,129,0.35); }
+.k-status-on { color: #6EE7B7; border-color: rgba(110,231,183,0.4); box-shadow: 0 0 12px rgba(16,185,129,0.3); }
 .k-status-core { color: #93C5FD; border-color: rgba(147,197,253,0.35); }
 .k-status-net { color: #FCD34D; border-color: rgba(252,211,77,0.35); }
 
-/* ---------- GLASS CARDS ---------- */
+/* ---------- FROSTED LEAF-GLASS CARDS ---------- */
 .k-card {
-    background: var(--panel);
-    border: 1px solid var(--glass-border);
+    background: rgba(13, 34, 25, 0.70) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border: 1px solid rgba(52, 211, 153, 0.3) !important;
+    color: #F1F5F9;
     border-radius: 18px;
     padding: 1.25rem;
     margin-bottom: 1rem;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    box-shadow: 0 4px 25px rgba(0,0,0,0.35);
+    box-shadow: 0 4px 25px rgba(0,0,0,0.45);
     transition: box-shadow 0.25s ease, border-color 0.25s ease;
 }
 .k-card:hover {
-    border-color: var(--glass-border-strong);
-    box-shadow: 0 0 25px rgba(16,185,129,0.15), 0 4px 25px rgba(0,0,0,0.35);
+    border-color: var(--glass-border-strong) !important;
+    box-shadow: 0 0 25px rgba(16,185,129,0.18), 0 4px 25px rgba(0,0,0,0.45);
 }
 .k-card b { font-family: var(--mono); letter-spacing: 0.5px; color: #A7F3D0; }
 
@@ -159,11 +156,11 @@ h1, h2, h3, h4, h5, h6, p, span, label, li, div[data-testid="stMarkdownContainer
     margin-right: 6px; margin-bottom: 6px; letter-spacing: 0.4px;
 }
 .k-pill-crop { background: rgba(16,185,129,0.15); color: #6EE7B7; border: 1px solid rgba(16,185,129,0.4); box-shadow: 0 0 14px rgba(16,185,129,0.2); }
-.k-pill-diag { background: rgba(255,255,255,0.03); color: #D1FAE5; border: 1px solid rgba(255,255,255,0.15); }
+.k-pill-diag { background: rgba(255,255,255,0.04); color: #E2F5EA; border: 1px solid rgba(255,255,255,0.15); }
 
 .badge-verified {
     display: inline-flex; align-items: center; font-family: var(--mono);
-    background: rgba(59,130,246,0.12); color: #93C5FD;
+    background: rgba(59,130,246,0.14); color: #93C5FD;
     padding: 4px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: 700;
     margin-top: 6px; border: 1px solid rgba(147,197,253,0.35);
 }
@@ -179,81 +176,94 @@ h1, h2, h3, h4, h5, h6, p, span, label, li, div[data-testid="stMarkdownContainer
 
 /* ---------- TREATMENT / TACTICAL PANELS ---------- */
 .t-chem {
-    background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(15,23,42,0.4));
+    background: linear-gradient(135deg, rgba(245,158,11,0.10), rgba(13,34,25,0.55));
     border: 1px solid rgba(245,158,11,0.4);
     border-left: 3px solid var(--amber);
     padding: 12px 14px; border-radius: 10px; margin-bottom: 8px;
     box-shadow: 0 0 18px rgba(245,158,11,0.08);
-    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
+    color: #F1F5F9;
 }
 .t-bio {
-    background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(15,23,42,0.4));
+    background: linear-gradient(135deg, rgba(16,185,129,0.10), rgba(13,34,25,0.55));
     border: 1px solid rgba(16,185,129,0.4);
     border-left: 3px solid var(--neon);
     padding: 12px 14px; border-radius: 10px; margin-bottom: 8px;
     box-shadow: 0 0 18px rgba(16,185,129,0.08);
-    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
+    color: #F1F5F9;
 }
 
-/* ---------- WEATHER / SCHEDULE HUD ---------- */
+/* ---------- WEATHER / SCHEDULE ---------- */
 .w-box {
-    background: var(--panel-strong); border: 1px solid var(--glass-border);
+    background: rgba(13, 34, 25, 0.70); border: 1px solid rgba(52, 211, 153, 0.3);
     border-radius: 12px; padding: 12px 14px; margin-bottom: 1rem;
-    color: var(--text-main); font-size: 0.88rem; font-family: var(--mono);
-    backdrop-filter: blur(12px);
+    color: #F1F5F9; font-size: 0.88rem; font-family: var(--mono);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
 }
 .s-box {
-    background: rgba(255,255,255,0.02); border: 1px solid var(--glass-border);
+    background: rgba(13, 34, 25, 0.55); border: 1px solid rgba(52, 211, 153, 0.3);
     border-left: 3px solid var(--neon);
     border-radius: 8px; padding: 10px 14px; margin-bottom: 6px;
-    font-size: 0.9rem; font-family: var(--mono); color: #D1FAE5;
+    font-size: 0.9rem; font-family: var(--mono); color: #E2F5EA;
 }
 
-/* ---------- STREAMLIT NATIVE WIDGET OVERRIDES ---------- */
+/* ---------- STREAMLIT NATIVE WIDGET OVERRIDES (dark botanical, no harsh white) ---------- */
 div[data-testid="stSelectbox"] > div > div,
 [data-baseweb="select"] > div {
-    background-color: rgba(15,23,42,0.6) !important;
-    border: 1px solid var(--glass-border) !important;
-    color: var(--text-main) !important;
+    background-color: rgba(13, 34, 25, 0.75) !important;
+    border: 1px solid rgba(52, 211, 153, 0.3) !important;
+    color: #F1F5F9 !important;
     border-radius: 10px !important;
     font-family: var(--mono) !important;
 }
-[data-baseweb="popover"] li, [data-baseweb="menu"] li { background-color: #0B0F19 !important; color: var(--text-main) !important; }
+[data-baseweb="popover"], [data-baseweb="menu"] { background-color: rgba(8, 24, 17, 0.97) !important; }
+[data-baseweb="popover"] li, [data-baseweb="menu"] li { background-color: transparent !important; color: #F1F5F9 !important; }
+[data-baseweb="popover"] li:hover, [data-baseweb="menu"] li:hover { background-color: rgba(52,211,153,0.15) !important; }
 
 div[role="radiogroup"] { gap: 4px; }
-div[role="radiogroup"] label { color: var(--text-main) !important; font-family: var(--mono); }
+div[role="radiogroup"] label { color: #F1F5F9 !important; font-family: var(--mono); }
 
 section[data-testid="stFileUploaderDropzone"], div[data-testid="stFileUploaderDropzone"] {
-    background: rgba(15,23,42,0.5) !important;
-    border: 1.5px dashed var(--glass-border-strong) !important;
+    background: rgba(13, 34, 25, 0.65) !important;
+    border: 1.5px dashed rgba(52, 211, 153, 0.5) !important;
     border-radius: 14px !important;
 }
 section[data-testid="stFileUploaderDropzone"] *, div[data-testid="stFileUploaderDropzone"] * { color: var(--text-dim) !important; }
+section[data-testid="stFileUploaderDropzone"] button, div[data-testid="stFileUploaderDropzone"] button {
+    background: rgba(16,185,129,0.15) !important; border: 1px solid rgba(52,211,153,0.4) !important; color: #F1F5F9 !important;
+}
 
-div[data-testid="stCameraInput"] video, div[data-testid="stCameraInput"] { border-radius: 14px; border: 1px solid var(--glass-border); }
+div[data-testid="stCameraInput"] video, div[data-testid="stCameraInput"] {
+    border-radius: 14px; border: 1px solid rgba(52, 211, 153, 0.3);
+}
+div[data-testid="stCameraInput"] button {
+    background: rgba(16,185,129,0.15) !important; border: 1px solid rgba(52,211,153,0.4) !important; color: #F1F5F9 !important;
+}
 
-div[data-testid="stProgress"] > div { background-color: rgba(255,255,255,0.06) !important; border-radius: 8px; }
+div[data-testid="stProgress"] > div { background-color: rgba(255,255,255,0.08) !important; border-radius: 8px; }
 div[data-testid="stProgress"] > div > div {
     background: linear-gradient(90deg, #059669, #34D399) !important;
     box-shadow: 0 0 10px rgba(16,185,129,0.6);
 }
 
 details, [data-testid="stExpander"] {
-    background: var(--panel) !important; border: 1px solid var(--glass-border) !important;
-    border-radius: 12px !important; backdrop-filter: blur(12px);
+    background: rgba(13, 34, 25, 0.70) !important;
+    border: 1px solid rgba(52, 211, 153, 0.3) !important;
+    border-radius: 12px !important;
+    backdrop-filter: blur(14px);
 }
 details summary { color: #A7F3D0 !important; font-family: var(--mono) !important; }
 
 div[data-testid="stAlert"] {
-    background: var(--panel-strong) !important; border: 1px solid var(--glass-border) !important;
-    border-radius: 12px !important; color: var(--text-main) !important;
-    backdrop-filter: blur(12px);
+    background: rgba(13, 34, 25, 0.75) !important;
+    border: 1px solid rgba(52, 211, 153, 0.3) !important;
+    border-radius: 12px !important; color: #F1F5F9 !important;
+    backdrop-filter: blur(14px);
 }
 
 .stButton > button, .stDownloadButton > button {
-    background: rgba(16,185,129,0.08) !important;
-    border: 1px solid var(--glass-border-strong) !important;
-    color: #A7F3D0 !important;
+    background: rgba(16,185,129,0.12) !important;
+    border: 1px solid rgba(52, 211, 153, 0.5) !important;
+    color: #D1FAE5 !important;
     font-family: var(--mono) !important;
     font-weight: 700 !important;
     letter-spacing: 0.5px;
@@ -261,7 +271,7 @@ div[data-testid="stAlert"] {
     transition: all 0.2s ease;
 }
 .stButton > button:hover, .stDownloadButton > button:hover {
-    box-shadow: 0 0 20px rgba(16,185,129,0.35) !important;
+    box-shadow: 0 0 20px rgba(16,185,129,0.4) !important;
     border-color: #34D399 !important;
     color: #fff !important;
 }
@@ -270,31 +280,12 @@ div[data-testid="stAlert"] {
 </style>
 """, unsafe_allow_html=True)
 
-AGRI_LOGO_SVG = """
-<svg width="58" height="58" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="leafGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#10B981"/>
-      <stop offset="100%" stop-color="#6EE7B7"/>
-    </linearGradient>
-  </defs>
-  <path d="M50 8 C18 20, 12 56, 50 92 C88 56, 82 20, 50 8 Z" fill="none" stroke="url(#leafGrad)" stroke-width="3"/>
-  <path d="M50 14 L50 86" stroke="#34D399" stroke-width="1.2" stroke-dasharray="3 3"/>
-  <circle cx="50" cy="30" r="3.6" fill="#6EE7B7"/>
-  <circle cx="34" cy="50" r="3" fill="#6EE7B7"/>
-  <circle cx="66" cy="50" r="3" fill="#6EE7B7"/>
-  <circle cx="50" cy="72" r="3.6" fill="#6EE7B7"/>
-  <line x1="50" y1="30" x2="34" y2="50" stroke="#10B981" stroke-width="1"/>
-  <line x1="50" y1="30" x2="66" y2="50" stroke="#10B981" stroke-width="1"/>
-  <line x1="34" y1="50" x2="50" y2="72" stroke="#10B981" stroke-width="1"/>
-  <line x1="66" y1="50" x2="50" y2="72" stroke="#10B981" stroke-width="1"/>
-</svg>
-"""
-
-st.markdown(f"""
+st.markdown("""
 <div class="k-hero">
     <div class="k-hero-top">
-        <div class="k-logo-wrap">{AGRI_LOGO_SVG}</div>
+        <div class="k-logo-wrap">
+            <img src="https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?auto=format&fit=crop&w=200&h=200&q=80" alt="Agri-Tech Logo"/>
+        </div>
         <div>
             <div class="k-hero-kicker">Avishkar Research Initiative</div>
             <h2 class="k-hero-title">🌿 कृषी-AI <span>::</span> स्मार्ट पीक रोग निदान प्रणाली</h2>
@@ -536,7 +527,7 @@ if uploaded_file is not None and models_ready:
 
         a_txt = f"निदान: {c_name}, {diag}. औषध: {inf['chem']}."
         a_js = json.dumps(a_txt)
-        a_html = f'<script>function spk(){{window.speechSynthesis.cancel();var m=new SpeechSynthesisUtterance({a_js});m.lang="mr-IN";window.speechSynthesis.speak(m);}}</script><button onclick="spk()" style="width:100%;background:rgba(16,185,129,0.10);color:#6EE7B7;border:1px solid rgba(52,211,153,0.55);padding:12px;border-radius:12px;font-weight:700;font-family:\'JetBrains Mono\',monospace;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer;margin-top:10px;box-shadow:0 0 18px rgba(16,185,129,0.18);transition:all 0.2s ease;" onmouseover="this.style.boxShadow=\'0 0 28px rgba(16,185,129,0.4)\';this.style.color=\'#fff\';" onmouseout="this.style.boxShadow=\'0 0 18px rgba(16,185,129,0.18)\';this.style.color=\'#6EE7B7\';">🔊 ऑडिओ सल्ला ऐका (Listen Audio)</button>'
+        a_html = f'<script>function spk(){{window.speechSynthesis.cancel();var m=new SpeechSynthesisUtterance({a_js});m.lang="mr-IN";window.speechSynthesis.speak(m);}}</script><button onclick="spk()" style="width:100%;background:rgba(16,185,129,0.12);color:#D1FAE5;border:1px solid rgba(52,211,153,0.55);padding:12px;border-radius:12px;font-weight:700;font-family:\'JetBrains Mono\',monospace;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer;margin-top:10px;box-shadow:0 0 18px rgba(16,185,129,0.18);transition:all 0.2s ease;" onmouseover="this.style.boxShadow=\'0 0 28px rgba(16,185,129,0.4)\';this.style.color=\'#fff\';" onmouseout="this.style.boxShadow=\'0 0 18px rgba(16,185,129,0.18)\';this.style.color=\'#D1FAE5\';">🔊 ऑडिओ सल्ला ऐका (Listen Audio)</button>'
         components.html(a_html, height=54)
 
     st.markdown('<div class="w-box"><b>🌤️ प्रादेशिक हवामान जोखीम:</b> स्थानिक तापमान: <b>२८°C</b> | हवेतील आर्द्रता: <b>७६%</b> (दमट वातावरण)<br><b>सल्ला:</b> दमट हवेमुळे बुरशीजन्य रोग वेगाने पसरू शकतात; सकाळी फवारणी करावी.</div>', unsafe_allow_html=True)
@@ -586,4 +577,4 @@ if uploaded_file is not None and models_ready:
         st.download_button(label="⬇️ Download Report", data=rep.encode("utf-8-sig"), file_name=f"krushi_{sc}.txt", mime="text/plain; charset=utf-8", use_container_width=True)
     with d2:
         st.button("🔄 Try Another Sample", on_click=reset_sample, use_container_width=True)
-        
+    
