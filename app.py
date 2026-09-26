@@ -171,9 +171,7 @@ if uploaded_file is not None and models_ready:
         with col_r:
             st.error("⚠️ **अनोळखी पीक / OUT OF SCOPE PLANT**\n\nहे पान टोमॅटो किंवा इतर वनस्पतीचे दिसते. कृषी-AI सध्या केवळ बटाटा, कापूस आणि सोयाबीन या ३ पिकांसाठी प्रमाणित आहे.")
     else:
-        # ==========================================
-        # HYBRID AUTO-ROUTER (GEMINI API + SMART GATEWAY)
-        # ==========================================
+        # Crop Selection
         sc = None
 
         if "बटाटा" in crop_mode:
@@ -183,42 +181,37 @@ if uploaded_file is not None and models_ready:
         elif "सोयाबीन" in crop_mode:
             sc = "soybean"
         else:
-            # 1. PARYAY 1: GEMINI VISION MASTER ROUTER
             if gemini_client:
                 try:
                     res_g = gemini_client.models.generate_content(
                         model="gemini-2.5-flash",
                         contents=[
-                            "Examine this agricultural plant leaf carefully. Identify whether it belongs to Cotton, Potato, or Soybean. Return strictly ONLY one single word: cotton, potato, or soybean.",
+                            "Look at this plant leaf image carefully. Is it cotton, potato, or soybean? Return strictly ONLY ONE single word: cotton, potato, or soybean.",
                             img
                         ]
                     )
                     g_text = res_g.text.strip().lower()
-                    if "cotton" in g_text: sc = "cotton"
-                    elif "potato" in g_text: sc = "potato"
-                    elif "soybean" in g_text: sc = "soybean"
-                except Exception:
-                    pass
+                    if "cotton" in g_text: 
+                        sc = "cotton"
+                    elif "potato" in g_text: 
+                        sc = "potato"
+                    elif "soybean" in g_text: 
+                        sc = "soybean"
+                except Exception as e:
+                    st.error(f"⚠️ Gemini API Error: {e}")
+            else:
+                st.warning("⚠️ GEMINI_API_KEY loaʻa ʻole ma Streamlit Secrets!")
 
-            # 2. PARYAY 2: LOCAL GATEWAY FALLBACK (SMART MARGIN LOGIC)
             if not sc:
-                margin_p = float(np.max(pp) - np.sort(pp)[-2])
-                margin_c = float(np.max(pc) - np.sort(pc)[-2])
-                margin_s = float(np.max(ps) - np.sort(ps)[-2])
-
-                # जर बटाट्याच्या पानावरील करपा अतिशय स्पष्ट असेल तर बटाटा निवडा
-                if ip in [0, 1] and cp > 0.88 and margin_p > margin_c:
-                    sc = "potato"
-                elif margin_c > 0.35 and cc > 0.60:
+                # Gateway fallback logic
+                if cc > 0.60:
                     sc = "cotton"
-                elif margin_s > 0.35 and cs > 0.65:
+                elif isoy in [0, 1] and cs > 0.65:
                     sc = "soybean"
-                elif cc >= cp and cc >= cs:
-                    sc = "cotton"
-                elif cp >= cc and cp >= cs:
+                elif (ip in [0, 1] and cp > 0.90) or (l_rat > 0.04 and cp > cs):
                     sc = "potato"
                 else:
-                    sc = "soybean"
+                    sc = "cotton"
 
         # Healthy Gate Logic
         is_h = bool(g_rat > 0.45 and l_rat < 0.025)
@@ -240,7 +233,6 @@ if uploaded_file is not None and models_ready:
         s_txt = inf['severity']
         tag_c = 'tag-h' if 'सुरक्षित' in s_txt else ('tag-m' if 'मध्यम' in s_txt else 'tag-c')
 
-        # टर्मिनल डिस्प्ले (मोबाईल सेफ)
         with col_r:
             st.markdown('<div class="k-card"><b>🩺 निदान टर्मिनल (Diagnostic Terminal)</b></div>', unsafe_allow_html=True)
             st.markdown(f'<span class="k-pill k-pill-dark">{c_name}</span><span class="k-pill k-pill-light">{diag}</span>', unsafe_allow_html=True)
@@ -291,7 +283,4 @@ if uploaded_file is not None and models_ready:
             st.download_button(label="⬇️ Download Report", data=rep.encode("utf-8-sig"), file_name=f"krushi_{sc}.txt", mime="text/plain; charset=utf-8", use_container_width=True)
         with d2:
             st.button("🔄 Try Another Sample", on_click=reset_sample, use_container_width=True)
-
-# ==========================================
-# END OF SCRIPT
-# ==========================================
+    
