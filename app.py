@@ -184,7 +184,7 @@ if uploaded_file is not None and models_ready:
             if gemini_client:
                 try:
                     res_g = gemini_client.models.generate_content(
-                        model="gemini-2.5-flash",
+                        model="gemini-3.8-flash",
                         contents=[
                             "Look at this plant leaf image carefully. Is it cotton, potato, or soybean? Return strictly ONLY ONE single word: cotton, potato, or soybean.",
                             img
@@ -200,7 +200,7 @@ if uploaded_file is not None and models_ready:
                 except Exception as e:
                     st.error(f"⚠️ Gemini API Error: {e}")
             else:
-                st.warning("⚠️ GEMINI_API_KEY loaʻa ʻole ma Streamlit Secrets!")
+                st.warning("⚠️ GEMINI_API_KEY Streamlit Secrets मध्ये सापडली नाही!")
 
             if not sc:
                 # Gateway fallback logic
@@ -266,7 +266,7 @@ if uploaded_file is not None and models_ready:
                     adv_prompt = f"तू एक कृषी तज्ज्ञ आहेस. पीक: {c_name}, रोग: {diag}, गंभीरता: {s_txt}. शेतकऱ्यासाठी सोप्या मराठीत २ परिच्छेदात उपाय आणि काळजी सांग."
                     try:
                         res = gemini_client.models.generate_content(
-                            model="gemini-2.5-flash",
+                            model="gemini-3.8-flash",
                             contents=adv_prompt
                         )
                         st.info(res.text)
@@ -283,4 +283,4 @@ if uploaded_file is not None and models_ready:
             st.download_button(label="⬇️ Download Report", data=rep.encode("utf-8-sig"), file_name=f"krushi_{sc}.txt", mime="text/plain; charset=utf-8", use_container_width=True)
         with d2:
             st.button("🔄 Try Another Sample", on_click=reset_sample, use_container_width=True)
-    
+            
