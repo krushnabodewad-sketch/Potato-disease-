@@ -221,7 +221,7 @@ if uploaded_file is not None and models_ready:
     img.save(img_byte_arr, format='JPEG')
     img_bytes = img_byte_arr.getvalue()
 
-    # 1. Local Model Predictions (नेहमी सज्ज)
+    # 1. Local Model Predictions
     pp = potato_model(np.expand_dims(arr, axis=0), training=False).numpy()[0]
     if np.sum(pp) > 1.05 or np.sum(pp) < 0.95: pp = tf.nn.softmax(pp).numpy()
     ip, cp = int(np.argmax(pp)), float(np.max(pp))
@@ -261,7 +261,6 @@ if uploaded_file is not None and models_ready:
                         species = r.get('species', {}).get('scientificNameWithoutAuthor', '').lower()
                         family = r.get('species', {}).get('family', {}).get('scientificNameWithoutAuthor', '').lower()
                         
-                        # Botanical Matching
                         if "gossypium" in species or "malvaceae" in family:
                             sc = "cotton"
                             engine_badge = "PlantNet Botanical AI"
@@ -361,7 +360,6 @@ if uploaded_file is not None and models_ready:
         st.markdown(f'<span class="{tag_c}">● {s_txt}</span>', unsafe_allow_html=True)
         st.markdown(f'<div class="c-val">{f_conf:.1f}%</div><div class="badge-verified">✓ Verified by {engine_badge}</div>', unsafe_allow_html=True)
 
-        # Roboflow Result Display
         if rf_data:
             rf_color = "#10B981" if rf_data["is_healthy"] else "#EF4444"
             st.markdown(
@@ -393,4 +391,6 @@ if uploaded_file is not None and models_ready:
     # Gemini Live Marathi Advisory with Auto-Fallback
     if gemini_client:
         st.markdown('<div class="k-card"><b>🤖 कृषी-AI तज्ज्ञ सल्लागार (Google Gemini)</b>', unsafe_allow_html=True)
-        if st.button("✨ Gemini कडून विशेष कृषी सल 
+        if st.button("✨ Gemini कडून विशेष कृषी सल्ला मिळवा"):
+            with st.spinner("Gemini AI सल्ला तयार करत आहे..."):
+                
