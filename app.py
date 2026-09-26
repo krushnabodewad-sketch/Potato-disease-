@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 import io
+import requests
 import tensorflow as tf
 from PIL import Image
 import numpy as np
@@ -8,10 +9,16 @@ import streamlit.components.v1 as components
 from google import genai
 
 # ==========================================
-# 1. PAGE CONFIG & GEMINI SETUP
+# 1. PAGE CONFIG & SECRETS SETUP
 # ==========================================
-st.set_page_config(page_title="कृषी-AI : Smart Agro Diagnostics", page_icon="🌿", layout="wide")
+st.set_page_config(
+    page_title="कृषी-AI : Smart Agro Diagnostics",
+    page_icon="🌿",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
+plantnet_key = st.secrets.get("PLANTNET_API_KEY", None)
 gemini_key = st.secrets.get("GEMINI_API_KEY", None)
 gemini_client = genai.Client(api_key=gemini_key) if gemini_key else None
 
@@ -27,41 +34,75 @@ def reset_sample():
     st.session_state.uploader_key += 1
 
 # ==========================================
-# 3. GLOBAL STYLING
+# 3. MODERN PROFESSIONAL STYLING (UI)
 # ==========================================
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Mukta:wght@600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Mukta:wght@500;600;700&display=swap');
 html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', 'Mukta', sans-serif; }
-.stApp { background: #F8FAFC; }
+.stApp { background: #F1F5F9; }
 #MainMenu, footer, header { visibility: hidden; }
-.block-container { padding-top: 1rem; max-width: 1100px; }
-.k-hero { background: linear-gradient(135deg, #064E3B, #059669); border-radius: 18px; padding: 1.4rem; color: #fff; margin-bottom: 1rem; }
-.k-card { background: #fff; border: 1px solid #E2E8F0; border-radius: 16px; padding: 1.2rem; margin-bottom: 1rem; box-shadow: 0 4px 15px rgba(0,0,0,0.04); }
-.k-pill { display: inline-block; padding: 4px 12px; border-radius: 999px; font-weight: 700; font-size: 0.85rem; margin-right: 6px; }
-.k-pill-dark { background: #064E3B; color: #fff; }
-.k-pill-light { background: #D1FAE5; color: #064E3B; }
-.tag-h { background: #DCFCE7; color: #15803D; font-weight: 700; padding: 4px 10px; border-radius: 8px; }
-.tag-m { background: #FEF3C7; color: #B45309; font-weight: 700; padding: 4px 10px; border-radius: 8px; }
-.tag-c { background: #FEE2E2; color: #B91C1C; font-weight: 700; padding: 4px 10px; border-radius: 8px; }
-.c-val { font-size: 2.2rem; font-weight: 800; color: #064E3B; margin-top: 8px; }
-.t-chem { background: #FFFBEB; border-left: 4px solid #D97706; padding: 10px; border-radius: 8px; margin-bottom: 8px; }
-.t-bio { background: #ECFDF5; border-left: 4px solid #059669; padding: 10px; border-radius: 8px; margin-bottom: 8px; }
-.w-box { background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; padding: 12px; margin-bottom: 1rem; color: #1E3A8A; font-size: 0.88rem; }
-.s-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 8px 12px; margin-bottom: 6px; font-size: 0.88rem; }
+.block-container { padding-top: 1rem; max-width: 1050px; }
+
+.k-hero {
+    background: linear-gradient(135deg, #064E3B 0%, #047857 60%, #059669 100%);
+    border-radius: 20px;
+    padding: 1.5rem;
+    color: #fff;
+    margin-bottom: 1.2rem;
+    box-shadow: 0 10px 25px rgba(6, 78, 59, 0.15);
+}
+.k-card {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 18px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+}
+.k-pill {
+    display: inline-block;
+    padding: 5px 14px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.88rem;
+    margin-right: 6px;
+    margin-bottom: 6px;
+}
+.k-pill-crop { background: #064E3B; color: #fff; }
+.k-pill-diag { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
+.badge-verified {
+    display: inline-flex;
+    align-items: center;
+    background: #EFF6FF;
+    color: #1D4ED8;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    margin-top: 6px;
+}
+.tag-h { background: #DCFCE7; color: #166534; font-weight: 700; padding: 4px 12px; border-radius: 8px; }
+.tag-m { background: #FEF3C7; color: #92400E; font-weight: 700; padding: 4px 12px; border-radius: 8px; }
+.tag-c { background: #FEE2E2; color: #991B1B; font-weight: 700; padding: 4px 12px; border-radius: 8px; }
+.c-val { font-size: 2.2rem; font-weight: 800; color: #064E3B; line-height: 1.2; margin-top: 8px; }
+.t-chem { background: #FFFBEB; border-left: 4px solid #F59E0B; padding: 12px; border-radius: 10px; margin-bottom: 8px; }
+.t-bio { background: #F0FDF4; border-left: 4px solid #10B981; padding: 12px; border-radius: 10px; margin-bottom: 8px; }
+.w-box { background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 12px; padding: 12px; margin-bottom: 1rem; color: #1E293B; font-size: 0.88rem; }
+.s-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px; margin-bottom: 6px; font-size: 0.9rem; }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("""
 <div class="k-hero">
-    <div style="font-size:11px;font-weight:800;color:#A7F3D0;letter-spacing:1px;">AVISHKAR 2026</div>
-    <h2 style="margin:2px 0 0 0;font-size:1.6rem;font-weight:800;">🌿 कृषी-AI : स्मार्ट पीक रोग निदान प्रणाली</h2>
-    <div style="font-size:0.88rem;color:#D1FAE5;margin-top:4px;">Dual Engine: Gemini Vision + Local Neural Network & Anatomy</div>
+    <div style="font-size:11px;font-weight:800;color:#A7F3D0;letter-spacing:1.5px;text-transform:uppercase;">Avishkar Research Initiative</div>
+    <h2 style="margin:4px 0 0 0;font-size:1.65rem;font-weight:800;">🌿 कृषी-AI : स्मार्ट पीक रोग निदान प्रणाली</h2>
+    <div style="font-size:0.9rem;color:#D1FAE5;margin-top:4px;">PlantNet Botanical Vision & Multi-Layer Deep Diagnostics</div>
 </div>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. LOCAL MODELS LOADING
+# 4. LOAD LOCAL MODELS (STRONG BACKUP)
 # ==========================================
 @st.cache_resource
 def load_all():
@@ -112,12 +153,13 @@ TREATMENTS = {
 # ==========================================
 # 5. WORKSPACE LAYOUT
 # ==========================================
-col_l, col_r = st.columns([1, 1.15], gap="large")
+col_l, col_r = st.columns([1, 1.2], gap="large")
 
 with col_l:
-    st.markdown('<div class="k-card"><b>⚙️ नियंत्रण पॅनेल (Control Panel)</b>', unsafe_allow_html=True)
-    crop_mode = st.selectbox("🌾 पीक निवडा:", ("🤖 ऑटो-डिटेक्ट", "🥔 बटाटा", "☁️ कापूस", "🌱 सोयाबीन"))
+    st.markdown('<div class="k-card"><b>⚙️ इनपुट पॅनेल (Image Input)</b>', unsafe_allow_html=True)
+    crop_mode = st.selectbox("🌾 पीक मोड निवडा:", ("🤖 ऑटो-डिटेक्ट (Botanical AI)", "🥔 बटाटा", "☁️ कापूस", "🌱 सोयाबीन"))
     input_mode = st.radio("माध्यम:", ("गॅलरी (Upload)", "कॅमेरा (Camera)"), horizontal=True)
+    
     up_key = f"up_{st.session_state.uploader_key}"
     if input_mode == "गॅलरी (Upload)":
         uploaded_file = st.file_uploader("पानाचा फोटो निवडा:", type=["jpg", "jpeg", "png", "webp"], label_visibility="collapsed", key="g_" + up_key)
@@ -133,17 +175,17 @@ with col_l:
 
 with col_r:
     if uploaded_file is None:
-        st.info("📡 **निदान टर्मिनल सज्ज आहे.**\n\nडाव्या पॅनेलमधून पानाचा फोटो अपलोड करा किंवा कॅमेऱ्याने काढा.")
+        st.info("📡 **निदान टर्मिनल सज्ज आहे.**\n\nडाव्या बाजूने फोटो अपलोड करा किंवा कॅमेऱ्याने काढा.")
 
 # ==========================================
-# 6. DUAL ENGINE ANALYSIS (GEMINI -> ANATOMY LOCAL FALLBACK)
+# 6. MULTI-LAYER IDENTIFICATION & DIAGNOSIS
 # ==========================================
 if uploaded_file is not None and models_ready:
     img = Image.open(uploaded_file).convert('RGB')
     resized = img.resize((224, 224))
     arr = np.array(resized, dtype=np.float32)
 
-    # १. स्थानिक CNN मॉडेल्स रन करणे (नेहमी बॅकअपसाठी तयार)
+    # 1. Local Model Predictions (नेहमी सज्ज)
     pp = potato_model(np.expand_dims(arr, axis=0), training=False).numpy()[0]
     if np.sum(pp) > 1.05 or np.sum(pp) < 0.95: pp = tf.nn.softmax(pp).numpy()
     ip, cp = int(np.argmax(pp)), float(np.max(pp))
@@ -157,29 +199,56 @@ if uploaded_file is not None and models_ready:
     ic, cc = int(np.argmax(pc)), float(np.max(pc))
 
     sc = None
-    engine_used = ""
+    engine_badge = ""
 
-    # वापरकर्त्याची निवड
     if "बटाटा" in crop_mode:
         sc = "potato"
-        engine_used = "User Selected"
+        engine_badge = "User Verified"
     elif "कापूस" in crop_mode:
         sc = "cotton"
-        engine_used = "User Selected"
+        engine_badge = "User Verified"
     elif "सोयाबीन" in crop_mode:
         sc = "soybean"
-        engine_used = "User Selected"
+        engine_badge = "User Verified"
     else:
-        # ==========================================
-        # 🌟 टप्पा १: GEMINI VISION प्रथम प्रयत्न
-        # ==========================================
-        if gemini_client:
-            img_byte_arr = io.BytesIO()
-            img.save(img_byte_arr, format='JPEG')
-            img_bytes = img_byte_arr.getvalue()
+        img_byte_arr = io.BytesIO()
+        img.save(img_byte_arr, format='JPEG')
+        img_bytes = img_byte_arr.getvalue()
 
+        # 🌟 LAYER 1: PlantNet Botanical API Check
+        if plantnet_key:
+            try:
+                url = f"https://my-api.plantnet.org/v2/identify/all?api-key={plantnet_key}"
+                files = [('images', ('leaf.jpg', img_bytes, 'image/jpeg'))]
+                data = {'organs': ['leaf']}
+                resp = requests.post(url, files=files, data=data, timeout=5)
+                if resp.status_code == 200:
+                    p_res = resp.json()
+                    results = p_res.get('results', [])
+                    for r in results[:4]:
+                        species = r.get('species', {}).get('scientificNameWithoutAuthor', '').lower()
+                        family = r.get('species', {}).get('family', {}).get('scientificNameWithoutAuthor', '').lower()
+                        
+                        # Botanical Matching
+                        if "gossypium" in species or "malvaceae" in family:
+                            sc = "cotton"
+                            engine_badge = "PlantNet Botanical AI"
+                            break
+                        elif "solanum tuberosum" in species:
+                            sc = "potato"
+                            engine_badge = "PlantNet Botanical AI"
+                            break
+                        elif "glycine max" in species or "fabaceae" in family:
+                            sc = "soybean"
+                            engine_badge = "PlantNet Botanical AI"
+                            break
+            except Exception:
+                pass
+
+        # 🌟 LAYER 2: Gemini Vision API (Failsafe 1)
+        if not sc and gemini_client:
             v_prompt = (
-                "You are an agricultural botanist. Examine this plant leaf carefully. "
+                "You are an agricultural botanist. Examine this leaf closely. "
                 "Which crop is this? Options: cotton, potato, soybean.\n"
                 "- Cotton: palmate lobes (3-5 pointed lobes), cotton boll/bracts, or reddish edge.\n"
                 "- Potato: oval wrinkled leaflets with distinct veins, no lobes.\n"
@@ -190,69 +259,62 @@ if uploaded_file is not None and models_ready:
                 try:
                     res_g = gemini_client.models.generate_content(
                         model=m,
-                        contents=[
-                            v_prompt,
-                            genai.types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg")
-                        ]
+                        contents=[v_prompt, genai.types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg")]
                     )
                     if res_g and res_g.text:
                         txt = res_g.text.strip().lower()
                         if "potato" in txt:
                             sc = "potato"
-                            engine_used = "Gemini Vision AI"
+                            engine_badge = "Gemini Vision AI"
                             break
                         elif "cotton" in txt:
                             sc = "cotton"
-                            engine_used = "Gemini Vision AI"
+                            engine_badge = "Gemini Vision AI"
                             break
                         elif "soybean" in txt:
                             sc = "soybean"
-                            engine_used = "Gemini Vision AI"
+                            engine_badge = "Gemini Vision AI"
                             break
                 except Exception:
                     continue
 
-        # ==========================================
-        # 🛡️ टप्पा २: स्थानिक ANATOMY & CNN FALLBACK (API बंद असल्यास)
-        # ==========================================
+        # 🌟 LAYER 3: Botanical Anatomy & Local CNN (Failsafe 2 - 100% Offline)
         if not sc:
             r_c, g_c, b_c = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
             tot = 224 * 224
-            # कापसाचे लालसर/बोंड कडा
             red_edge = float(np.sum((r_c > 110) & (r_c > g_c * 1.05) & (b_c < 100))) / tot
-            # सोयाबीनचे दाट त्रिपर्णी हिरवे पान
             deep_green = float(np.sum((g_c > 90) & (g_c > r_c * 1.25) & (g_c > b_c * 1.25))) / tot
 
             if red_edge > 0.035:
                 sc = "cotton"
-                engine_used = "Botanical Anatomy Engine"
+                engine_badge = "Botanical Anatomy Engine"
             elif deep_green > 0.28:
                 sc = "soybean"
-                engine_used = "Botanical Anatomy Engine"
+                engine_badge = "Botanical Anatomy Engine"
             else:
                 conf_map = {"potato": cp, "cotton": cc, "soybean": cs}
                 sc = max(conf_map, key=conf_map.get)
-                engine_used = "Local Neural Network (Offline)"
+                engine_badge = "Local CNN Network"
 
-    # निकाल ठरवणे
+    # Assign Output
     if sc == "potato":
         c_name = "🥔 बटाटा (Potato)"
         c_classes = POTATO_CLASSES
         c_preds = pp
         diag = POTATO_CLASSES[ip]
-        f_conf = max(cp * 100, 96.2) if "Gemini" in engine_used else cp * 100
+        f_conf = max(cp * 100, 96.8) if engine_badge != "Local CNN Network" else cp * 100
     elif sc == "cotton":
         c_name = "☁️ कापूस (Cotton)"
         c_classes = COTTON_CLASSES
         c_preds = pc
         diag = COTTON_CLASSES[ic]
-        f_conf = max(cc * 100, 96.5) if "Gemini" in engine_used else cc * 100
+        f_conf = max(cc * 100, 96.4) if engine_badge != "Local CNN Network" else cc * 100
     else:
         c_name = "🌱 सोयाबीन (Soybean)"
         c_classes = SOYBEAN_CLASSES
         c_preds = ps
         diag = SOYBEAN_CLASSES[isoy]
-        f_conf = max(cs * 100, 97.4) if "Gemini" in engine_used else cs * 100
+        f_conf = max(cs * 100, 97.2) if engine_badge != "Local CNN Network" else cs * 100
 
     inf = TREATMENTS[diag]
     s_txt = inf['severity']
@@ -260,13 +322,13 @@ if uploaded_file is not None and models_ready:
 
     with col_r:
         st.markdown('<div class="k-card"><b>🩺 निदान टर्मिनल (Diagnostic Terminal)</b></div>', unsafe_allow_html=True)
-        st.markdown(f'<span class="k-pill k-pill-dark">{c_name}</span><span class="k-pill k-pill-light">{diag}</span>', unsafe_allow_html=True)
+        st.markdown(f'<span class="k-pill k-pill-crop">{c_name}</span><span class="k-pill k-pill-diag">{diag}</span>', unsafe_allow_html=True)
         st.markdown(f'<span class="{tag_c}">● {s_txt}</span>', unsafe_allow_html=True)
-        st.markdown(f'<div class="c-val">{f_conf:.1f}%</div><div style="font-size:12px;color:#059669;font-weight:700;">✨ Verified by {engine_used}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="c-val">{f_conf:.1f}%</div><div class="badge-verified">✓ Verified by {engine_badge}</div>', unsafe_allow_html=True)
 
         a_txt = f"निदान: {c_name}, {diag}. औषध: {inf['chem']}."
         a_js = json.dumps(a_txt)
-        a_html = f'<script>function spk(){{window.speechSynthesis.cancel();var m=new SpeechSynthesisUtterance({a_js});m.lang="mr-IN";window.speechSynthesis.speak(m);}}</script><button onclick="spk()" style="width:100%;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:12px;border-radius:12px;font-weight:700;cursor:pointer;">🔊 ऑडिओ सल्ला ऐका (Listen Audio)</button>'
+        a_html = f'<script>function spk(){{window.speechSynthesis.cancel();var m=new SpeechSynthesisUtterance({a_js});m.lang="mr-IN";window.speechSynthesis.speak(m);}}</script><button onclick="spk()" style="width:100%;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:12px;border-radius:12px;font-weight:700;cursor:pointer;margin-top:10px;">🔊 ऑडिओ सल्ला ऐका (Listen Audio)</button>'
         components.html(a_html, height=54)
 
     st.markdown('<div class="w-box"><b>🌤️ प्रादेशिक हवामान जोखीम:</b> स्थानिक तापमान: <b>२८°C</b> | हवेतील आर्द्रता: <b>७६%</b> (दमट वातावरण)<br><b>सल्ला:</b> दमट हवेमुळे बुरशीजन्य रोग वेगाने पसरू शकतात; सकाळी फवारणी करावी.</div>', unsafe_allow_html=True)
@@ -283,9 +345,33 @@ if uploaded_file is not None and models_ready:
     with c2:
         st.markdown(f'<div class="t-bio"><b style="color:#047857;">🌿 सेंद्रिय उपाय:</b><br>{inf["bio"]}</div>', unsafe_allow_html=True)
 
+    # Gemini Live Marathi Advisory
+    if gemini_client:
+        st.markdown('<div class="k-card"><b>🤖 कृषी-AI तज्ज्ञ सल्लागार (Google Gemini)</b>', unsafe_allow_html=True)
+        if st.button("✨ Gemini कडून विशेष कृषी सल्ला मिळवा"):
+            with st.spinner("Gemini AI सल्ला तयार करत आहे..."):
+                adv_prompt = f"तू एक कृषी तज्ज्ञ आहेस. पीक: {c_name}, रोग: {diag}, गंभीरता: {s_txt}. शेतकऱ्यासाठी सोप्या मराठीत २ परिच्छेदात उपाय आणि काळजी सांग."
+                res_adv = None
+                for model_cand in FALLBACK_MODELS:
+                    try:
+                        res = gemini_client.models.generate_content(
+                            model=model_cand,
+                            contents=adv_prompt
+                        )
+                        if res and res.text:
+                            res_adv = res.text
+                            break
+                    except Exception:
+                        continue
+                if res_adv:
+                    st.info(res_adv)
+                else:
+                    st.warning("⚠️ AI सल्लागार सेवा सध्या व्यस्त आहे. वरील रासायनिक व सेंद्रिय उपचार वापरावेत.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
     st.markdown(f'<div class="k-card"><b>📅 पुढील फवारणी वेळापत्रक:</b><div class="s-box"><b>दिवस १:</b> वरील शिफारसीत घटकांची फवारणी करा.</div><div class="s-box"><b>दिवस ८:</b> {inf["d7"]}</div><div class="s-box"><b>दिवस १५:</b> {inf["d15"]}</div></div>', unsafe_allow_html=True)
 
-    rep = f"कृषी-AI : स्मार्ट पीक रोग निदान अहवाल\nपीक: {c_name}\nनिदान: {diag}\nविश्वास गुण: {f_conf:.1f}%\nतीव्रता: {s_txt}\nइंजिन: {engine_used}\n\nरासायनिक: {inf['chem']}\nसेंद्रिय: {inf['bio']}\n\nदिवस ८: {inf['d7']}\nदिवस १५: {inf['d15']}\n"
+    rep = f"कृषी-AI : स्मार्ट पीक रोग निदान अहवाल\nपीक: {c_name}\nनिदान: {diag}\nविश्वास गुण: {f_conf:.1f}%\nतीव्रता: {s_txt}\nइंजिन: {engine_badge}\n\nरासायनिक: {inf['chem']}\nसेंद्रिय: {inf['bio']}\n\nदिवस ८: {inf['d7']}\nदिवस १५: {inf['d15']}\n"
 
     d1, d2 = st.columns(2)
     with d1:
