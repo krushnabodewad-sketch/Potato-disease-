@@ -1,9 +1,8 @@
-import base64
+import io
 import requests
 import streamlit as st
 from google import genai
 from PIL import Image
-import io
 
 # --- Page Setup ---
 st.set_page_config(
@@ -44,14 +43,11 @@ def identify_crop_plantnet(image_bytes):
 def detect_disease_roboflow(image_bytes):
     if not ROBOFLOW_KEY:
         return None
-    endpoint = "plant-disease-detection-s8vzx/1"
-    url = f"https://detect.roboflow.com/{endpoint}?api_key={ROBOFLOW_KEY}"
+    url = f"https://detect.roboflow.com/plant-disease-detection-s8vzx/1?api_key={ROBOFLOW_KEY}"
     try:
-        img_b64 = base64.b64encode(image_bytes).decode("utf-8")
         response = requests.post(
             url,
-            data=img_b64,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            files={"file": ("image.jpg", image_bytes, "image/jpeg")},
             timeout=12
         )
         if response.status_code == 200:
@@ -70,7 +66,7 @@ def detect_disease_roboflow(image_bytes):
             return {
                 "is_healthy": True,
                 "disease": "निरोगी पान (Healthy)",
-                "confidence": 95.0
+                "confidence": 96.0
             }
     except Exception:
         pass
@@ -95,7 +91,7 @@ def get_gemini_advisory(image_bytes, crop_name, disease_info):
         4. शेतकऱ्यांसाठी महत्त्वाच्या खबरदारीच्या टिप्स
         """
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3.8-flash",
             contents=[prompt, img]
         )
         return response.text
