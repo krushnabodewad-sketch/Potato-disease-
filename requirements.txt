@@ -1,4 +1,6 @@
 streamlit
-google-generativeai
+tensorflow
 pillow
 numpy
+google-genai
+
