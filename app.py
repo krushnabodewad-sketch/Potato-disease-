@@ -4,11 +4,15 @@ import tensorflow as tf
 from PIL import Image
 import numpy as np
 import streamlit.components.v1 as components
+from google import genai
 
 # ==========================================
-# 1. PAGE CONFIG
+# 1. PAGE CONFIG & GEMINI SETUP
 # ==========================================
 st.set_page_config(page_title="कृषी-AI : Smart Agro Diagnostics", page_icon="🌿", layout="wide")
+
+gemini_key = st.secrets.get("GEMINI_API_KEY", None)
+gemini_client = genai.Client(api_key=gemini_key) if gemini_key else None
 
 # ==========================================
 # 2. SESSION STATE (for "Try Another Sample" reset)
@@ -622,6 +626,33 @@ if uploaded_file is not None and models_ready:
             </div>
             """, unsafe_allow_html=True)
 
+        # ---------- GOOGLE AI STUDIO (GEMINI) ADVISORY ----------
+        if gemini_client:
+            st.markdown('<div class="kai-card" style="margin-top:1rem;">', unsafe_allow_html=True)
+            st.markdown('<div class="kai-card-title">🤖 कृषी-AI तज्ज्ञ सल्लागार (Powered by Google Gemini)</div>', unsafe_allow_html=True)
+            if st.button("✨ Gemini कडून विशेष कृषी सल्ला मिळवा"):
+                with st.spinner("Gemini AI सल्ला तयार करत आहे..."):
+                    adv_prompt = f"""
+                    तू एक तज्ज्ञ कृषी शास्त्रज्ञ आहेस.
+                    पिकाचे नाव: {crop_name}
+                    झालेला रोग: {diagnosed_label}
+                    गंभीरता: {sev_text}
+                    स्थानिक वातावरण: २८°C, ७६% आर्द्रता
+                    
+                    शेतकऱ्यासाठी सोप्या मराठीत २-३ परिच्छेदात सल्ला दे:
+                    १. हा रोग वेगाने पसरू नये म्हणून शेतात काय खबरदारी घ्यावी?
+                    २. खते आणि पाण्याचे व्यवस्थापन कसे करावे?
+                    """
+                    try:
+                        res = gemini_client.models.generate_content(
+                            model="gemini-2.5-flash",
+                            contents=adv_prompt
+                        )
+                        st.info(res.text)
+                    except Exception as err:
+                        st.error(f"Gemini API त्रुटी: {err}")
+            st.markdown('</div>', unsafe_allow_html=True)
+
         # ---------- 15-DAY TIMELINE ----------
         st.markdown(f"""
         <div class="kai-card" style="margin-top:1rem;">
@@ -643,7 +674,7 @@ if uploaded_file is not None and models_ready:
         </div>
         """, unsafe_allow_html=True)
 
-        # ---------- REPORT TEXT (SAFE UTF-8, SIMPLE CONCATENATION) ----------
+        # ---------- REPORT TEXT ----------
         report_text = "कृषी-AI : स्मार्ट पीक रोग निदान अहवाल\n"
         report_text += "पीक: " + crop_name + "\n"
         report_text += "निदान: " + diagnosed_label + "\n"
@@ -675,4 +706,5 @@ if uploaded_file is not None and models_ready:
             )
 
 # ==========================================
-# EN
+# END OF SCRIPT
+# ==========================================
