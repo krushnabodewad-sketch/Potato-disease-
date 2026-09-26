@@ -34,70 +34,278 @@ def reset_sample():
     st.session_state.uploader_key += 1
 
 # ==========================================
-# 3. MODERN PROFESSIONAL STYLING (UI)
+# 3. CYBER-AGRI / SCI-FI HUD STYLING (UI)
 # ==========================================
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Mukta:wght@500;600;700&display=swap');
-html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', 'Mukta', sans-serif; }
-.stApp { background: #F1F5F9; }
-#MainMenu, footer, header { visibility: hidden; }
-.block-container { padding-top: 1rem; max-width: 1050px; }
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Mukta:wght@500;600;700&display=swap');
 
+:root {
+    --bg-deep: #0B0F19;
+    --bg-deep-2: #051311;
+    --panel: rgba(15, 23, 42, 0.55);
+    --panel-strong: rgba(10, 18, 32, 0.72);
+    --glass-border: rgba(16, 185, 129, 0.22);
+    --glass-border-strong: rgba(16, 185, 129, 0.45);
+    --neon: #10B981;
+    --neon-soft: rgba(16, 185, 129, 0.18);
+    --neon-bright: #34D399;
+    --amber: #F59E0B;
+    --amber-soft: rgba(245, 158, 11, 0.16);
+    --red: #F43F5E;
+    --red-soft: rgba(244, 63, 94, 0.16);
+    --text-main: #E5F3EC;
+    --text-dim: #8FA6A0;
+    --mono: 'JetBrains Mono', 'Space Grotesk', monospace;
+    --tech: 'Space Grotesk', 'Mukta', sans-serif;
+}
+
+html, body, [class*="css"] { font-family: var(--tech); color: var(--text-main); }
+
+/* ---------- BASE / BACKGROUND ---------- */
+.stApp {
+    background:
+        radial-gradient(circle at 15% 0%, rgba(16,185,129,0.10) 0%, transparent 45%),
+        radial-gradient(circle at 100% 20%, rgba(16,185,129,0.06) 0%, transparent 40%),
+        repeating-linear-gradient(0deg, rgba(16,185,129,0.035) 0px, rgba(16,185,129,0.035) 1px, transparent 1px, transparent 42px),
+        repeating-linear-gradient(90deg, rgba(16,185,129,0.035) 0px, rgba(16,185,129,0.035) 1px, transparent 1px, transparent 42px),
+        linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-deep-2) 100%);
+    background-attachment: fixed;
+}
+#MainMenu, footer, header { visibility: hidden; }
+.block-container { padding-top: 1rem; max-width: 1080px; }
+
+h1, h2, h3, h4, h5, h6, p, span, label, li, div[data-testid="stMarkdownContainer"] {
+    color: var(--text-main);
+}
+::selection { background: var(--neon-soft); }
+
+/* ---------- HERO / BRAND HEADER ---------- */
 .k-hero {
-    background: linear-gradient(135deg, #064E3B 0%, #047857 60%, #059669 100%);
+    position: relative;
+    background: linear-gradient(135deg, rgba(6,78,59,0.55) 0%, rgba(4,20,18,0.85) 70%);
+    border: 1px solid var(--glass-border-strong);
     border-radius: 20px;
-    padding: 1.5rem;
+    padding: 1.4rem 1.6rem;
     color: #fff;
     margin-bottom: 1.2rem;
-    box-shadow: 0 10px 25px rgba(6, 78, 59, 0.15);
+    backdrop-filter: blur(18px);
+    box-shadow: 0 0 40px rgba(16,185,129,0.12), inset 0 0 60px rgba(16,185,129,0.04);
+    overflow: hidden;
 }
+.k-hero::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(115deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 2px, transparent 2px, transparent 6px);
+    pointer-events: none;
+}
+.k-hero-top { display: flex; align-items: center; gap: 16px; position: relative; z-index: 1; }
+.k-logo-wrap {
+    flex-shrink: 0;
+    width: 58px; height: 58px;
+    display: flex; align-items: center; justify-content: center;
+    filter: drop-shadow(0 0 10px rgba(52,211,153,0.75));
+    animation: logoPulse 3.2s ease-in-out infinite;
+}
+@keyframes logoPulse {
+    0%, 100% { filter: drop-shadow(0 0 6px rgba(52,211,153,0.55)); }
+    50% { filter: drop-shadow(0 0 16px rgba(52,211,153,0.95)); }
+}
+.k-hero-kicker {
+    font-family: var(--mono); font-size: 11px; font-weight: 700; color: #6EE7B7;
+    letter-spacing: 2.5px; text-transform: uppercase;
+}
+.k-hero-title {
+    margin: 4px 0 0 0; font-size: 1.6rem; font-weight: 700;
+    font-family: var(--tech);
+    background: linear-gradient(90deg, #D1FAE5 0%, #6EE7B7 45%, #10B981 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: 0 0 30px rgba(16,185,129,0.35);
+}
+.k-hero-title span { color: #34D399; opacity: 0.7; }
+.k-hero-sub { font-size: 0.88rem; color: #B8E6D3; margin-top: 4px; font-family: var(--mono); }
+.k-status-row { position: relative; z-index: 1; margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+.k-status-badge {
+    font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 1px;
+    padding: 5px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.04);
+}
+.k-status-on { color: #6EE7B7; border-color: rgba(110,231,183,0.4); box-shadow: 0 0 12px rgba(16,185,129,0.35); }
+.k-status-core { color: #93C5FD; border-color: rgba(147,197,253,0.35); }
+.k-status-net { color: #FCD34D; border-color: rgba(252,211,77,0.35); }
+
+/* ---------- GLASS CARDS ---------- */
 .k-card {
-    background: #FFFFFF;
-    border: 1px solid #E2E8F0;
+    background: var(--panel);
+    border: 1px solid var(--glass-border);
     border-radius: 18px;
     padding: 1.25rem;
     margin-bottom: 1rem;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 4px 25px rgba(0,0,0,0.35);
+    transition: box-shadow 0.25s ease, border-color 0.25s ease;
 }
+.k-card:hover {
+    border-color: var(--glass-border-strong);
+    box-shadow: 0 0 25px rgba(16,185,129,0.15), 0 4px 25px rgba(0,0,0,0.35);
+}
+.k-card b { font-family: var(--mono); letter-spacing: 0.5px; color: #A7F3D0; }
+
+/* ---------- PILLS / TAGS ---------- */
 .k-pill {
-    display: inline-block;
-    padding: 5px 14px;
-    border-radius: 999px;
-    font-weight: 700;
-    font-size: 0.88rem;
-    margin-right: 6px;
-    margin-bottom: 6px;
+    display: inline-block; font-family: var(--mono);
+    padding: 5px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem;
+    margin-right: 6px; margin-bottom: 6px; letter-spacing: 0.4px;
 }
-.k-pill-crop { background: #064E3B; color: #fff; }
-.k-pill-diag { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
+.k-pill-crop { background: rgba(16,185,129,0.15); color: #6EE7B7; border: 1px solid rgba(16,185,129,0.4); box-shadow: 0 0 14px rgba(16,185,129,0.2); }
+.k-pill-diag { background: rgba(255,255,255,0.03); color: #D1FAE5; border: 1px solid rgba(255,255,255,0.15); }
+
 .badge-verified {
-    display: inline-flex;
-    align-items: center;
-    background: #EFF6FF;
-    color: #1D4ED8;
-    padding: 4px 10px;
-    border-radius: 8px;
-    font-size: 0.82rem;
-    font-weight: 700;
-    margin-top: 6px;
+    display: inline-flex; align-items: center; font-family: var(--mono);
+    background: rgba(59,130,246,0.12); color: #93C5FD;
+    padding: 4px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: 700;
+    margin-top: 6px; border: 1px solid rgba(147,197,253,0.35);
 }
-.tag-h { background: #DCFCE7; color: #166534; font-weight: 700; padding: 4px 12px; border-radius: 8px; }
-.tag-m { background: #FEF3C7; color: #92400E; font-weight: 700; padding: 4px 12px; border-radius: 8px; }
-.tag-c { background: #FEE2E2; color: #991B1B; font-weight: 700; padding: 4px 12px; border-radius: 8px; }
-.c-val { font-size: 2.2rem; font-weight: 800; color: #064E3B; line-height: 1.2; margin-top: 8px; }
-.t-chem { background: #FFFBEB; border-left: 4px solid #F59E0B; padding: 12px; border-radius: 10px; margin-bottom: 8px; }
-.t-bio { background: #F0FDF4; border-left: 4px solid #10B981; padding: 12px; border-radius: 10px; margin-bottom: 8px; }
-.w-box { background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 12px; padding: 12px; margin-bottom: 1rem; color: #1E293B; font-size: 0.88rem; }
-.s-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px; margin-bottom: 6px; font-size: 0.9rem; }
+
+.tag-h { background: var(--neon-soft); color: #6EE7B7; border: 1px solid rgba(16,185,129,0.5); font-weight: 700; padding: 4px 12px; border-radius: 8px; font-family: var(--mono); box-shadow: 0 0 14px rgba(16,185,129,0.25); }
+.tag-m { background: var(--amber-soft); color: #FBBF24; border: 1px solid rgba(245,158,11,0.5); font-weight: 700; padding: 4px 12px; border-radius: 8px; font-family: var(--mono); box-shadow: 0 0 14px rgba(245,158,11,0.25); }
+.tag-c { background: var(--red-soft); color: #FB7185; border: 1px solid rgba(244,63,94,0.5); font-weight: 700; padding: 4px 12px; border-radius: 8px; font-family: var(--mono); box-shadow: 0 0 14px rgba(244,63,94,0.25); }
+
+.c-val {
+    font-size: 2.4rem; font-weight: 700; font-family: var(--mono); line-height: 1.2; margin-top: 10px;
+    color: #6EE7B7; text-shadow: 0 0 18px rgba(16,185,129,0.6), 0 0 40px rgba(16,185,129,0.25);
+}
+
+/* ---------- TREATMENT / TACTICAL PANELS ---------- */
+.t-chem {
+    background: linear-gradient(135deg, rgba(245,158,11,0.08), rgba(15,23,42,0.4));
+    border: 1px solid rgba(245,158,11,0.4);
+    border-left: 3px solid var(--amber);
+    padding: 12px 14px; border-radius: 10px; margin-bottom: 8px;
+    box-shadow: 0 0 18px rgba(245,158,11,0.08);
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
+}
+.t-bio {
+    background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(15,23,42,0.4));
+    border: 1px solid rgba(16,185,129,0.4);
+    border-left: 3px solid var(--neon);
+    padding: 12px 14px; border-radius: 10px; margin-bottom: 8px;
+    box-shadow: 0 0 18px rgba(16,185,129,0.08);
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
+}
+
+/* ---------- WEATHER / SCHEDULE HUD ---------- */
+.w-box {
+    background: var(--panel-strong); border: 1px solid var(--glass-border);
+    border-radius: 12px; padding: 12px 14px; margin-bottom: 1rem;
+    color: var(--text-main); font-size: 0.88rem; font-family: var(--mono);
+    backdrop-filter: blur(12px);
+}
+.s-box {
+    background: rgba(255,255,255,0.02); border: 1px solid var(--glass-border);
+    border-left: 3px solid var(--neon);
+    border-radius: 8px; padding: 10px 14px; margin-bottom: 6px;
+    font-size: 0.9rem; font-family: var(--mono); color: #D1FAE5;
+}
+
+/* ---------- STREAMLIT NATIVE WIDGET OVERRIDES ---------- */
+div[data-testid="stSelectbox"] > div > div,
+[data-baseweb="select"] > div {
+    background-color: rgba(15,23,42,0.6) !important;
+    border: 1px solid var(--glass-border) !important;
+    color: var(--text-main) !important;
+    border-radius: 10px !important;
+    font-family: var(--mono) !important;
+}
+[data-baseweb="popover"] li, [data-baseweb="menu"] li { background-color: #0B0F19 !important; color: var(--text-main) !important; }
+
+div[role="radiogroup"] { gap: 4px; }
+div[role="radiogroup"] label { color: var(--text-main) !important; font-family: var(--mono); }
+
+section[data-testid="stFileUploaderDropzone"], div[data-testid="stFileUploaderDropzone"] {
+    background: rgba(15,23,42,0.5) !important;
+    border: 1.5px dashed var(--glass-border-strong) !important;
+    border-radius: 14px !important;
+}
+section[data-testid="stFileUploaderDropzone"] *, div[data-testid="stFileUploaderDropzone"] * { color: var(--text-dim) !important; }
+
+div[data-testid="stCameraInput"] video, div[data-testid="stCameraInput"] { border-radius: 14px; border: 1px solid var(--glass-border); }
+
+div[data-testid="stProgress"] > div { background-color: rgba(255,255,255,0.06) !important; border-radius: 8px; }
+div[data-testid="stProgress"] > div > div {
+    background: linear-gradient(90deg, #059669, #34D399) !important;
+    box-shadow: 0 0 10px rgba(16,185,129,0.6);
+}
+
+details, [data-testid="stExpander"] {
+    background: var(--panel) !important; border: 1px solid var(--glass-border) !important;
+    border-radius: 12px !important; backdrop-filter: blur(12px);
+}
+details summary { color: #A7F3D0 !important; font-family: var(--mono) !important; }
+
+div[data-testid="stAlert"] {
+    background: var(--panel-strong) !important; border: 1px solid var(--glass-border) !important;
+    border-radius: 12px !important; color: var(--text-main) !important;
+    backdrop-filter: blur(12px);
+}
+
+.stButton > button, .stDownloadButton > button {
+    background: rgba(16,185,129,0.08) !important;
+    border: 1px solid var(--glass-border-strong) !important;
+    color: #A7F3D0 !important;
+    font-family: var(--mono) !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.5px;
+    border-radius: 10px !important;
+    transition: all 0.2s ease;
+}
+.stButton > button:hover, .stDownloadButton > button:hover {
+    box-shadow: 0 0 20px rgba(16,185,129,0.35) !important;
+    border-color: #34D399 !important;
+    color: #fff !important;
+}
+
+.stSpinner > div { border-top-color: var(--neon) !important; }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("""
+AGRI_LOGO_SVG = """
+<svg width="58" height="58" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="leafGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#10B981"/>
+      <stop offset="100%" stop-color="#6EE7B7"/>
+    </linearGradient>
+  </defs>
+  <path d="M50 8 C18 20, 12 56, 50 92 C88 56, 82 20, 50 8 Z" fill="none" stroke="url(#leafGrad)" stroke-width="3"/>
+  <path d="M50 14 L50 86" stroke="#34D399" stroke-width="1.2" stroke-dasharray="3 3"/>
+  <circle cx="50" cy="30" r="3.6" fill="#6EE7B7"/>
+  <circle cx="34" cy="50" r="3" fill="#6EE7B7"/>
+  <circle cx="66" cy="50" r="3" fill="#6EE7B7"/>
+  <circle cx="50" cy="72" r="3.6" fill="#6EE7B7"/>
+  <line x1="50" y1="30" x2="34" y2="50" stroke="#10B981" stroke-width="1"/>
+  <line x1="50" y1="30" x2="66" y2="50" stroke="#10B981" stroke-width="1"/>
+  <line x1="34" y1="50" x2="50" y2="72" stroke="#10B981" stroke-width="1"/>
+  <line x1="66" y1="50" x2="50" y2="72" stroke="#10B981" stroke-width="1"/>
+</svg>
+"""
+
+st.markdown(f"""
 <div class="k-hero">
-    <div style="font-size:11px;font-weight:800;color:#A7F3D0;letter-spacing:1.5px;text-transform:uppercase;">Avishkar Research Initiative</div>
-    <h2 style="margin:4px 0 0 0;font-size:1.65rem;font-weight:800;">🌿 कृषी-AI : स्मार्ट पीक रोग निदान प्रणाली</h2>
-    <div style="font-size:0.9rem;color:#D1FAE5;margin-top:4px;">PlantNet Botanical Vision & Multi-Layer Deep Diagnostics</div>
+    <div class="k-hero-top">
+        <div class="k-logo-wrap">{AGRI_LOGO_SVG}</div>
+        <div>
+            <div class="k-hero-kicker">Avishkar Research Initiative</div>
+            <h2 class="k-hero-title">🌿 कृषी-AI <span>::</span> स्मार्ट पीक रोग निदान प्रणाली</h2>
+            <div class="k-hero-sub">PlantNet Botanical Vision & Multi-Layer Deep Diagnostics</div>
+        </div>
+    </div>
+    <div class="k-status-row">
+        <span class="k-status-badge k-status-on">● SYSTEM: ONLINE</span>
+        <span class="k-status-badge k-status-core">◆ CORE: DUAL-AI ENGINE</span>
+        <span class="k-status-badge k-status-net">▲ NET: PLANTNET + GEMINI</span>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -195,187 +403,4 @@ if uploaded_file is not None and models_ready:
     isoy, cs = int(np.argmax(ps)), float(np.max(ps))
 
     pc = cotton_model(np.expand_dims(arr / 255.0, axis=0), training=False).numpy()[0]
-    if np.sum(pc) > 1.05 or np.sum(pc) < 0.95: pc = tf.nn.softmax(pc).numpy()
-    ic, cc = int(np.argmax(pc)), float(np.max(pc))
-
-    sc = None
-    engine_badge = ""
-
-    if "बटाटा" in crop_mode:
-        sc = "potato"
-        engine_badge = "User Verified"
-    elif "कापूस" in crop_mode:
-        sc = "cotton"
-        engine_badge = "User Verified"
-    elif "सोयाबीन" in crop_mode:
-        sc = "soybean"
-        engine_badge = "User Verified"
-    else:
-        img_byte_arr = io.BytesIO()
-        img.save(img_byte_arr, format='JPEG')
-        img_bytes = img_byte_arr.getvalue()
-
-        # 🌟 LAYER 1: PlantNet Botanical API Check
-        if plantnet_key:
-            try:
-                url = f"https://my-api.plantnet.org/v2/identify/all?api-key={plantnet_key}"
-                files = [('images', ('leaf.jpg', img_bytes, 'image/jpeg'))]
-                data = {'organs': ['leaf']}
-                resp = requests.post(url, files=files, data=data, timeout=5)
-                if resp.status_code == 200:
-                    p_res = resp.json()
-                    results = p_res.get('results', [])
-                    for r in results[:4]:
-                        species = r.get('species', {}).get('scientificNameWithoutAuthor', '').lower()
-                        family = r.get('species', {}).get('family', {}).get('scientificNameWithoutAuthor', '').lower()
-                        
-                        # Botanical Matching
-                        if "gossypium" in species or "malvaceae" in family:
-                            sc = "cotton"
-                            engine_badge = "PlantNet Botanical AI"
-                            break
-                        elif "solanum tuberosum" in species:
-                            sc = "potato"
-                            engine_badge = "PlantNet Botanical AI"
-                            break
-                        elif "glycine max" in species or "fabaceae" in family:
-                            sc = "soybean"
-                            engine_badge = "PlantNet Botanical AI"
-                            break
-            except Exception:
-                pass
-
-        # 🌟 LAYER 2: Gemini Vision API (Failsafe 1)
-        if not sc and gemini_client:
-            v_prompt = (
-                "You are an agricultural botanist. Examine this leaf closely. "
-                "Which crop is this? Options: cotton, potato, soybean.\n"
-                "- Cotton: palmate lobes (3-5 pointed lobes), cotton boll/bracts, or reddish edge.\n"
-                "- Potato: oval wrinkled leaflets with distinct veins, no lobes.\n"
-                "- Soybean: trifoliate oval leaflets.\n\n"
-                "Return strictly ONLY one word: cotton, potato, or soybean."
-            )
-            for m in FALLBACK_MODELS:
-                try:
-                    res_g = gemini_client.models.generate_content(
-                        model=m,
-                        contents=[v_prompt, genai.types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg")]
-                    )
-                    if res_g and res_g.text:
-                        txt = res_g.text.strip().lower()
-                        if "potato" in txt:
-                            sc = "potato"
-                            engine_badge = "Gemini Vision AI"
-                            break
-                        elif "cotton" in txt:
-                            sc = "cotton"
-                            engine_badge = "Gemini Vision AI"
-                            break
-                        elif "soybean" in txt:
-                            sc = "soybean"
-                            engine_badge = "Gemini Vision AI"
-                            break
-                except Exception:
-                    continue
-
-        # 🌟 LAYER 3: Botanical Anatomy & Local CNN (Failsafe 2 - 100% Offline)
-        if not sc:
-            r_c, g_c, b_c = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
-            tot = 224 * 224
-            red_edge = float(np.sum((r_c > 110) & (r_c > g_c * 1.05) & (b_c < 100))) / tot
-            deep_green = float(np.sum((g_c > 90) & (g_c > r_c * 1.25) & (g_c > b_c * 1.25))) / tot
-
-            if red_edge > 0.035:
-                sc = "cotton"
-                engine_badge = "Botanical Anatomy Engine"
-            elif deep_green > 0.28:
-                sc = "soybean"
-                engine_badge = "Botanical Anatomy Engine"
-            else:
-                conf_map = {"potato": cp, "cotton": cc, "soybean": cs}
-                sc = max(conf_map, key=conf_map.get)
-                engine_badge = "Local CNN Network"
-
-    # Assign Output
-    if sc == "potato":
-        c_name = "🥔 बटाटा (Potato)"
-        c_classes = POTATO_CLASSES
-        c_preds = pp
-        diag = POTATO_CLASSES[ip]
-        f_conf = max(cp * 100, 96.8) if engine_badge != "Local CNN Network" else cp * 100
-    elif sc == "cotton":
-        c_name = "☁️ कापूस (Cotton)"
-        c_classes = COTTON_CLASSES
-        c_preds = pc
-        diag = COTTON_CLASSES[ic]
-        f_conf = max(cc * 100, 96.4) if engine_badge != "Local CNN Network" else cc * 100
-    else:
-        c_name = "🌱 सोयाबीन (Soybean)"
-        c_classes = SOYBEAN_CLASSES
-        c_preds = ps
-        diag = SOYBEAN_CLASSES[isoy]
-        f_conf = max(cs * 100, 97.2) if engine_badge != "Local CNN Network" else cs * 100
-
-    inf = TREATMENTS[diag]
-    s_txt = inf['severity']
-    tag_c = 'tag-h' if 'सुरक्षित' in s_txt else ('tag-m' if 'मध्यम' in s_txt else 'tag-c')
-
-    with col_r:
-        st.markdown('<div class="k-card"><b>🩺 निदान टर्मिनल (Diagnostic Terminal)</b></div>', unsafe_allow_html=True)
-        st.markdown(f'<span class="k-pill k-pill-crop">{c_name}</span><span class="k-pill k-pill-diag">{diag}</span>', unsafe_allow_html=True)
-        st.markdown(f'<span class="{tag_c}">● {s_txt}</span>', unsafe_allow_html=True)
-        st.markdown(f'<div class="c-val">{f_conf:.1f}%</div><div class="badge-verified">✓ Verified by {engine_badge}</div>', unsafe_allow_html=True)
-
-        a_txt = f"निदान: {c_name}, {diag}. औषध: {inf['chem']}."
-        a_js = json.dumps(a_txt)
-        a_html = f'<script>function spk(){{window.speechSynthesis.cancel();var m=new SpeechSynthesisUtterance({a_js});m.lang="mr-IN";window.speechSynthesis.speak(m);}}</script><button onclick="spk()" style="width:100%;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:12px;border-radius:12px;font-weight:700;cursor:pointer;margin-top:10px;">🔊 ऑडिओ सल्ला ऐका (Listen Audio)</button>'
-        components.html(a_html, height=54)
-
-    st.markdown('<div class="w-box"><b>🌤️ प्रादेशिक हवामान जोखीम:</b> स्थानिक तापमान: <b>२८°C</b> | हवेतील आर्द्रता: <b>७६%</b> (दमट वातावरण)<br><b>सल्ला:</b> दमट हवेमुळे बुरशीजन्य रोग वेगाने पसरू शकतात; सकाळी फवारणी करावी.</div>', unsafe_allow_html=True)
-
-    with st.expander("📊 संभाव्यता विवरण (Probabilities)", expanded=False):
-        for i in np.argsort(c_preds)[::-1]:
-            pct = float(c_preds[i]) * 100
-            st.write(f"• **{c_classes[i]}** : `{pct:.1f}%`")
-            st.progress(min(max(float(c_preds[i]), 0.0), 1.0))
-
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown(f'<div class="t-chem"><b style="color:#B45309;">🧪 रासायनिक उपचार:</b><br>{inf["chem"]}</div>', unsafe_allow_html=True)
-    with c2:
-        st.markdown(f'<div class="t-bio"><b style="color:#047857;">🌿 सेंद्रिय उपाय:</b><br>{inf["bio"]}</div>', unsafe_allow_html=True)
-
-    # Gemini Live Marathi Advisory
-    if gemini_client:
-        st.markdown('<div class="k-card"><b>🤖 कृषी-AI तज्ज्ञ सल्लागार (Google Gemini)</b>', unsafe_allow_html=True)
-        if st.button("✨ Gemini कडून विशेष कृषी सल्ला मिळवा"):
-            with st.spinner("Gemini AI सल्ला तयार करत आहे..."):
-                adv_prompt = f"तू एक कृषी तज्ज्ञ आहेस. पीक: {c_name}, रोग: {diag}, गंभीरता: {s_txt}. शेतकऱ्यासाठी सोप्या मराठीत २ परिच्छेदात उपाय आणि काळजी सांग."
-                res_adv = None
-                for model_cand in FALLBACK_MODELS:
-                    try:
-                        res = gemini_client.models.generate_content(
-                            model=model_cand,
-                            contents=adv_prompt
-                        )
-                        if res and res.text:
-                            res_adv = res.text
-                            break
-                    except Exception:
-                        continue
-                if res_adv:
-                    st.info(res_adv)
-                else:
-                    st.warning("⚠️ AI सल्लागार सेवा सध्या व्यस्त आहे. वरील रासायनिक व सेंद्रिय उपचार वापरावेत.")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown(f'<div class="k-card"><b>📅 पुढील फवारणी वेळापत्रक:</b><div class="s-box"><b>दिवस १:</b> वरील शिफारसीत घटकांची फवारणी करा.</div><div class="s-box"><b>दिवस ८:</b> {inf["d7"]}</div><div class="s-box"><b>दिवस १५:</b> {inf["d15"]}</div></div>', unsafe_allow_html=True)
-
-    rep = f"कृषी-AI : स्मार्ट पीक रोग निदान अहवाल\nपीक: {c_name}\nनिदान: {diag}\nविश्वास गुण: {f_conf:.1f}%\nतीव्रता: {s_txt}\nइंजिन: {engine_badge}\n\nरासायनिक: {inf['chem']}\nसेंद्रिय: {inf['bio']}\n\nदिवस ८: {inf['d7']}\nदिवस १५: {inf['d15']}\n"
-
-    d1, d2 = st.columns(2)
-    with d1:
-        st.download_button(label="⬇️ Download Report", data=rep.encode("utf-8-sig"), file_name=f"krushi_{sc}.txt", mime="text/plain; charset=utf-8", use_container_width=True)
-    with d2:
-        st.button("🔄 Try Another Sample", on_click=reset_sample, use_container_width=True)
-           
+    if np.sum(pc) >
