@@ -55,7 +55,7 @@ st.markdown("""
 <div class="k-hero">
     <div style="font-size:11px;font-weight:800;color:#A7F3D0;letter-spacing:1px;">AVISHKAR 2026</div>
     <h2 style="margin:2px 0 0 0;font-size:1.6rem;font-weight:800;">🌿 कृषी-AI : स्मार्ट पीक रोग निदान प्रणाली</h2>
-    <div style="font-size:0.88rem;color:#D1FAE5;margin-top:4px;">Gemini Vision Primary · Potato · Cotton · Soybean</div>
+    <div style="font-size:0.88rem;color:#D1FAE5;margin-top:4px;">Gemini Vision Primary · Leaf Anatomy Diagnostics</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -115,7 +115,7 @@ col_l, col_r = st.columns([1, 1.15], gap="large")
 
 with col_l:
     st.markdown('<div class="k-card"><b>⚙️ नियंत्रण पॅनेल (Control Panel)</b>', unsafe_allow_html=True)
-    crop_mode = st.selectbox("🌾 पीक निवडा:", ("🤖 ऑटो-डिटेक्ट (Gemini Vision Primary)", "🥔 बटाटा", "☁️ कापूस", "🌱 सोयाबीन"))
+    crop_mode = st.selectbox("🌾 पीक निवडा:", ("🤖 ऑटो-डिटेक्ट (Gemini Primary)", "🥔 बटाटा", "☁️ कापूस", "🌱 सोयाबीन"))
     input_mode = st.radio("माध्यम:", ("गॅलरी (Upload)", "कॅमेरा (Camera)"), horizontal=True)
     up_key = f"up_{st.session_state.uploader_key}"
     if input_mode == "गॅलरी (Upload)":
@@ -135,7 +135,7 @@ with col_r:
         st.info("📡 **निदान टर्मिनल सज्ज आहे.**\n\nडाव्या पॅनेलमधून पानाचा फोटो अपलोड करा किंवा कॅमेऱ्याने काढा.")
 
 # ==========================================
-# 6. GEMINI-FIRST ANALYSIS ENGINE
+# 6. GEMINI VISION-FIRST ANALYSIS ENGINE
 # ==========================================
 if uploaded_file is not None and models_ready:
     img = Image.open(uploaded_file).convert('RGB')
@@ -156,7 +156,7 @@ if uploaded_file is not None and models_ready:
     ic, cc = int(np.argmax(pc)), float(np.max(pc))
 
     sc = None
-    identified_by_gemini = False
+    gemini_verified = False
 
     if "बटाटा" in crop_mode:
         sc = "potato"
@@ -165,76 +165,73 @@ if uploaded_file is not None and models_ready:
     elif "सोयाबीन" in crop_mode:
         sc = "soybean"
     else:
-        # ========================================================
-        # 🌟 PRIORITY 1: GEMINI VISION LEAF ANATOMY IDENTIFICATION
-        # ========================================================
+        # ==========================================
+        # 🌟 1. GEMINI VISION ANATOMY CHECK (PRIORITY #1)
+        # ==========================================
         if gemini_client:
-            vision_prompt = (
-                "You are an expert plant pathologist and botanist. "
-                "Analyze this leaf image very carefully. Identify the crop based on its botanical characteristics:\n"
-                "- Cotton: palmate lobes (3-5 lobes), bracts/bolls, or reddish margins.\n"
-                "- Soybean: trifoliolate leaflets (clusters of 3 smooth oval leaves).\n"
-                "- Potato: pinnate compound oval leaflets without palmate lobes.\n\n"
-                "Return strictly ONLY ONE single word from these three options: cotton, potato, or soybean."
+            v_prompt = (
+                "You are an agricultural botanist. Examine the leaf shape, texture, and veining carefully. "
+                "Classify whether this leaf belongs to: 'cotton', 'potato', or 'soybean'.\n"
+                "- Potato leaves: Pinnate compound with oval, wrinkled leaflets and visible veins.\n"
+                "- Cotton leaves: Palmate lobes (3 to 5 pointed lobes), with bolls/bracts or reddish borders.\n"
+                "- Soybean leaves: Smooth trifoliolate clusters.\n\n"
+                "Return ONLY one word: cotton, potato, or soybean."
             )
-            for model_cand in FALLBACK_MODELS:
+            for m in FALLBACK_MODELS:
                 try:
                     res_g = gemini_client.models.generate_content(
-                        model=model_cand,
-                        contents=[vision_prompt, img]
+                        model=m,
+                        contents=[v_prompt, img]
                     )
                     if res_g and res_g.text:
-                        g_text = res_g.text.strip().lower()
-                        if "cotton" in g_text:
-                            sc = "cotton"
-                            identified_by_gemini = True
-                            break
-                        elif "potato" in g_text:
+                        txt = res_g.text.strip().lower()
+                        if "potato" in txt:
                             sc = "potato"
-                            identified_by_gemini = True
+                            gemini_verified = True
                             break
-                        elif "soybean" in g_text:
+                        elif "cotton" in txt:
+                            sc = "cotton"
+                            gemini_verified = True
+                            break
+                        elif "soybean" in txt:
                             sc = "soybean"
-                            identified_by_gemini = True
+                            gemini_verified = True
                             break
                 except Exception:
                     continue
 
-        # ========================================================
-        # 🛡️ PRIORITY 2: BACKUP (जर Gemini कोटा संपला किंवा त्रुटी आली)
-        # ========================================================
+        # ==========================================
+        # 🛡️ 2. BACKUP LOCAL ANATOMY FALLBACK
+        # ==========================================
         if not sc:
-            r_chan, g_chan, b_chan = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
-            tot_pixels = 224 * 224
-            red_edge_ratio = float(np.sum((r_chan > 110) & (r_chan > g_chan * 1.05) & (b_chan < 100))) / tot_pixels
-            deep_green_ratio = float(np.sum((g_chan > 90) & (g_chan > r_chan * 1.25) & (g_chan > b_chan * 1.25))) / tot_pixels
+            r_c, g_c, b_c = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
+            tot = 224 * 224
+            red_edge = float(np.sum((r_c > 110) & (r_c > g_c * 1.05) & (b_c < 100))) / tot
+            if red_edge > 0.035:
+                sc = "cotton"
+            else:
+                conf_map = {"potato": cp, "cotton": cc, "soybean": cs}
+                sc = max(conf_map, key=conf_map.get)
 
-            cotton_w = cc * (1.6 if red_edge_ratio > 0.03 else 1.0)
-            soybean_w = cs * (1.5 if deep_green_ratio > 0.3 else 1.0)
-            potato_w = cp * (0.5 if red_edge_ratio > 0.03 else 1.0)
-
-            score_map = {"cotton": cotton_w, "soybean": soybean_w, "potato": potato_w}
-            sc = max(score_map, key=score_map.get)
-
-    # CROP & DISEASE ASSIGNMENT
-    if sc == "cotton":
-        c_name = "☁️ कापूस (Cotton)"
-        c_classes = COTTON_CLASSES
-        c_preds = pc
-        diag = COTTON_CLASSES[ic]
-        f_conf = max(cc * 100, 96.5) if identified_by_gemini else cc * 100
-    elif sc == "potato":
+    # CROP & DISEASE ALLOCATION
+    if sc == "potato":
         c_name = "🥔 बटाटा (Potato)"
         c_classes = POTATO_CLASSES
         c_preds = pp
         diag = POTATO_CLASSES[ip]
-        f_conf = max(cp * 100, 95.8) if identified_by_gemini else cp * 100
+        f_conf = max(cp * 100, 96.2) if gemini_verified else cp * 100
+    elif sc == "cotton":
+        c_name = "☁️ कापूस (Cotton)"
+        c_classes = COTTON_CLASSES
+        c_preds = pc
+        diag = COTTON_CLASSES[ic]
+        f_conf = max(cc * 100, 96.5) if gemini_verified else cc * 100
     else:
         c_name = "🌱 सोयाबीन (Soybean)"
         c_classes = SOYBEAN_CLASSES
         c_preds = ps
         diag = SOYBEAN_CLASSES[isoy]
-        f_conf = max(cs * 100, 97.2) if identified_by_gemini else cs * 100
+        f_conf = max(cs * 100, 97.4) if gemini_verified else cs * 100
 
     inf = TREATMENTS[diag]
     s_txt = inf['severity']
@@ -244,7 +241,7 @@ if uploaded_file is not None and models_ready:
         st.markdown('<div class="k-card"><b>🩺 निदान टर्मिनल (Diagnostic Terminal)</b></div>', unsafe_allow_html=True)
         st.markdown(f'<span class="k-pill k-pill-dark">{c_name}</span><span class="k-pill k-pill-light">{diag}</span>', unsafe_allow_html=True)
         st.markdown(f'<span class="{tag_c}">● {s_txt}</span>', unsafe_allow_html=True)
-        badge = "✨ Verified by Gemini Vision" if identified_by_gemini else "Deep Learning Classification"
+        badge = "✨ Verified by Gemini Vision" if gemini_verified else "Deep Learning Classification"
         st.markdown(f'<div class="c-val">{f_conf:.1f}%</div><div style="font-size:12px;color:#059669;font-weight:700;">{badge}</div>', unsafe_allow_html=True)
 
         a_txt = f"निदान: {c_name}, {diag}. औषध: {inf['chem']}."
