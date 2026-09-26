@@ -153,81 +153,66 @@ if uploaded_file is not None and models_ready:
     if np.sum(pc) > 1.05 or np.sum(pc) < 0.95: pc = tf.nn.softmax(pc).numpy()
     ic, cc = int(np.argmax(pc)), float(np.max(pc))
 
-    # Pixel Analysis
+    # Chlorophyll and Lesion Ratios
     r, g, b = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
     h_green = (g > r * 1.15) & (g > b * 1.15) & (g > 38)
     necro = (r >= 40) & (r <= 140) & (g >= 25) & (g <= 100) & (b >= 10) & (b <= 60) & (r > g * 1.08)
     tot = 224 * 224
     g_rat, l_rat = float(np.sum(h_green)) / tot, float(np.sum(necro)) / tot
 
-    # Crop Selection / Out-of-Scope Detection
-    sc = None
+    gray = np.array(resized.convert('L'), dtype=np.float32)
+    w_trails = float(np.sum(gray > 215)) / tot
+
     is_oos = False
+    if "ऑटो" in crop_mode and w_trails > 0.05 and l_rat < 0.02:
+        is_oos = True
 
-    if "बटाटा" in crop_mode:
-        sc = "potato"
-    elif "कापूस" in crop_mode:
-        sc = "cotton"
-    elif "सोयाबीन" in crop_mode:
-        sc = "soybean"
+    if is_oos:
+        with col_r:
+            st.error("⚠️ **अनोळखी पीक / OUT OF SCOPE PLANT**\n\nहे पान टोमॅटो किंवा इतर वनस्पतीचे दिसते. कृषी-AI सध्या केवळ बटाटा, कापूस आणि सोयाबीन या ३ पिकांसाठी प्रमाणित आहे.")
     else:
-        # १. Gemini द्वारे अचूक पडताळणी (Tomato / Other ओळखणे)
-        if gemini_client:
-            try:
-                res_g = gemini_client.models.generate_content(
-                    model="gemini-1.5-flash",
-                    contents=[
-                        "Identify this agricultural leaf. If it is Tomato, Weed, or any plant other than Cotton, Potato, or Soybean, reply 'other'. "
-                        "Otherwise reply strictly with one word: 'cotton', 'potato', or 'soybean'.",
-                        img
-                    ]
-                )
-                g_text = res_g.text.strip().lower()
-                if "other" in g_text or "tomato" in g_text:
-                    is_oos = True
-                elif "cotton" in g_text:
-                    sc = "cotton"
-                elif "potato" in g_text:
-                    sc = "potato"
-                elif "soybean" in g_text:
-                    sc = "soybean"
-            except Exception:
-                pass
+        # Crop Selection
+        sc = None
 
-        # २. ऑफलाइन फॉलबॅक (टोमॅटो आणि अनोळखी वनस्पती रोखणे)
-        if not sc and not is_oos:
-            top_conf = max(cp, cc, cs)
-            if top_conf < 0.68 and l_rat < 0.05:
-                is_oos = True
+        if "बटाटा" in crop_mode:
+            sc = "potato"
+        elif "कापूस" in crop_mode:
+            sc = "cotton"
+        elif "सोयाबीन" in crop_mode:
+            sc = "soybean"
+        else:
+            if gemini_client:
+                try:
+                    res_g = gemini_client.models.generate_content(
+                        model="gemini-3.8-flash",
+                        contents=[
+                            "Look at this plant leaf image carefully. Is it cotton, potato, or soybean? Return strictly ONLY ONE single word: cotton, potato, or soybean.",
+                            img
+                        ]
+                    )
+                    g_text = res_g.text.strip().lower()
+                    if "cotton" in g_text: 
+                        sc = "cotton"
+                    elif "potato" in g_text: 
+                        sc = "potato"
+                    elif "soybean" in g_text: 
+                        sc = "soybean"
+                except Exception as e:
+                    st.error(f"⚠️ Gemini API Error: {e}")
             else:
-                if isoy in [0, 1] and cs > 0.70:
-                    sc = "soybean"
-                elif ip in [0, 1] and cp > 0.88 and cp > cc:
-                    sc = "potato"
-                elif ic in [0, 1] and cc > 0.68:
+                st.warning("⚠️ GEMINI_API_KEY Streamlit Secrets मध्ये सापडली नाही!")
+
+            if not sc:
+                # Gateway fallback logic
+                if cc > 0.60:
                     sc = "cotton"
-                elif cp >= cc and cp >= cs:
+                elif isoy in [0, 1] and cs > 0.65:
+                    sc = "soybean"
+                elif (ip in [0, 1] and cp > 0.90) or (l_rat > 0.04 and cp > cs):
                     sc = "potato"
                 else:
                     sc = "cotton"
 
-    # Out of scope स्क्रीन
-    if is_oos:
-        with col_r:
-            st.markdown("""
-            <div style="border: 2px solid #EF4444; background: #FEF2F2; border-radius: 16px; padding: 1.4rem; margin-bottom: 1rem;">
-                <div style="background: #FEE2E2; color: #B91C1C; font-weight: 800; padding: 5px 12px; border-radius: 8px; display: inline-block; font-size: 12px; margin-bottom: 8px;">
-                    ⚠️ अनोळखी पीक / OUT OF SCOPE PLANT
-                </div>
-                <h3 style="color:#991B1B; margin:6px 0;">हे पान अधिकृत ३ पिकांमधील नाही!</h3>
-                <p style="color:#374151; font-size:0.95rem; line-height: 1.6; margin:0;">
-                    हे पान <b>टोमॅटो किंवा इतर वनस्पतीचे</b> दिसते.<br>
-                    <b>कृषी-AI</b> सध्या केवळ <b>बटाटा, कापूस आणि सोयाबीन</b> या ३ पिकांसाठी प्रमाणित आहे. कृपया योग्य पानाचा फोटो वापरा.
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-            st.button("🔄 दुसरे पान तपासा (Try Another Sample)", on_click=reset_sample, use_container_width=True)
-    else:
         # Healthy Gate Logic
         is_h = bool(g_rat > 0.45 and l_rat < 0.025)
 
@@ -281,12 +266,12 @@ if uploaded_file is not None and models_ready:
                     adv_prompt = f"तू एक कृषी तज्ज्ञ आहेस. पीक: {c_name}, रोग: {diag}, गंभीरता: {s_txt}. शेतकऱ्यासाठी सोप्या मराठीत २ परिच्छेदात उपाय आणि काळजी सांग."
                     try:
                         res = gemini_client.models.generate_content(
-                            model="gemini-1.5-flash",
+                            model="gemini-3.8-flash",
                             contents=adv_prompt
                         )
                         st.info(res.text)
                     except Exception as err:
-                        st.warning(f"सर्व्हर व्यस्त आहे. कृपया थोड्या वेळाने पुन्हा प्रयत्न करा. ({err})")
+                        st.error(f"Gemini त्रुटी: {err}")
             st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown(f'<div class="k-card"><b>📅 पुढील फवारणी वेळापत्रक:</b><div class="s-box"><b>दिवस १:</b> वरील शिफारसीत घटकांची फवारणी करा.</div><div class="s-box"><b>दिवस ८:</b> {inf["d7"]}</div><div class="s-box"><b>दिवस १५:</b> {inf["d15"]}</div></div>', unsafe_allow_html=True)
