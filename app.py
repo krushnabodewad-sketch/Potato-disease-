@@ -14,6 +14,9 @@ st.set_page_config(page_title="कृषी-AI : Smart Agro Diagnostics", page_i
 gemini_key = st.secrets.get("GEMINI_API_KEY", None)
 gemini_client = genai.Client(api_key=gemini_key) if gemini_key else None
 
+# मल्टिपल मॉडेल्स (Quota Limit एरर टाळण्यासाठी)
+FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+
 # ==========================================
 # 2. SESSION STATE
 # ==========================================
@@ -182,36 +185,35 @@ if uploaded_file is not None and models_ready:
             sc = "soybean"
         else:
             if gemini_client:
-                try:
-                    res_g = gemini_client.models.generate_content(
-                        model="gemini-3.8-flash",
-                        contents=[
-                            "Look at this plant leaf image carefully. Is it cotton, potato, or soybean? Return strictly ONLY ONE single word: cotton, potato, or soybean.",
-                            img
-                        ]
-                    )
-                    g_text = res_g.text.strip().lower()
-                    if "cotton" in g_text: 
-                        sc = "cotton"
-                    elif "potato" in g_text: 
-                        sc = "potato"
-                    elif "soybean" in g_text: 
-                        sc = "soybean"
-                except Exception as e:
-                    st.error(f"⚠️ Gemini API Error: {e}")
+                # फॉलबॅक लूप - 429 एरर टाळण्यासाठी एकामागे एक मॉडेल वापरेल
+                for model_candidate in FALLBACK_MODELS:
+                    try:
+                        res_g = gemini_client.models.generate_content(
+                            model=model_candidate,
+                            contents=[
+                                "Look at this plant leaf image carefully. Is it cotton, potato, or soybean? Return strictly ONLY ONE single word: cotton, potato, or soybean.",
+                                img
+                            ]
+                        )
+                        g_text = res_g.text.strip().lower()
+                        if "cotton" in g_text: 
+                            sc = "cotton"
+                            break
+                        elif "potato" in g_text: 
+                            sc = "potato"
+                            break
+                        elif "soybean" in g_text: 
+                            sc = "soybean"
+                            break
+                    except Exception:
+                        continue
             else:
                 st.warning("⚠️ GEMINI_API_KEY Streamlit Secrets मध्ये सापडली नाही!")
 
             if not sc:
-                # Gateway fallback logic
-                if cc > 0.60:
-                    sc = "cotton"
-                elif isoy in [0, 1] and cs > 0.65:
-                    sc = "soybean"
-                elif (ip in [0, 1] and cp > 0.90) or (l_rat > 0.04 and cp > cs):
-                    sc = "potato"
-                else:
-                    sc = "cotton"
+                # तिन्ही मॉडेल्सच्या अचूक कॉन्फिडन्सची तुलना
+                confs = {"cotton": cc, "soybean": cs, "potato": cp}
+                sc = max(confs, key=confs.get)
 
         # Healthy Gate Logic
         is_h = bool(g_rat > 0.45 and l_rat < 0.025)
@@ -264,14 +266,22 @@ if uploaded_file is not None and models_ready:
             if st.button("✨ Gemini कडून विशेष कृषी सल्ला मिळवा"):
                 with st.spinner("Gemini AI सल्ला तयार करत आहे..."):
                     adv_prompt = f"तू एक कृषी तज्ज्ञ आहेस. पीक: {c_name}, रोग: {diag}, गंभीरता: {s_txt}. शेतकऱ्यासाठी सोप्या मराठीत २ परिच्छेदात उपाय आणि काळजी सांग."
-                    try:
-                        res = gemini_client.models.generate_content(
-                            model="gemini-3.8-flash",
-                            contents=adv_prompt
-                        )
-                        st.info(res.text)
-                    except Exception as err:
-                        st.error(f"Gemini त्रुटी: {err}")
+                    res_adv = None
+                    for model_cand in FALLBACK_MODELS:
+                        try:
+                            res = gemini_client.models.generate_content(
+                                model=model_cand,
+                                contents=adv_prompt
+                            )
+                            if res and res.text:
+                                res_adv = res.text
+                                break
+                        except Exception:
+                            continue
+                    if res_adv:
+                        st.info(res_adv)
+                    else:
+                        st.warning("⚠️ सध्या Gemini सर्व्हर व्यस्त आहे. वरील रासायनिक व सेंद्रिय उपचार अचूक आहेत.")
             st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown(f'<div class="k-card"><b>📅 पुढील फवारणी वेळापत्रक:</b><div class="s-box"><b>दिवस १:</b> वरील शिफारसीत घटकांची फवारणी करा.</div><div class="s-box"><b>दिवस ८:</b> {inf["d7"]}</div><div class="s-box"><b>दिवस १५:</b> {inf["d15"]}</div></div>', unsafe_allow_html=True)
@@ -283,4 +293,4 @@ if uploaded_file is not None and models_ready:
             st.download_button(label="⬇️ Download Report", data=rep.encode("utf-8-sig"), file_name=f"krushi_{sc}.txt", mime="text/plain; charset=utf-8", use_container_width=True)
         with d2:
             st.button("🔄 Try Another Sample", on_click=reset_sample, use_container_width=True)
-        
+            
