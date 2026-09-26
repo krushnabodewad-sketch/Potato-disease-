@@ -14,7 +14,6 @@ st.set_page_config(page_title="कृषी-AI : Smart Agro Diagnostics", page_i
 gemini_key = st.secrets.get("GEMINI_API_KEY", None)
 gemini_client = genai.Client(api_key=gemini_key) if gemini_key else None
 
-# मल्टिपल मॉडेल्स (Quota Limit एरर टाळण्यासाठी)
 FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
 
 # ==========================================
@@ -143,7 +142,7 @@ if uploaded_file is not None and models_ready:
     resized = img.resize((224, 224))
     arr = np.array(resized, dtype=np.float32)
 
-    # Local CNN Predictions
+    # Local Predictions
     pp = potato_model(np.expand_dims(arr, axis=0), training=False).numpy()[0]
     if np.sum(pp) > 1.05 or np.sum(pp) < 0.95: pp = tf.nn.softmax(pp).numpy()
     ip, cp = int(np.argmax(pp)), float(np.max(pp))
@@ -156,141 +155,117 @@ if uploaded_file is not None and models_ready:
     if np.sum(pc) > 1.05 or np.sum(pc) < 0.95: pc = tf.nn.softmax(pc).numpy()
     ic, cc = int(np.argmax(pc)), float(np.max(pc))
 
-    # Chlorophyll and Lesion Ratios
-    r, g, b = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
-    h_green = (g > r * 1.15) & (g > b * 1.15) & (g > 38)
-    necro = (r >= 40) & (r <= 140) & (g >= 25) & (g <= 100) & (b >= 10) & (b <= 60) & (r > g * 1.08)
-    tot = 224 * 224
-    g_rat, l_rat = float(np.sum(h_green)) / tot, float(np.sum(necro)) / tot
-
-    gray = np.array(resized.convert('L'), dtype=np.float32)
-    w_trails = float(np.sum(gray > 215)) / tot
-
-    is_oos = False
-    if "ऑटो" in crop_mode and w_trails > 0.05 and l_rat < 0.02:
-        is_oos = True
-
-    if is_oos:
-        with col_r:
-            st.error("⚠️ **अनोळखी पीक / OUT OF SCOPE PLANT**\n\nहे पान टोमॅटो किंवा इतर वनस्पतीचे दिसते. कृषी-AI सध्या केवळ बटाटा, कापूस आणि सोयाबीन या ३ पिकांसाठी प्रमाणित आहे.")
+    # CROP SELECTION
+    sc = None
+    if "बटाटा" in crop_mode:
+        sc = "potato"
+    elif "कापूस" in crop_mode:
+        sc = "cotton"
+    elif "सोयाबीन" in crop_mode:
+        sc = "soybean"
     else:
-        # Crop Selection
-        sc = None
+        # ऑटो-डिटेक्ट: Gemini मल्टिपल मॉडेल ट्राय करेल
+        if gemini_client:
+            for model_cand in FALLBACK_MODELS:
+                try:
+                    res_g = gemini_client.models.generate_content(
+                        model=model_cand,
+                        contents=[
+                            "Look at this plant leaf image carefully. Is it cotton, potato, or soybean? Return strictly ONLY ONE single word: cotton, potato, or soybean.",
+                            img
+                        ]
+                    )
+                    g_text = res_g.text.strip().lower()
+                    if "cotton" in g_text: 
+                        sc = "cotton"
+                        break
+                    elif "potato" in g_text: 
+                        sc = "potato"
+                        break
+                    elif "soybean" in g_text: 
+                        sc = "soybean"
+                        break
+                except Exception:
+                    continue
 
-        if "बटाटा" in crop_mode:
-            sc = "potato"
-        elif "कापूस" in crop_mode:
-            sc = "cotton"
-        elif "सोयाबीन" in crop_mode:
-            sc = "soybean"
-        else:
-            if gemini_client:
-                # फॉलबॅक लूप - 429 एरर टाळण्यासाठी एकामागे एक मॉडेल वापरेल
-                for model_candidate in FALLBACK_MODELS:
+        # जर Gemini व्यस्त असेल तर सर्वाधिक अचूक CNN मॉडेल निवडणे
+        if not sc:
+            conf_map = {"potato": cp, "cotton": cc, "soybean": cs}
+            sc = max(conf_map, key=conf_map.get)
+
+    # निवडलेल्या पिकानुसार थेट अचूक निदान (कोणतेही चुकीचे फोर्स नियम नाहीत)
+    if sc == "cotton":
+        c_name, c_classes, c_preds = "☁️ कापूस (Cotton)", COTTON_CLASSES, pc
+        diag = COTTON_CLASSES[ic]
+        f_conf = cc * 100
+    elif sc == "potato":
+        c_name, c_classes, c_preds = "🥔 बटाटा (Potato)", POTATO_CLASSES, pp
+        diag = POTATO_CLASSES[ip]
+        f_conf = cp * 100
+    else:
+        c_name, c_classes, c_preds = "🌱 सोयाबीन (Soybean)", SOYBEAN_CLASSES, ps
+        diag = SOYBEAN_CLASSES[isoy]
+        f_conf = cs * 100
+
+    inf = TREATMENTS[diag]
+    s_txt = inf['severity']
+    tag_c = 'tag-h' if 'सुरक्षित' in s_txt else ('tag-m' if 'मध्यम' in s_txt else 'tag-c')
+
+    with col_r:
+        st.markdown('<div class="k-card"><b>🩺 निदान टर्मिनल (Diagnostic Terminal)</b></div>', unsafe_allow_html=True)
+        st.markdown(f'<span class="k-pill k-pill-dark">{c_name}</span><span class="k-pill k-pill-light">{diag}</span>', unsafe_allow_html=True)
+        st.markdown(f'<span class="{tag_c}">● {s_txt}</span>', unsafe_allow_html=True)
+        st.markdown(f'<div class="c-val">{f_conf:.1f}%</div><div style="font-size:12px;color:#64748B;">Top Model Confidence</div>', unsafe_allow_html=True)
+
+        a_txt = f"निदान: {c_name}, {diag}. औषध: {inf['chem']}."
+        a_js = json.dumps(a_txt)
+        a_html = f'<script>function spk(){{window.speechSynthesis.cancel();var m=new SpeechSynthesisUtterance({a_js});m.lang="mr-IN";window.speechSynthesis.speak(m);}}</script><button onclick="spk()" style="width:100%;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:12px;border-radius:12px;font-weight:700;cursor:pointer;">🔊 ऑडिओ सल्ला ऐका (Listen Audio)</button>'
+        components.html(a_html, height=54)
+
+    st.markdown('<div class="w-box"><b>🌤️ प्रादेशिक हवामान जोखीम:</b> स्थानिक तापमान: <b>२८°C</b> | हवेतील आर्द्रता: <b>७६%</b> (दमट वातावरण)<br><b>सल्ला:</b> दमट हवेमुळे बुरशीजन्य रोग वेगाने पसरू शकतात; सकाळी फवारणी करावी.</div>', unsafe_allow_html=True)
+
+    with st.expander("📊 संभाव्यता विवरण (Probabilities)", expanded=False):
+        for i in np.argsort(c_preds)[::-1]:
+            pct = float(c_preds[i]) * 100
+            st.write(f"• **{c_classes[i]}** : `{pct:.1f}%`")
+            st.progress(min(max(float(c_preds[i]), 0.0), 1.0))
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown(f'<div class="t-chem"><b style="color:#B45309;">🧪 रासायनिक उपचार:</b><br>{inf["chem"]}</div>', unsafe_allow_html=True)
+    with c2:
+        st.markdown(f'<div class="t-bio"><b style="color:#047857;">🌿 सेंद्रिय उपाय:</b><br>{inf["bio"]}</div>', unsafe_allow_html=True)
+
+    # GOOGLE GEMINI LIVE ADVISORY
+    if gemini_client:
+        st.markdown('<div class="k-card"><b>🤖 कृषी-AI तज्ज्ञ सल्लागार (Google Gemini)</b>', unsafe_allow_html=True)
+        if st.button("✨ Gemini कडून विशेष कृषी सल्ला मिळवा"):
+            with st.spinner("Gemini AI सल्ला तयार करत आहे..."):
+                adv_prompt = f"तू एक कृषी तज्ज्ञ आहेस. पीक: {c_name}, रोग: {diag}, गंभीरता: {s_txt}. शेतकऱ्यासाठी सोप्या मराठीत २ परिच्छेदात उपाय आणि काळजी सांग."
+                res_adv = None
+                for model_cand in FALLBACK_MODELS:
                     try:
-                        res_g = gemini_client.models.generate_content(
-                            model=model_candidate,
-                            contents=[
-                                "Look at this plant leaf image carefully. Is it cotton, potato, or soybean? Return strictly ONLY ONE single word: cotton, potato, or soybean.",
-                                img
-                            ]
+                        res = gemini_client.models.generate_content(
+                            model=model_cand,
+                            contents=adv_prompt
                         )
-                        g_text = res_g.text.strip().lower()
-                        if "cotton" in g_text: 
-                            sc = "cotton"
-                            break
-                        elif "potato" in g_text: 
-                            sc = "potato"
-                            break
-                        elif "soybean" in g_text: 
-                            sc = "soybean"
+                        if res and res.text:
+                            res_adv = res.text
                             break
                     except Exception:
                         continue
-            else:
-                st.warning("⚠️ GEMINI_API_KEY Streamlit Secrets मध्ये सापडली नाही!")
+                if res_adv:
+                    st.info(res_adv)
+                else:
+                    st.warning("⚠️ AI सल्लागार सेवा सध्या व्यस्त आहे. वरील रासायनिक व सेंद्रिय उपचार वापरावेत.")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-            if not sc:
-                # तिन्ही मॉडेल्सच्या अचूक कॉन्फिडन्सची तुलना
-                confs = {"cotton": cc, "soybean": cs, "potato": cp}
-                sc = max(confs, key=confs.get)
+    st.markdown(f'<div class="k-card"><b>📅 पुढील फवारणी वेळापत्रक:</b><div class="s-box"><b>दिवस १:</b> वरील शिफारसीत घटकांची फवारणी करा.</div><div class="s-box"><b>दिवस ८:</b> {inf["d7"]}</div><div class="s-box"><b>दिवस १५:</b> {inf["d15"]}</div></div>', unsafe_allow_html=True)
 
-        # Healthy Gate Logic
-        is_h = bool(g_rat > 0.45 and l_rat < 0.025)
+    rep = f"कृषी-AI : स्मार्ट पीक रोग निदान अहवाल\nपीक: {c_name}\nनिदान: {diag}\nविश्वास गुण: {f_conf:.1f}%\nतीव्रता: {s_txt}\n\nरासायनिक: {inf['chem']}\nसेंद्रिय: {inf['bio']}\n\nदिवस ८: {inf['d7']}\nदिवस १५: {inf['d15']}\n"
 
-        if sc == "cotton":
-            c_name, c_classes, c_preds = "☁️ कापूस (Cotton)", COTTON_CLASSES, pc
-            diag = COTTON_CLASSES[2] if is_h else COTTON_CLASSES[ic]
-            f_conf = 95.8 if is_h else cc * 100
-        elif sc == "potato":
-            c_name, c_classes, c_preds = "🥔 बटाटा (Potato)", POTATO_CLASSES, pp
-            diag = POTATO_CLASSES[2] if is_h else POTATO_CLASSES[ip]
-            f_conf = 96.5 if is_h else cp * 100
-        else:
-            c_name, c_classes, c_preds = "🌱 सोयाबीन (Soybean)", SOYBEAN_CLASSES, ps
-            diag = SOYBEAN_CLASSES[2] if is_h else SOYBEAN_CLASSES[isoy]
-            f_conf = 97.2 if is_h else cs * 100
-
-        inf = TREATMENTS[diag]
-        s_txt = inf['severity']
-        tag_c = 'tag-h' if 'सुरक्षित' in s_txt else ('tag-m' if 'मध्यम' in s_txt else 'tag-c')
-
-        with col_r:
-            st.markdown('<div class="k-card"><b>🩺 निदान टर्मिनल (Diagnostic Terminal)</b></div>', unsafe_allow_html=True)
-            st.markdown(f'<span class="k-pill k-pill-dark">{c_name}</span><span class="k-pill k-pill-light">{diag}</span>', unsafe_allow_html=True)
-            st.markdown(f'<span class="{tag_c}">● {s_txt}</span>', unsafe_allow_html=True)
-            st.markdown(f'<div class="c-val">{f_conf:.1f}%</div><div style="font-size:12px;color:#64748B;">Top Model Confidence</div>', unsafe_allow_html=True)
-
-            a_txt = f"निदान: {c_name}, {diag}. औषध: {inf['chem']}."
-            a_js = json.dumps(a_txt)
-            a_html = f'<script>function spk(){{window.speechSynthesis.cancel();var m=new SpeechSynthesisUtterance({a_js});m.lang="mr-IN";window.speechSynthesis.speak(m);}}</script><button onclick="spk()" style="width:100%;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:12px;border-radius:12px;font-weight:700;cursor:pointer;">🔊 ऑडिओ सल्ला ऐका (Listen Audio)</button>'
-            components.html(a_html, height=54)
-
-        st.markdown('<div class="w-box"><b>🌤️ प्रादेशिक हवामान जोखीम:</b> स्थानिक तापमान: <b>२८°C</b> | हवेतील आर्द्रता: <b>७६%</b> (दमट वातावरण)<br><b>सल्ला:</b> दमट हवेमुळे बुरशीजन्य रोग वेगाने पसरू शकतात; सकाळी फवारणी करावी.</div>', unsafe_allow_html=True)
-
-        with st.expander("📊 संभाव्यता विवरण (Probabilities)", expanded=False):
-            for i in np.argsort(c_preds)[::-1]:
-                pct = float(c_preds[i]) * 100
-                st.write(f"• **{c_classes[i]}** : `{pct:.1f}%`")
-                st.progress(min(max(float(c_preds[i]), 0.0), 1.0))
-
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown(f'<div class="t-chem"><b style="color:#B45309;">🧪 रासायनिक उपचार:</b><br>{inf["chem"]}</div>', unsafe_allow_html=True)
-        with c2:
-            st.markdown(f'<div class="t-bio"><b style="color:#047857;">🌿 सेंद्रिय उपाय:</b><br>{inf["bio"]}</div>', unsafe_allow_html=True)
-
-        # GOOGLE GEMINI LIVE ADVISORY
-        if gemini_client:
-            st.markdown('<div class="k-card"><b>🤖 कृषी-AI तज्ज्ञ सल्लागार (Google Gemini)</b>', unsafe_allow_html=True)
-            if st.button("✨ Gemini कडून विशेष कृषी सल्ला मिळवा"):
-                with st.spinner("Gemini AI सल्ला तयार करत आहे..."):
-                    adv_prompt = f"तू एक कृषी तज्ज्ञ आहेस. पीक: {c_name}, रोग: {diag}, गंभीरता: {s_txt}. शेतकऱ्यासाठी सोप्या मराठीत २ परिच्छेदात उपाय आणि काळजी सांग."
-                    res_adv = None
-                    for model_cand in FALLBACK_MODELS:
-                        try:
-                            res = gemini_client.models.generate_content(
-                                model=model_cand,
-                                contents=adv_prompt
-                            )
-                            if res and res.text:
-                                res_adv = res.text
-                                break
-                        except Exception:
-                            continue
-                    if res_adv:
-                        st.info(res_adv)
-                    else:
-                        st.warning("⚠️ सध्या Gemini सर्व्हर व्यस्त आहे. वरील रासायनिक व सेंद्रिय उपचार अचूक आहेत.")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        st.markdown(f'<div class="k-card"><b>📅 पुढील फवारणी वेळापत्रक:</b><div class="s-box"><b>दिवस १:</b> वरील शिफारसीत घटकांची फवारणी करा.</div><div class="s-box"><b>दिवस ८:</b> {inf["d7"]}</div><div class="s-box"><b>दिवस १५:</b> {inf["d15"]}</div></div>', unsafe_allow_html=True)
-
-        rep = f"कृषी-AI : स्मार्ट पीक रोग निदान अहवाल\nपीक: {c_name}\nनिदान: {diag}\nविश्वास गुण: {f_conf:.1f}%\nतीव्रता: {s_txt}\n\nरासायनिक: {inf['chem']}\nसेंद्रिय: {inf['bio']}\n\nदिवस ८: {inf['d7']}\nदिवस १५: {inf['d15']}\n"
-
-        d1, d2 = st.columns(2)
-        with d1:
-            st.download_button(label="⬇️ Download Report", data=rep.encode("utf-8-sig"), file_name=f"krushi_{sc}.txt", mime="text/plain; charset=utf-8", use_container_width=True)
-        with d2:
-            st.button("🔄 Try Another Sample", on_click=reset_sample, use_container_width=True)
-            
+    d1, d2 = st.columns(2)
+    with d1:
+        st.download_button(label="⬇️ Download Report", data=rep.encode("utf-8-sig"), file_name=f"krushi_{sc}.txt", mime="text/plain; charset=utf-8", use_container_width=True)
+    with d2:
+        st.button("🔄 Try Another Sample", on_click=reset_sample, use_container_width=True)
