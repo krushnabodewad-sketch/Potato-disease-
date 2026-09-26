@@ -25,6 +25,7 @@ roboflow_key = st.secrets.get("ROBOFLOW_API_KEY", None)
 
 gemini_client = genai.Client(api_key=gemini_key) if gemini_key else None
 
+# 503 आणि 404 एरर टाळण्यासाठी मॉडेल्सची बॅकअप लिस्ट
 FALLBACK_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash"]
 
 # ==========================================
@@ -100,7 +101,7 @@ st.markdown("""
 <div class="k-hero">
     <div style="font-size:11px;font-weight:800;color:#A7F3D0;letter-spacing:1.5px;text-transform:uppercase;">Avishkar Research Initiative</div>
     <h2 style="margin:4px 0 0 0;font-size:1.65rem;font-weight:800;">🌿 कृषी-AI : स्मार्ट पीक रोग निदान प्रणाली</h2>
-    <div style="font-size:0.9rem;color:#D1FAE5;margin-top:4px;">PlantNet Botanical Vision, Roboflow Vision & Multi-Layer Deep Diagnostics</div>
+    <div style="font-size:0.9rem;color:#D1FAE5;margin-top:4px;">PlantNet Botanical Vision, Roboflow Detection & Multi-Layer Diagnostics</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -392,5 +393,4 @@ if uploaded_file is not None and models_ready:
 
     # Gemini Live Marathi Advisory with Auto-Fallback
     if gemini_client:
-        st.markdown('<div class="k-card"><b>🤖 कृषी-AI तज्ज्ञ सल्लागार (Google Gemini)</b>', unsafe_allow_html=True)
-        if st.button("✨ Gemini कडून विशेष कृ
+        st.markdown('<div class="k-card"><b>🤖 कृषी-AI तज्ज्ञ सल्लागार (Google Gemini)</b>', unsafe_allow_html=
