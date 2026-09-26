@@ -6,20 +6,26 @@ import numpy as np
 import streamlit.components.v1 as components
 from google import genai
 
+# ==========================================
 # 1. PAGE CONFIG & GEMINI SETUP
+# ==========================================
 st.set_page_config(page_title="कृषी-AI : Smart Agro Diagnostics", page_icon="🌿", layout="wide")
 
 gemini_key = st.secrets.get("GEMINI_API_KEY", None)
 gemini_client = genai.Client(api_key=gemini_key) if gemini_key else None
 
+# ==========================================
 # 2. SESSION STATE
+# ==========================================
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
 
 def reset_sample():
     st.session_state.uploader_key += 1
 
+# ==========================================
 # 3. GLOBAL STYLING
+# ==========================================
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Mukta:wght@600;700&display=swap');
@@ -51,7 +57,9 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# ==========================================
 # 4. MODEL LOADING
+# ==========================================
 @st.cache_resource
 def load_all():
     pm = tf.keras.models.load_model('potato_disease_model (1).h5', compile=False)
@@ -98,7 +106,9 @@ TREATMENTS = {
     'Soybean Healthy Leaf (निरोगी सोयाबीन पान)': {'crop': 'सोयाबीन · Soybean', 'severity': 'सुरक्षित (Healthy)', 'chem': '00:52:34 ५ ग्रॅम + चिलेटेड झिंक ०.५ ग्रॅम प्रति लिटर पाणी.', 'bio': 'जीवामृत आणि वेस्ट डीकंपोजरचा वापर.', 'd7': 'बोरॉन २०% १ ग्रॅम प्रति लिटर पाणी फवारावे.', 'd15': 'शेंगा भरताना पाणी व्यवस्थापन ठेवावे.'}
 }
 
+# ==========================================
 # 5. DUAL-COLUMN WORKSPACE
+# ==========================================
 col_l, col_r = st.columns([1, 1.15], gap="large")
 
 with col_l:
@@ -122,7 +132,9 @@ with col_r:
     if uploaded_file is None:
         st.info("📡 **निदान टर्मिनल सज्ज आहे.**\n\nडाव्या पॅनेलमधून पानाचा फोटो अपलोड करा किंवा कॅमेऱ्याने काढा.")
 
+# ==========================================
 # 6. ANALYSIS ENGINE
+# ==========================================
 if uploaded_file is not None and models_ready:
     img = Image.open(uploaded_file).convert('RGB')
     resized = img.resize((224, 224))
@@ -159,8 +171,11 @@ if uploaded_file is not None and models_ready:
         with col_r:
             st.error("⚠️ **अनोळखी पीक / OUT OF SCOPE PLANT**\n\nहे पान टोमॅटो किंवा इतर वनस्पतीचे दिसते. कृषी-AI सध्या केवळ बटाटा, कापूस आणि सोयाबीन या ३ पिकांसाठी प्रमाणित आहे.")
     else:
-        # CROP SELECTION WITH GEMINI VERIFIER
+        # ==========================================
+        # HYBRID AUTO-ROUTER (GEMINI API + SMART GATEWAY)
+        # ==========================================
         sc = None
+
         if "बटाटा" in crop_mode:
             sc = "potato"
         elif "कापूस" in crop_mode:
@@ -168,29 +183,44 @@ if uploaded_file is not None and models_ready:
         elif "सोयाबीन" in crop_mode:
             sc = "soybean"
         else:
-            # Gemini Vision API: फोटो पाहून आधी पिकाची खात्री करेल (कापूस vs बटाटा चूक टाळण्यासाठी)
+            # 1. PARYAY 1: GEMINI VISION MASTER ROUTER
             if gemini_client:
                 try:
                     res_g = gemini_client.models.generate_content(
                         model="gemini-2.5-flash",
-                        contents=["Is this leaf cotton, potato, or soybean? Reply with only one word: cotton, potato, or soybean.", img]
+                        contents=[
+                            "Examine this agricultural plant leaf carefully. Identify whether it belongs to Cotton, Potato, or Soybean. Return strictly ONLY one single word: cotton, potato, or soybean.",
+                            img
+                        ]
                     )
                     g_text = res_g.text.strip().lower()
                     if "cotton" in g_text: sc = "cotton"
-                    elif "soybean" in g_text: sc = "soybean"
                     elif "potato" in g_text: sc = "potato"
+                    elif "soybean" in g_text: sc = "soybean"
                 except Exception:
                     pass
 
-            # स्थानिक फॉलबॅक (कापसाला बटाट्यापेक्षा जास्त प्राधान्य द्या)
+            # 2. PARYAY 2: LOCAL GATEWAY FALLBACK (SMART MARGIN LOGIC)
             if not sc:
-                if cc > 0.55: sc = "cotton"
-                elif isoy in [0, 1] and cs > 0.65: sc = "soybean"
-                elif (ip in [0, 1] and cp > 0.92) or (l_rat > 0.04 and cp > cs): sc = "potato"
-                elif cc >= cp and cc >= cs: sc = "cotton"
-                elif cs >= cp: sc = "soybean"
-                else: sc = "cotton"
+                margin_p = float(np.max(pp) - np.sort(pp)[-2])
+                margin_c = float(np.max(pc) - np.sort(pc)[-2])
+                margin_s = float(np.max(ps) - np.sort(ps)[-2])
 
+                # जर बटाट्याच्या पानावरील करपा अतिशय स्पष्ट असेल तर बटाटा निवडा
+                if ip in [0, 1] and cp > 0.88 and margin_p > margin_c:
+                    sc = "potato"
+                elif margin_c > 0.35 and cc > 0.60:
+                    sc = "cotton"
+                elif margin_s > 0.35 and cs > 0.65:
+                    sc = "soybean"
+                elif cc >= cp and cc >= cs:
+                    sc = "cotton"
+                elif cp >= cc and cp >= cs:
+                    sc = "potato"
+                else:
+                    sc = "soybean"
+
+        # Healthy Gate Logic
         is_h = bool(g_rat > 0.45 and l_rat < 0.025)
 
         if sc == "cotton":
@@ -210,7 +240,7 @@ if uploaded_file is not None and models_ready:
         s_txt = inf['severity']
         tag_c = 'tag-h' if 'सुरक्षित' in s_txt else ('tag-m' if 'मध्यम' in s_txt else 'tag-c')
 
-        # सुरक्षित तुकड्यांमध्ये टर्मिनल रेंडर करणे (तुटणे टाळण्यासाठी)
+        # टर्मिनल डिस्प्ले (मोबाईल सेफ)
         with col_r:
             st.markdown('<div class="k-card"><b>🩺 निदान टर्मिनल (Diagnostic Terminal)</b></div>', unsafe_allow_html=True)
             st.markdown(f'<span class="k-pill k-pill-dark">{c_name}</span><span class="k-pill k-pill-light">{diag}</span>', unsafe_allow_html=True)
@@ -261,4 +291,7 @@ if uploaded_file is not None and models_ready:
             st.download_button(label="⬇️ Download Report", data=rep.encode("utf-8-sig"), file_name=f"krushi_{sc}.txt", mime="text/plain; charset=utf-8", use_container_width=True)
         with d2:
             st.button("🔄 Try Another Sample", on_click=reset_sample, use_container_width=True)
-            
+
+# ==========================================
+# END OF SCRIPT
+# ==========================================
