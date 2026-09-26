@@ -390,10 +390,10 @@ if uploaded_file is not None and models_ready:
     with c2:
         st.markdown(f'<div class="t-bio"><b style="color:#047857;">🌿 सेंद्रिय उपाय:</b><br>{inf["bio"]}</div>', unsafe_allow_html=True)
 
-    # Gemini Live Marathi Advisory with Auto-Fallback
+        # Gemini Live Marathi Advisory with Auto-Fallback
     if gemini_client:
         st.markdown('<div class="k-card"><b>🤖 कृषी-AI तज्ज्ञ सल्लागार (Google Gemini)</b>', unsafe_allow_html=True)
-                if st.button("✨ Gemini कडून विशेष कृषी सल्ला मिळवा"):
+        if st.button("✨ Gemini कडून विशेष कृषी सल्ला मिळवा"):
             with st.spinner("Gemini AI सल्ला तयार करत आहे..."):
                 adv_prompt = f"तू एक कृषी तज्ज्ञ आहेस. पीक: {c_name}, रोग: {diag}, गंभीरता: {s_txt}. शेतकऱ्यासाठी सोप्या मराठीत २ परिच्छेदात उपाय आणि काळजी सांग."
                 res_adv = None
@@ -413,15 +413,4 @@ if uploaded_file is not None and models_ready:
                 else:
                     st.warning("⚠️ AI सल्लागार सेवा सध्या व्यस्त आहे. वरील रासायनिक व सेंद्रिय उपचार वापरावेत.")
         st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown(f'<div class="k-card"><b>📅 पुढील फवारणी वेळापत्रक:</b><div class="s-box"><b>दिवस १:</b> वरील शिफारसीत घटकांची फवारणी करा.</div><div class="s-box"><b>दिवस ८:</b> {inf["d7"]}</div><div class="s-box"><b>दिवस १५:</b> {inf["d15"]}</div></div>', unsafe_allow_html=True)
-
-    rf_info = f"\nRoboflow तपासणी: {rf_data['label']} ({rf_data['conf']}%)" if rf_data else ""
-    rep = f"कृषी-AI : स्मार्ट पीक रोग निदान अहवाल\nपीक: {c_name}\nनिदान: {diag}\nविश्वास गुण: {f_conf:.1f}%\nतीव्रता: {s_txt}\nइंजिन: {engine_badge}{rf_info}\n\nरासायनिक: {inf['chem']}\nसेंद्रिय: {inf['bio']}\n\nदिवस ८: {inf['d7']}\nदिवस १५: {inf['d15']}\n"
-
-    d1, d2 = st.columns(2)
-    with d1:
-        st.download_button(label="⬇️ Download Report", data=rep.encode("utf-8-sig"), file_name=f"krushi_{sc}.txt", mime="text/plain; charset=utf-8", use_container_width=True)
-    with d2:
-        st.button("🔄 Try Another Sample", on_click=reset_sample, use_container_width=True)
         
