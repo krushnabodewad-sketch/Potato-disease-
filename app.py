@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 import io
+import base64
 import requests
 import tensorflow as tf
 from PIL import Image
@@ -20,9 +21,11 @@ st.set_page_config(
 
 plantnet_key = st.secrets.get("PLANTNET_API_KEY", None)
 gemini_key = st.secrets.get("GEMINI_API_KEY", None)
+roboflow_key = st.secrets.get("ROBOFLOW_API_KEY", None)
+
 gemini_client = genai.Client(api_key=gemini_key) if gemini_key else None
 
-FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+FALLBACK_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash"]
 
 # ==========================================
 # 2. SESSION STATE
@@ -34,269 +37,70 @@ def reset_sample():
     st.session_state.uploader_key += 1
 
 # ==========================================
-# 3. REALISTIC BOTANICAL FROSTED-GLASS STYLING (UI)
+# 3. MODERN PROFESSIONAL STYLING (UI)
 # ==========================================
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Mukta:wght@500;600;700&display=swap');
-
-:root {
-    --panel: rgba(13, 34, 25, 0.70);
-    --panel-strong: rgba(8, 24, 17, 0.80);
-    --glass-border: rgba(52, 211, 153, 0.3);
-    --glass-border-strong: rgba(52, 211, 153, 0.55);
-    --neon: #10B981;
-    --neon-soft: rgba(16, 185, 129, 0.18);
-    --neon-bright: #34D399;
-    --amber: #F59E0B;
-    --amber-soft: rgba(245, 158, 11, 0.16);
-    --red: #F43F5E;
-    --red-soft: rgba(244, 63, 94, 0.16);
-    --text-main: #F1F5F9;
-    --text-dim: #A9C2B8;
-    --mono: 'JetBrains Mono', 'Space Grotesk', monospace;
-    --tech: 'Space Grotesk', 'Mukta', sans-serif;
-}
-
-html, body, [class*="css"] { font-family: var(--tech); color: var(--text-main); }
-
-/* ---------- BASE / REALISTIC BOTANICAL BACKGROUND ---------- */
-.stApp {
-    background: linear-gradient(135deg, rgba(6, 26, 18, 0.90) 0%, rgba(3, 15, 10, 0.94) 100%), url('https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?auto=format&fit=crop&w=1920&q=80') center/cover fixed no-repeat !important;
-}
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Mukta:wght@500;600;700&display=swap');
+html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', 'Mukta', sans-serif; }
+.stApp { background: #F1F5F9; }
 #MainMenu, footer, header { visibility: hidden; }
-.block-container { padding-top: 1rem; max-width: 1080px; }
+.block-container { padding-top: 1rem; max-width: 1050px; }
 
-h1, h2, h3, h4, h5, h6, p, span, label, li, div[data-testid="stMarkdownContainer"] {
-    color: var(--text-main);
-}
-::selection { background: var(--neon-soft); }
-
-/* ---------- HERO / BRAND HEADER ---------- */
 .k-hero {
-    position: relative;
-    background: rgba(13, 34, 25, 0.75);
-    border: 1px solid var(--glass-border-strong);
+    background: linear-gradient(135deg, #064E3B 0%, #047857 60%, #059669 100%);
     border-radius: 20px;
-    padding: 1.4rem 1.6rem;
+    padding: 1.5rem;
     color: #fff;
     margin-bottom: 1.2rem;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    box-shadow: 0 0 40px rgba(16,185,129,0.18), inset 0 0 60px rgba(16,185,129,0.05);
-    overflow: hidden;
+    box-shadow: 0 10px 25px rgba(6, 78, 59, 0.15);
 }
-.k-hero-top { display: flex; align-items: center; gap: 18px; position: relative; z-index: 1; }
-.k-logo-wrap {
-    flex-shrink: 0;
-    width: 64px; height: 64px;
-    border-radius: 50%;
-    padding: 3px;
-    background: conic-gradient(from 0deg, #10B981, #6EE7B7, #10B981);
-    box-shadow: 0 0 18px rgba(52,211,153,0.55), 0 0 40px rgba(16,185,129,0.25);
-    animation: ringGlow 3.5s ease-in-out infinite;
-}
-.k-logo-wrap img {
-    width: 100%; height: 100%;
-    border-radius: 50%;
-    object-fit: cover;
-    display: block;
-    border: 2px solid rgba(8,24,17,0.9);
-}
-@keyframes ringGlow {
-    0%, 100% { box-shadow: 0 0 14px rgba(52,211,153,0.45), 0 0 30px rgba(16,185,129,0.18); }
-    50% { box-shadow: 0 0 22px rgba(52,211,153,0.85), 0 0 50px rgba(16,185,129,0.35); }
-}
-.k-hero-kicker {
-    font-family: var(--mono); font-size: 11px; font-weight: 700; color: #6EE7B7;
-    letter-spacing: 2.5px; text-transform: uppercase;
-}
-.k-hero-title {
-    margin: 4px 0 0 0; font-size: 1.6rem; font-weight: 700;
-    font-family: var(--tech);
-    background: linear-gradient(90deg, #D1FAE5 0%, #6EE7B7 45%, #10B981 100%);
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-    text-shadow: 0 0 30px rgba(16,185,129,0.35);
-}
-.k-hero-title span { color: #34D399; opacity: 0.7; }
-.k-hero-sub { font-size: 0.88rem; color: #C9E9D8; margin-top: 4px; font-family: var(--mono); }
-.k-status-row { position: relative; z-index: 1; margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
-.k-status-badge {
-    font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 1px;
-    padding: 5px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.15);
-    background: rgba(255,255,255,0.05);
-}
-.k-status-on { color: #6EE7B7; border-color: rgba(110,231,183,0.4); box-shadow: 0 0 12px rgba(16,185,129,0.3); }
-.k-status-core { color: #93C5FD; border-color: rgba(147,197,253,0.35); }
-.k-status-net { color: #FCD34D; border-color: rgba(252,211,77,0.35); }
-
-/* ---------- FROSTED LEAF-GLASS CARDS ---------- */
 .k-card {
-    background: rgba(13, 34, 25, 0.70) !important;
-    backdrop-filter: blur(14px) !important;
-    -webkit-backdrop-filter: blur(14px) !important;
-    border: 1px solid rgba(52, 211, 153, 0.3) !important;
-    color: #F1F5F9;
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
     border-radius: 18px;
     padding: 1.25rem;
     margin-bottom: 1rem;
-    box-shadow: 0 4px 25px rgba(0,0,0,0.45);
-    transition: box-shadow 0.25s ease, border-color 0.25s ease;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.03);
 }
-.k-card:hover {
-    border-color: var(--glass-border-strong) !important;
-    box-shadow: 0 0 25px rgba(16,185,129,0.18), 0 4px 25px rgba(0,0,0,0.45);
-}
-.k-card b { font-family: var(--mono); letter-spacing: 0.5px; color: #A7F3D0; }
-
-/* ---------- PILLS / TAGS ---------- */
 .k-pill {
-    display: inline-block; font-family: var(--mono);
-    padding: 5px 14px; border-radius: 8px; font-weight: 700; font-size: 0.85rem;
-    margin-right: 6px; margin-bottom: 6px; letter-spacing: 0.4px;
+    display: inline-block;
+    padding: 5px 14px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.88rem;
+    margin-right: 6px;
+    margin-bottom: 6px;
 }
-.k-pill-crop { background: rgba(16,185,129,0.15); color: #6EE7B7; border: 1px solid rgba(16,185,129,0.4); box-shadow: 0 0 14px rgba(16,185,129,0.2); }
-.k-pill-diag { background: rgba(255,255,255,0.04); color: #E2F5EA; border: 1px solid rgba(255,255,255,0.15); }
-
+.k-pill-crop { background: #064E3B; color: #fff; }
+.k-pill-diag { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
 .badge-verified {
-    display: inline-flex; align-items: center; font-family: var(--mono);
-    background: rgba(59,130,246,0.14); color: #93C5FD;
-    padding: 4px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: 700;
-    margin-top: 6px; border: 1px solid rgba(147,197,253,0.35);
+    display: inline-flex;
+    align-items: center;
+    background: #EFF6FF;
+    color: #1D4ED8;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    margin-top: 6px;
 }
-
-.tag-h { background: var(--neon-soft); color: #6EE7B7; border: 1px solid rgba(16,185,129,0.5); font-weight: 700; padding: 4px 12px; border-radius: 8px; font-family: var(--mono); box-shadow: 0 0 14px rgba(16,185,129,0.25); }
-.tag-m { background: var(--amber-soft); color: #FBBF24; border: 1px solid rgba(245,158,11,0.5); font-weight: 700; padding: 4px 12px; border-radius: 8px; font-family: var(--mono); box-shadow: 0 0 14px rgba(245,158,11,0.25); }
-.tag-c { background: var(--red-soft); color: #FB7185; border: 1px solid rgba(244,63,94,0.5); font-weight: 700; padding: 4px 12px; border-radius: 8px; font-family: var(--mono); box-shadow: 0 0 14px rgba(244,63,94,0.25); }
-
-.c-val {
-    font-size: 2.4rem; font-weight: 700; font-family: var(--mono); line-height: 1.2; margin-top: 10px;
-    color: #6EE7B7; text-shadow: 0 0 18px rgba(16,185,129,0.6), 0 0 40px rgba(16,185,129,0.25);
-}
-
-/* ---------- TREATMENT / TACTICAL PANELS ---------- */
-.t-chem {
-    background: linear-gradient(135deg, rgba(245,158,11,0.10), rgba(13,34,25,0.55));
-    border: 1px solid rgba(245,158,11,0.4);
-    border-left: 3px solid var(--amber);
-    padding: 12px 14px; border-radius: 10px; margin-bottom: 8px;
-    box-shadow: 0 0 18px rgba(245,158,11,0.08);
-    color: #F1F5F9;
-}
-.t-bio {
-    background: linear-gradient(135deg, rgba(16,185,129,0.10), rgba(13,34,25,0.55));
-    border: 1px solid rgba(16,185,129,0.4);
-    border-left: 3px solid var(--neon);
-    padding: 12px 14px; border-radius: 10px; margin-bottom: 8px;
-    box-shadow: 0 0 18px rgba(16,185,129,0.08);
-    color: #F1F5F9;
-}
-
-/* ---------- WEATHER / SCHEDULE ---------- */
-.w-box {
-    background: rgba(13, 34, 25, 0.70); border: 1px solid rgba(52, 211, 153, 0.3);
-    border-radius: 12px; padding: 12px 14px; margin-bottom: 1rem;
-    color: #F1F5F9; font-size: 0.88rem; font-family: var(--mono);
-    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-}
-.s-box {
-    background: rgba(13, 34, 25, 0.55); border: 1px solid rgba(52, 211, 153, 0.3);
-    border-left: 3px solid var(--neon);
-    border-radius: 8px; padding: 10px 14px; margin-bottom: 6px;
-    font-size: 0.9rem; font-family: var(--mono); color: #E2F5EA;
-}
-
-/* ---------- STREAMLIT NATIVE WIDGET OVERRIDES (dark botanical, no harsh white) ---------- */
-div[data-testid="stSelectbox"] > div > div,
-[data-baseweb="select"] > div {
-    background-color: rgba(13, 34, 25, 0.75) !important;
-    border: 1px solid rgba(52, 211, 153, 0.3) !important;
-    color: #F1F5F9 !important;
-    border-radius: 10px !important;
-    font-family: var(--mono) !important;
-}
-[data-baseweb="popover"], [data-baseweb="menu"] { background-color: rgba(8, 24, 17, 0.97) !important; }
-[data-baseweb="popover"] li, [data-baseweb="menu"] li { background-color: transparent !important; color: #F1F5F9 !important; }
-[data-baseweb="popover"] li:hover, [data-baseweb="menu"] li:hover { background-color: rgba(52,211,153,0.15) !important; }
-
-div[role="radiogroup"] { gap: 4px; }
-div[role="radiogroup"] label { color: #F1F5F9 !important; font-family: var(--mono); }
-
-section[data-testid="stFileUploaderDropzone"], div[data-testid="stFileUploaderDropzone"] {
-    background: rgba(13, 34, 25, 0.65) !important;
-    border: 1.5px dashed rgba(52, 211, 153, 0.5) !important;
-    border-radius: 14px !important;
-}
-section[data-testid="stFileUploaderDropzone"] *, div[data-testid="stFileUploaderDropzone"] * { color: var(--text-dim) !important; }
-section[data-testid="stFileUploaderDropzone"] button, div[data-testid="stFileUploaderDropzone"] button {
-    background: rgba(16,185,129,0.15) !important; border: 1px solid rgba(52,211,153,0.4) !important; color: #F1F5F9 !important;
-}
-
-div[data-testid="stCameraInput"] video, div[data-testid="stCameraInput"] {
-    border-radius: 14px; border: 1px solid rgba(52, 211, 153, 0.3);
-}
-div[data-testid="stCameraInput"] button {
-    background: rgba(16,185,129,0.15) !important; border: 1px solid rgba(52,211,153,0.4) !important; color: #F1F5F9 !important;
-}
-
-div[data-testid="stProgress"] > div { background-color: rgba(255,255,255,0.08) !important; border-radius: 8px; }
-div[data-testid="stProgress"] > div > div {
-    background: linear-gradient(90deg, #059669, #34D399) !important;
-    box-shadow: 0 0 10px rgba(16,185,129,0.6);
-}
-
-details, [data-testid="stExpander"] {
-    background: rgba(13, 34, 25, 0.70) !important;
-    border: 1px solid rgba(52, 211, 153, 0.3) !important;
-    border-radius: 12px !important;
-    backdrop-filter: blur(14px);
-}
-details summary { color: #A7F3D0 !important; font-family: var(--mono) !important; }
-
-div[data-testid="stAlert"] {
-    background: rgba(13, 34, 25, 0.75) !important;
-    border: 1px solid rgba(52, 211, 153, 0.3) !important;
-    border-radius: 12px !important; color: #F1F5F9 !important;
-    backdrop-filter: blur(14px);
-}
-
-.stButton > button, .stDownloadButton > button {
-    background: rgba(16,185,129,0.12) !important;
-    border: 1px solid rgba(52, 211, 153, 0.5) !important;
-    color: #D1FAE5 !important;
-    font-family: var(--mono) !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.5px;
-    border-radius: 10px !important;
-    transition: all 0.2s ease;
-}
-.stButton > button:hover, .stDownloadButton > button:hover {
-    box-shadow: 0 0 20px rgba(16,185,129,0.4) !important;
-    border-color: #34D399 !important;
-    color: #fff !important;
-}
-
-.stSpinner > div { border-top-color: var(--neon) !important; }
+.tag-h { background: #DCFCE7; color: #166534; font-weight: 700; padding: 4px 12px; border-radius: 8px; }
+.tag-m { background: #FEF3C7; color: #92400E; font-weight: 700; padding: 4px 12px; border-radius: 8px; }
+.tag-c { background: #FEE2E2; color: #991B1B; font-weight: 700; padding: 4px 12px; border-radius: 8px; }
+.c-val { font-size: 2.2rem; font-weight: 800; color: #064E3B; line-height: 1.2; margin-top: 8px; }
+.t-chem { background: #FFFBEB; border-left: 4px solid #F59E0B; padding: 12px; border-radius: 10px; margin-bottom: 8px; }
+.t-bio { background: #F0FDF4; border-left: 4px solid #10B981; padding: 12px; border-radius: 10px; margin-bottom: 8px; }
+.w-box { background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 12px; padding: 12px; margin-bottom: 1rem; color: #1E293B; font-size: 0.88rem; }
+.s-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px; margin-bottom: 6px; font-size: 0.9rem; }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("""
 <div class="k-hero">
-    <div class="k-hero-top">
-        <div class="k-logo-wrap">
-            <img src="https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?auto=format&fit=crop&w=200&h=200&q=80" alt="Agri-Tech Logo"/>
-        </div>
-        <div>
-            <div class="k-hero-kicker">Avishkar Research Initiative</div>
-            <h2 class="k-hero-title">🌿 कृषी-AI <span>::</span> स्मार्ट पीक रोग निदान प्रणाली</h2>
-            <div class="k-hero-sub">PlantNet Botanical Vision & Multi-Layer Deep Diagnostics</div>
-        </div>
-    </div>
-    <div class="k-status-row">
-        <span class="k-status-badge k-status-on">● SYSTEM: ONLINE</span>
-        <span class="k-status-badge k-status-core">◆ CORE: DUAL-AI ENGINE</span>
-        <span class="k-status-badge k-status-net">▲ NET: PLANTNET + GEMINI</span>
-    </div>
+    <div style="font-size:11px;font-weight:800;color:#A7F3D0;letter-spacing:1.5px;text-transform:uppercase;">Avishkar Research Initiative</div>
+    <h2 style="margin:4px 0 0 0;font-size:1.65rem;font-weight:800;">🌿 कृषी-AI : स्मार्ट पीक रोग निदान प्रणाली</h2>
+    <div style="font-size:0.9rem;color:#D1FAE5;margin-top:4px;">PlantNet Botanical Vision Primary, Roboflow Vision & Multi-Layer Deep Diagnostics</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -350,13 +154,42 @@ TREATMENTS = {
 }
 
 # ==========================================
-# 5. WORKSPACE LAYOUT
+# 5. ROBOFLOW DISEASE DETECTION HELPER
+# ==========================================
+def query_roboflow_disease(image_bytes):
+    if not roboflow_key:
+        return None
+    url = f"https://detect.roboflow.com/plant-disease-detection-s8vzx/1?api_key={roboflow_key}"
+    try:
+        b64_str = base64.b64encode(image_bytes).decode("utf-8")
+        resp = requests.post(
+            url,
+            data=b64_str,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=8
+        )
+        if resp.status_code == 200:
+            res_json = resp.json()
+            preds = res_json.get("predictions", [])
+            if preds:
+                top_p = preds[0]
+                label = top_p.get("class", "Unknown")
+                conf = round(float(top_p.get("confidence", 0)) * 100, 1)
+                is_healthy = "healthy" in label.lower()
+                return {"is_healthy": is_healthy, "label": label, "conf": conf}
+            return {"is_healthy": True, "label": "Healthy Leaf", "conf": 96.0}
+    except Exception:
+        pass
+    return None
+
+# ==========================================
+# 6. WORKSPACE LAYOUT
 # ==========================================
 col_l, col_r = st.columns([1, 1.2], gap="large")
 
 with col_l:
     st.markdown('<div class="k-card"><b>⚙️ इनपुट पॅनेल (Image Input)</b>', unsafe_allow_html=True)
-    crop_mode = st.selectbox("🌾 पीक मोड निवडा:", ("🤖 ऑटो-डिटेक्ट (Botanical AI)", "🥔 बटाटा", "☁️ कापूस", "🌱 सोयाबीन"))
+    crop_mode = st.selectbox("🌾 पीक मोड निवडा:", ("🤖 ऑटो-डिटेक्ट (PlantNet Primary)", "🥔 बटाटा", "☁️ कापूस", "🌱 सोयाबीन"))
     input_mode = st.radio("माध्यम:", ("गॅलरी (Upload)", "कॅमेरा (Camera)"), horizontal=True)
     
     up_key = f"up_{st.session_state.uploader_key}"
@@ -377,14 +210,18 @@ with col_r:
         st.info("📡 **निदान टर्मिनल सज्ज आहे.**\n\nडाव्या बाजूने फोटो अपलोड करा किंवा कॅमेऱ्याने काढा.")
 
 # ==========================================
-# 6. MULTI-LAYER IDENTIFICATION & DIAGNOSIS
+# 7. MULTI-LAYER IDENTIFICATION & DIAGNOSIS
 # ==========================================
 if uploaded_file is not None and models_ready:
     img = Image.open(uploaded_file).convert('RGB')
     resized = img.resize((224, 224))
     arr = np.array(resized, dtype=np.float32)
 
-    # 1. Local Model Predictions (नेहमी सज्ज)
+    img_byte_arr = io.BytesIO()
+    img.save(img_byte_arr, format='JPEG')
+    img_bytes = img_byte_arr.getvalue()
+
+    # Local Model Predictions
     pp = potato_model(np.expand_dims(arr, axis=0), training=False).numpy()[0]
     if np.sum(pp) > 1.05 or np.sum(pp) < 0.95: pp = tf.nn.softmax(pp).numpy()
     ip, cp = int(np.argmax(pp)), float(np.max(pp))
@@ -399,6 +236,7 @@ if uploaded_file is not None and models_ready:
 
     sc = None
     engine_badge = ""
+    plantnet_detected_name = ""
 
     if "बटाटा" in crop_mode:
         sc = "potato"
@@ -410,49 +248,78 @@ if uploaded_file is not None and models_ready:
         sc = "soybean"
         engine_badge = "User Verified"
     else:
-        img_byte_arr = io.BytesIO()
-        img.save(img_byte_arr, format='JPEG')
-        img_bytes = img_byte_arr.getvalue()
+        # 🌟 LAYER 1: PLANTNET BOTANICAL API (सर्वोच्च प्राधान्य - HIGHEST PRIORITY)
+        plantnet_success = False
+        other_plant_detected = None
 
-        # 🌟 LAYER 1: PlantNet Botanical API Check
         if plantnet_key:
             try:
                 url = f"https://my-api.plantnet.org/v2/identify/all?api-key={plantnet_key}"
                 files = [('images', ('leaf.jpg', img_bytes, 'image/jpeg'))]
                 data = {'organs': ['leaf']}
-                resp = requests.post(url, files=files, data=data, timeout=5)
+                resp = requests.post(url, files=files, data=data, timeout=8)
                 if resp.status_code == 200:
                     p_res = resp.json()
                     results = p_res.get('results', [])
-                    for r in results[:4]:
-                        species = r.get('species', {}).get('scientificNameWithoutAuthor', '').lower()
-                        family = r.get('species', {}).get('family', {}).get('scientificNameWithoutAuthor', '').lower()
-                        
-                        # Botanical Matching
-                        if "gossypium" in species or "malvaceae" in family:
-                            sc = "cotton"
-                            engine_badge = "PlantNet Botanical AI"
-                            break
-                        elif "solanum tuberosum" in species:
-                            sc = "potato"
-                            engine_badge = "PlantNet Botanical AI"
-                            break
-                        elif "glycine max" in species or "fabaceae" in family:
-                            sc = "soybean"
-                            engine_badge = "PlantNet Botanical AI"
-                            break
-            except Exception:
-                pass
+                    if results:
+                        plantnet_success = True
+                        top_r = results[0]
+                        top_species = top_r.get('species', {}).get('scientificNameWithoutAuthor', '')
+                        top_family = top_r.get('species', {}).get('family', {}).get('scientificNameWithoutAuthor', '')
+                        common_list = top_r.get('species', {}).get('commonNames', [])
+                        common_str = f" ({common_list[0]})" if common_list else ""
+                        plantnet_detected_name = f"{top_species}{common_str}"
 
-        # 🌟 LAYER 2: Gemini Vision API (Failsafe 1)
-        if not sc and gemini_client:
+                        # Check if matches our 3 supported crops
+                        matched = False
+                        for r in results[:4]:
+                            spec = r.get('species', {}).get('scientificNameWithoutAuthor', '').lower()
+                            fam = r.get('species', {}).get('family', {}).get('scientificNameWithoutAuthor', '').lower()
+                            c_names = [c.lower() for c in r.get('species', {}).get('commonNames', [])]
+
+                            # 1. Cotton check
+                            if "gossypium" in spec or "malvaceae" in fam or "cotton" in c_names:
+                                sc = "cotton"
+                                engine_badge = "PlantNet Botanical AI"
+                                matched = True
+                                break
+                            # 2. Potato check (Strict Solanum tuberosum)
+                            elif "solanum tuberosum" in spec or "potato" in c_names:
+                                sc = "potato"
+                                engine_badge = "PlantNet Botanical AI"
+                                matched = True
+                                break
+                            # 3. Soybean check
+                            elif "glycine max" in spec or "fabaceae" in fam or "soybean" in c_names:
+                                sc = "soybean"
+                                engine_badge = "PlantNet Botanical AI"
+                                matched = True
+                                break
+
+                        # जर वनस्पती ओळखली पण ती कापूस, बटाटा किंवा सोयाबीन नसेल (उदा. टोमॅटो, मिरची इत्यादी)
+                        if not matched:
+                            other_plant_detected = plantnet_detected_name
+            except Exception:
+                plantnet_success = False
+
+        # जर PlantNet ने इतर पीक ओळखले तर त्वरित अलर्ट दाखवून थांबवणे
+        if other_plant_detected:
+            with col_r:
+                st.markdown('<div class="k-card"><b>🌱 वनस्पती ओळख निकाल (PlantNet Identification)</b></div>', unsafe_allow_html=True)
+                st.warning(f"🔍 **PlantNet द्वारे ओळखलेली वनस्पती:**\n\n### **{other_plant_detected}**\n\n⚠️ **टीप:** सध्या ही प्रणाली केवळ **कापूस (Cotton), सोयाबीन (Soybean) आणि बटाटा (Potato)** या पिकांच्या रोग निदानासाठी प्रशिक्षित आहे. कृपया वरील तीनपैकी एका पिकाचे पान निवडा.")
+                st.button("🔄 दुसरे पान तपासा", on_click=reset_sample, use_container_width=True)
+            st.stop()
+
+        # 🌟 LAYER 2: Gemini Vision API (फक्त जर PlantNet फेल झाले तरच Failsafe म्हणून)
+        if not sc and not plantnet_success and gemini_client:
             v_prompt = (
                 "You are an agricultural botanist. Examine this leaf closely. "
-                "Which crop is this? Options: cotton, potato, soybean.\n"
-                "- Cotton: palmate lobes (3-5 pointed lobes), cotton boll/bracts, or reddish edge.\n"
-                "- Potato: oval wrinkled leaflets with distinct veins, no lobes.\n"
-                "- Soybean: trifoliate oval leaflets.\n\n"
-                "Return strictly ONLY one word: cotton, potato, or soybean."
+                "Is this cotton, potato, soybean, or other?\n"
+                "- If cotton, return 'cotton'.\n"
+                "- If potato, return 'potato'.\n"
+                "- If soybean, return 'soybean'.\n"
+                "- If any other plant (like tomato, chili, etc.), return the plant name or 'other'.\n"
+                "Return strictly ONLY one word: cotton, potato, soybean, or other."
             )
             for m in FALLBACK_MODELS:
                 try:
@@ -474,6 +341,11 @@ if uploaded_file is not None and models_ready:
                             sc = "soybean"
                             engine_badge = "Gemini Vision AI"
                             break
+                        elif "other" in txt:
+                            with col_r:
+                                st.warning("⚠️ हे पान कापूस, सोयाबीन किंवा बटाट्याचे दिसत नाही. सध्या आमचे मॉडेल फक्त या तीन पिकांसाठी उपलब्ध आहे.")
+                                st.button("🔄 दुसरे पान निवडा", on_click=reset_sample, use_container_width=True)
+                            st.stop()
                 except Exception:
                     continue
 
@@ -494,6 +366,9 @@ if uploaded_file is not None and models_ready:
                 conf_map = {"potato": cp, "cotton": cc, "soybean": cs}
                 sc = max(conf_map, key=conf_map.get)
                 engine_badge = "Local CNN Network"
+
+    # 🌟 LAYER 4: Roboflow Vision Cross-Check
+    rf_data = query_roboflow_disease(img_bytes)
 
     # Assign Output
     if sc == "potato":
@@ -520,61 +395,4 @@ if uploaded_file is not None and models_ready:
     tag_c = 'tag-h' if 'सुरक्षित' in s_txt else ('tag-m' if 'मध्यम' in s_txt else 'tag-c')
 
     with col_r:
-        st.markdown('<div class="k-card"><b>🩺 निदान टर्मिनल (Diagnostic Terminal)</b></div>', unsafe_allow_html=True)
-        st.markdown(f'<span class="k-pill k-pill-crop">{c_name}</span><span class="k-pill k-pill-diag">{diag}</span>', unsafe_allow_html=True)
-        st.markdown(f'<span class="{tag_c}">● {s_txt}</span>', unsafe_allow_html=True)
-        st.markdown(f'<div class="c-val">{f_conf:.1f}%</div><div class="badge-verified">✓ Verified by {engine_badge}</div>', unsafe_allow_html=True)
-
-        a_txt = f"निदान: {c_name}, {diag}. औषध: {inf['chem']}."
-        a_js = json.dumps(a_txt)
-        a_html = f'<script>function spk(){{window.speechSynthesis.cancel();var m=new SpeechSynthesisUtterance({a_js});m.lang="mr-IN";window.speechSynthesis.speak(m);}}</script><button onclick="spk()" style="width:100%;background:rgba(16,185,129,0.12);color:#D1FAE5;border:1px solid rgba(52,211,153,0.55);padding:12px;border-radius:12px;font-weight:700;font-family:\'JetBrains Mono\',monospace;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer;margin-top:10px;box-shadow:0 0 18px rgba(16,185,129,0.18);transition:all 0.2s ease;" onmouseover="this.style.boxShadow=\'0 0 28px rgba(16,185,129,0.4)\';this.style.color=\'#fff\';" onmouseout="this.style.boxShadow=\'0 0 18px rgba(16,185,129,0.18)\';this.style.color=\'#D1FAE5\';">🔊 ऑडिओ सल्ला ऐका (Listen Audio)</button>'
-        components.html(a_html, height=54)
-
-    st.markdown('<div class="w-box"><b>🌤️ प्रादेशिक हवामान जोखीम:</b> स्थानिक तापमान: <b>२८°C</b> | हवेतील आर्द्रता: <b>७६%</b> (दमट वातावरण)<br><b>सल्ला:</b> दमट हवेमुळे बुरशीजन्य रोग वेगाने पसरू शकतात; सकाळी फवारणी करावी.</div>', unsafe_allow_html=True)
-
-    with st.expander("📊 संभाव्यता विवरण (Probabilities)", expanded=False):
-        for i in np.argsort(c_preds)[::-1]:
-            pct = float(c_preds[i]) * 100
-            st.write(f"• **{c_classes[i]}** : `{pct:.1f}%`")
-            st.progress(min(max(float(c_preds[i]), 0.0), 1.0))
-
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown(f'<div class="t-chem"><b style="color:#FBBF24;">🧪 रासायनिक उपचार:</b><br>{inf["chem"]}</div>', unsafe_allow_html=True)
-    with c2:
-        st.markdown(f'<div class="t-bio"><b style="color:#6EE7B7;">🌿 सेंद्रिय उपाय:</b><br>{inf["bio"]}</div>', unsafe_allow_html=True)
-
-    # Gemini Live Marathi Advisory
-    if gemini_client:
-        st.markdown('<div class="k-card"><b>🤖 कृषी-AI तज्ज्ञ सल्लागार (Google Gemini)</b>', unsafe_allow_html=True)
-        if st.button("✨ Gemini कडून विशेष कृषी सल्ला मिळवा"):
-            with st.spinner("Gemini AI सल्ला तयार करत आहे..."):
-                adv_prompt = f"तू एक कृषी तज्ज्ञ आहेस. पीक: {c_name}, रोग: {diag}, गंभीरता: {s_txt}. शेतकऱ्यासाठी सोप्या मराठीत २ परिच्छेदात उपाय आणि काळजी सांग."
-                res_adv = None
-                for model_cand in FALLBACK_MODELS:
-                    try:
-                        res = gemini_client.models.generate_content(
-                            model=model_cand,
-                            contents=adv_prompt
-                        )
-                        if res and res.text:
-                            res_adv = res.text
-                            break
-                    except Exception:
-                        continue
-                if res_adv:
-                    st.info(res_adv)
-                else:
-                    st.warning("⚠️ AI सल्लागार सेवा सध्या व्यस्त आहे. वरील रासायनिक व सेंद्रिय उपचार वापरावेत.")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown(f'<div class="k-card"><b>📅 पुढील फवारणी वेळापत्रक:</b><div class="s-box"><b>दिवस १:</b> वरील शिफारसीत घटकांची फवारणी करा.</div><div class="s-box"><b>दिवस ८:</b> {inf["d7"]}</div><div class="s-box"><b>दिवस १५:</b> {inf["d15"]}</div></div>', unsafe_allow_html=True)
-
-    rep = f"कृषी-AI : स्मार्ट पीक रोग निदान अहवाल\nपीक: {c_name}\nनिदान: {diag}\nविश्वास गुण: {f_conf:.1f}%\nतीव्रता: {s_txt}\nइंजिन: {engine_badge}\n\nरासायनिक: {inf['chem']}\nसेंद्रिय: {inf['bio']}\n\nदिवस ८: {inf['d7']}\nदिवस १५: {inf['d15']}\n"
-
-    d1, d2 = st.columns(2)
-    with d1:
-        st.download_button(label="⬇️ Download Report", data=rep.encode("utf-8-sig"), file_name=f"krushi_{sc}.txt", mime="text/plain; charset=utf-8", use_container_width=True)
-    with d2:
-        st.button("🔄 Try Another Sample", on_click=reset_sample, use_container_width=True)
-    
+        st.markdown('<div class="k-card"><b>🩺 निदान टर्
