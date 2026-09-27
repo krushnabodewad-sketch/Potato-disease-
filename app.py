@@ -153,7 +153,7 @@ TREATMENTS = {
 }
 
 # ==========================================
-# 5. ROBOFLOW DISEASE DETECTION ENGINE
+# 5. ROBOFLOW DISEASE DETECTION ENGINE (PRIMARY)
 # ==========================================
 def identify_disease_roboflow(image_bytes, crop_type):
     if not roboflow_key:
@@ -244,11 +244,18 @@ if uploaded_file is not None and models_ready:
     img.save(img_byte_arr, format='JPEG')
     img_bytes = img_byte_arr.getvalue()
 
+    # TimeOut रोखण्यासाठी हलकी कॉम्प्रेस केलेली इमेज
+    p_img = img.copy()
+    p_img.thumbnail((512, 512))
+    p_buf = io.BytesIO()
+    p_img.save(p_buf, format='JPEG', quality=80)
+    p_bytes = p_buf.getvalue()
+
     sc = None
     plant_badge = ""
 
     # ==========================================
-    # टप्पा १: PLANTNET द्वारे पिकाची अचूक जात ओळखणे
+    # टप्पा १: PLANTNET द्वारे पिकाची अचूक जात ओळखणे (सर्वोच्च प्राधान्य)
     # ==========================================
     if "बटाटा" in crop_mode:
         sc = "potato"
@@ -295,14 +302,13 @@ if uploaded_file is not None and models_ready:
             "curcuma longa": "🌱 हळद (Turmeric)"
         }
 
-        if not plantnet_key:
-            st.error("⚠️ **PLANTNET_API_KEY सापडली नाही!** कृपया Streamlit Cloud च्या Secrets मध्ये API Key जोडा.")
-        else:
+        # 1.1 PlantNet Call
+        if plantnet_key:
             try:
                 url = f"https://my-api.plantnet.org/v2/identify/all?api-key={plantnet_key}"
-                files = [('images', ('leaf.jpg', img_bytes, 'image/jpeg'))]
+                files = [('images', ('leaf.jpg', p_bytes, 'image/jpeg'))]
                 data = {'organs': ['leaf']}
-                resp = requests.post(url, files=files, data=data, timeout=10)
+                resp = requests.post(url, files=files, data=data, timeout=6)
 
                 if resp.status_code == 200:
                     p_res = resp.json()
@@ -320,15 +326,6 @@ if uploaded_file is not None and models_ready:
                             if k in lookup_key:
                                 marathi_name = v
                                 break
-
-                        if not marathi_name and gemini_client:
-                            try:
-                                tr_prompt = f"What is the Marathi name of the plant '{top_species} ({common_eng})'? Reply strictly with ONLY the Marathi name followed by English in bracket, e.g., 'वांगे (Brinjal)'. Maximum 4 words."
-                                tr_res = gemini_client.models.generate_content(model="gemini-2.0-flash", contents=tr_prompt)
-                                if tr_res and tr_res.text:
-                                    marathi_name = tr_res.text.strip()
-                            except Exception:
-                                pass
 
                         plantnet_detected_name = marathi_name if marathi_name else (f"{top_species} ({common_eng})" if common_eng else top_species)
 
@@ -356,53 +353,48 @@ if uploaded_file is not None and models_ready:
 
                         if not matched:
                             other_plant_detected = plantnet_detected_name
-                else:
-                    st.warning(f"⚠️ PlantNet API प्रतिसाद त्रुटी: कोड {resp.status_code}")
-            except Exception as e:
-                st.error(f"⚠️ PlantNet नेटवर्क त्रुटी: {e}")
+            except Exception:
                 plantnet_success = False
 
-        if other_plant_detected:
-            with col_r:
-                st.markdown('<div class="k-card"><b>🌱 वनस्पती ओळख निकाल (PlantNet Identification)</b></div>', unsafe_allow_html=True)
-                st.warning(f"🔍 **PlantNet द्वारे ओळखलेली वनस्पती:**\n\n### **{other_plant_detected}**\n\n⚠️ **टीप:** सध्या ही प्रणाली केवळ **कापूस (Cotton), सोयाबीन (Soybean) आणि बटाटा (Potato)** या पिकांच्या रोग निदानासाठी प्रशिक्षित आहे. कृपया वरील तीनपैकी एका पिकाचे पान निवडा.")
-                st.button("🔄 दुसरे पान तपासा", on_click=reset_sample, use_container_width=True)
-            st.stop()
-
-        # Failsafe: Gemini Vision (जर PlantNet फेल झाले तरच)
-        if not sc and not plantnet_success and gemini_client:
+        # 1.2 Gemini Vision Botanical Bridge (जर PlantNet TimeOut किंवा अपयशी झाले तर)
+        if not sc and not plantnet_success and not other_plant_detected and gemini_client:
             v_prompt = (
-                "You are an agricultural botanist. Examine this leaf closely. "
-                "Which crop is this? Options: cotton, potato, soybean, or other.\n"
-                "Return strictly ONLY one word: cotton, potato, soybean, or other."
+                "You are an expert field botanist. Look at this leaf carefully.\n"
+                "Is it Cotton, Potato, Soybean, Eggplant/Brinjal, Tomato, or other?\n"
+                "Return strictly JSON: {\"plant\": \"Name in Marathi\", \"is_supported\": true/false, \"crop\": \"cotton/potato/soybean/other\"}\n"
+                "- If cotton: crop='cotton', is_supported=true\n"
+                "- If potato: crop='potato', is_supported=true\n"
+                "- If soybean: crop='soybean', is_supported=true\n"
+                "- If eggplant/brinjal: plant='🍆 वांगे (Brinjal / Eggplant)', is_supported=false, crop='other'\n"
+                "- If tomato: plant='🍅 टोमॅटो (Tomato)', is_supported=false, crop='other'\n"
+                "- If any other: is_supported=false, crop='other'"
             )
             for m in FALLBACK_MODELS:
                 try:
                     res_g = gemini_client.models.generate_content(
                         model=m,
-                        contents=[v_prompt, genai.types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg")]
+                        contents=[v_prompt, genai.types.Part.from_bytes(data=p_bytes, mime_type="image/jpeg")]
                     )
                     if res_g and res_g.text:
-                        txt = res_g.text.strip().lower()
-                        if "potato" in txt:
-                            sc = "potato"
-                            plant_badge = "Gemini Vision AI"
+                        raw = res_g.text.strip().replace("```json", "").replace("```", "").strip()
+                        parsed = json.loads(raw)
+                        if not parsed.get("is_supported", False):
+                            other_plant_detected = parsed.get("plant", "इतर पीक / वनस्पती")
                             break
-                        elif "cotton" in txt:
-                            sc = "cotton"
-                            plant_badge = "Gemini Vision AI"
+                        else:
+                            sc = parsed.get("crop")
+                            plant_badge = "Gemini Botanical AI"
                             break
-                        elif "soybean" in txt:
-                            sc = "soybean"
-                            plant_badge = "Gemini Vision AI"
-                            break
-                        elif "other" in txt:
-                            with col_r:
-                                st.warning("⚠️ हे पान कापूस, सोयाबीन किंवा बटाट्याचे दिसत नाही. सध्या आमचे मॉडेल फक्त या तीन पिकांसाठी उपलब्ध आहे.")
-                                st.button("🔄 दुसरे पान निवडा", on_click=reset_sample, use_container_width=True)
-                            st.stop()
                 except Exception:
                     continue
+
+        # जर वनस्पती इतर कोणतीही असेल (वांगे, टोमॅटो इत्यादी) तर येथेच थांबवणे
+        if other_plant_detected:
+            with col_r:
+                st.markdown('<div class="k-card"><b>🌱 वनस्पती ओळख निकाल (Botanical Identification)</b></div>', unsafe_allow_html=True)
+                st.warning(f"🔍 **सिस्टिमने ओळखलेली वनस्पती:**\n\n### **{other_plant_detected}**\n\n⚠️ **टीप:** सध्या ही प्रणाली केवळ **कापूस (Cotton), सोयाबीन (Soybean) आणि बटाटा (Potato)** या पिकांच्या रोग निदानासाठी प्रशिक्षित आहे. कृपया वरील तीनपैकी एका पिकाचे पान निवडा.")
+                st.button("🔄 दुसरे पान तपासा", on_click=reset_sample, use_container_width=True)
+            st.stop()
 
         if not sc:
             sc = "potato"
@@ -469,7 +461,7 @@ if uploaded_file is not None and models_ready:
     tag_c = 'tag-h' if 'सुरक्षित' in s_txt else ('tag-m' if 'मध्यम' in s_txt else 'tag-c')
 
     # ==========================================
-    # टप्पा ३: अंतिम अहवाल
+    # टप्पा ३: निकाल सादरीकरण
     # ==========================================
     with col_r:
         st.markdown('<div class="k-card"><b>🩺 निदान टर्मिनल (Diagnostic Terminal)</b></div>', unsafe_allow_html=True)
@@ -529,4 +521,3 @@ if uploaded_file is not None and models_ready:
         st.download_button(label="⬇️ Download Report", data=rep.encode("utf-8-sig"), file_name=f"krushi_{sc}.txt", mime="text/plain; charset=utf-8", use_container_width=True)
     with d2:
         st.button("🔄 Try Another Sample", on_click=reset_sample, use_container_width=True)
-       
