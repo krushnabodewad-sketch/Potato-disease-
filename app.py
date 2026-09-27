@@ -248,9 +248,41 @@ if uploaded_file is not None and models_ready:
         sc = "soybean"
         engine_badge = "User Verified"
     else:
-        # 🌟 LAYER 1: PLANTNET BOTANICAL API (सर्वोच्च प्राधान्य - HIGHEST PRIORITY)
+        # 🌟 LAYER 1: PLANTNET BOTANICAL API (सर्वोच्च प्राधान्य - मराठी नाव मॅपिंग सह)
         plantnet_success = False
         other_plant_detected = None
+
+        MARATHI_CROP_NAMES = {
+            "solanum melongena": "🍆 वांगे (Brinjal / Eggplant)",
+            "eggplant": "🍆 वांगे (Brinjal / Eggplant)",
+            "aubergine": "🍆 वांगे (Brinjal)",
+            "solanum lycopersicum": "🍅 टोमॅटो (Tomato)",
+            "tomato": "🍅 टोमॅटो (Tomato)",
+            "capsicum": "🌶️ मिरची / सिमला मिरची (Chilli / Pepper)",
+            "chilli": "🌶️ मिरची (Chilli)",
+            "pepper": "🌶️ मिरची (Pepper)",
+            "abelmoschus esculentus": "🌱 भेंडी (Okra / Ladyfinger)",
+            "okra": "🌱 भेंडी (Okra)",
+            "allium cepa": "🧅 कांदा (Onion)",
+            "onion": "🧅 कांदा (Onion)",
+            "zea mays": "🌽 मका (Maize / Corn)",
+            "maize": "🌽 मका (Maize)",
+            "corn": "🌽 मका (Corn)",
+            "triticum": "🌾 गहू (Wheat)",
+            "wheat": "🌾 गहू (Wheat)",
+            "oryza sativa": "🌾 भात / धान (Rice / Paddy)",
+            "rice": "🌾 भात / धान (Rice)",
+            "paddy": "🌾 भात / धान (Paddy)",
+            "saccharum officinarum": "🎋 ऊस (Sugarcane)",
+            "sugarcane": "🎋 ऊस (Sugarcane)",
+            "cajanus cajan": "🌱 तूर (Pigeon Pea / Arhar)",
+            "cicer arietinum": "🌱 हरभरा (Chickpea / Chana)",
+            "arachis hypogaea": "🥜 भुईमूग (Groundnut / Peanut)",
+            "groundnut": "🥜 भुईमूग (Groundnut)",
+            "peanut": "🥜 भुईमूग (Peanut)",
+            "zingiber officinale": "🫚 आले / अद्रक (Ginger)",
+            "curcuma longa": "🌱 हळद (Turmeric)"
+        }
 
         if plantnet_key:
             try:
@@ -266,8 +298,27 @@ if uploaded_file is not None and models_ready:
                         top_r = results[0]
                         top_species = top_r.get('species', {}).get('scientificNameWithoutAuthor', '')
                         common_list = top_r.get('species', {}).get('commonNames', [])
-                        common_str = f" ({common_list[0]})" if common_list else ""
-                        plantnet_detected_name = f"{top_species}{common_str}"
+                        common_eng = common_list[0] if common_list else ""
+
+                        # Search Marathi crop name
+                        lookup_key = f"{top_species.lower()} {common_eng.lower()}".strip()
+                        marathi_name = None
+                        for k, v in MARATHI_CROP_NAMES.items():
+                            if k in lookup_key:
+                                marathi_name = v
+                                break
+
+                        # Fallback translation via Gemini if not present in dictionary
+                        if not marathi_name and gemini_client:
+                            try:
+                                tr_prompt = f"What is the Marathi name of the plant '{top_species} ({common_eng})'? Reply strictly with ONLY the Marathi name followed by English in bracket, e.g., 'वांगे (Brinjal)'. Maximum 4 words."
+                                tr_res = gemini_client.models.generate_content(model="gemini-2.0-flash", contents=tr_prompt)
+                                if tr_res and tr_res.text:
+                                    marathi_name = tr_res.text.strip()
+                            except Exception:
+                                pass
+
+                        plantnet_detected_name = marathi_name if marathi_name else (f"{top_species} ({common_eng})" if common_eng else top_species)
 
                         matched = False
                         for r in results[:4]:
@@ -336,7 +387,7 @@ if uploaded_file is not None and models_ready:
                             break
                         elif "other" in txt:
                             with col_r:
-                                st.warning("⚠️ हे पान कापूस, सोयाबीन किंवा बटाट्याचे दिसत नाही. सध्या आमचे मॉडेल फक्त या तीन पिकांसाठी उपलब्ध आहे.")
+                                st.warning ("⚠️ हे पान कापूस, सोयाबीन किंवा बटाट्याचे दिसत नाही. सध्या आमचे मॉडेल फक्त या तीन पिकांसाठी उपलब्ध आहे.")
                                 st.button("🔄 दुसरे पान निवडा", on_click=reset_sample, use_container_width=True)
                             st.stop()
                 except Exception:
@@ -394,7 +445,6 @@ if uploaded_file is not None and models_ready:
         st.markdown(f'<div class="c-val">{f_conf:.1f}%</div><div class="badge-verified">✓ Verified by {engine_badge}</div>', unsafe_allow_html=True)
 
         if rf_data:
-           if rf_data:
             rf_color = "#10B981" if rf_data["is_healthy"] else "#EF4444"
             st.markdown(f'<div style="background:#F8FAFC; border:1px solid #CBD5E1; border-radius:10px; padding:8px 12px; margin-top:8px; font-size:0.85rem;">🔍 <b>Roboflow व्हिजन तपासणी:</b> <span style="color:{rf_color}; font-weight:700;">{rf_data["label"]}</span> ({rf_data["conf"]}%)</div>', unsafe_allow_html=True)
 
