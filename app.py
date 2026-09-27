@@ -19,6 +19,9 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+with open("logo_b64.txt", "r") as _f:
+    LOGO_B64 = _f.read().strip()
+
 plantnet_key = st.secrets.get("PLANTNET_API_KEY", None)
 gemini_key = st.secrets.get("GEMINI_API_KEY", None)
 roboflow_key = st.secrets.get("ROBOFLOW_API_KEY", None)
@@ -39,31 +42,95 @@ def reset_sample():
 # ==========================================
 # 3. MODERN PROFESSIONAL STYLING (UI)
 # ==========================================
-st.markdown("""
+st.markdown(f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Mukta:wght@500;600;700&display=swap');
-html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', 'Mukta', sans-serif; }
-.stApp { background: #F1F5F9; }
-#MainMenu, footer, header { visibility: hidden; }
-.block-container { padding-top: 1rem; max-width: 1050px; }
 
-.k-hero {
-    background: linear-gradient(135deg, #064E3B 0%, #047857 60%, #059669 100%);
-    border-radius: 20px;
-    padding: 1.5rem;
+:root {{
+    --k-900:#052e22; --k-800:#064E3B; --k-700:#047857; --k-600:#059669;
+    --k-500:#10B981; --k-300:#6EE7B7; --k-100:#D1FAE5; --k-50:#ECFDF5;
+}}
+
+html, body, [class*="css"] {{ font-family: 'Plus Jakarta Sans', 'Mukta', sans-serif; }}
+
+.stApp {{
+    background:
+        radial-gradient(circle at 100% 0%, rgba(16,185,129,0.10) 0%, rgba(16,185,129,0) 45%),
+        radial-gradient(circle at 0% 100%, rgba(5,150,105,0.08) 0%, rgba(5,150,105,0) 45%),
+        #F1F5F9;
+}}
+#MainMenu, footer, header {{ visibility: hidden; }}
+.block-container {{ padding-top: 1rem; max-width: 1050px; }}
+
+/* ---------- Animations ---------- */
+@keyframes kFadeUp {{ from {{ opacity:0; transform: translateY(14px); }} to {{ opacity:1; transform: translateY(0); }} }}
+@keyframes kFadeIn {{ from {{ opacity:0; }} to {{ opacity:1; }} }}
+@keyframes kPulseGlow {{
+    0%   {{ box-shadow: 0 10px 25px rgba(6,78,59,0.18), 0 0 0 0 rgba(16,185,129,0.35); }}
+    70%  {{ box-shadow: 0 10px 25px rgba(6,78,59,0.18), 0 0 0 14px rgba(16,185,129,0); }}
+    100% {{ box-shadow: 0 10px 25px rgba(6,78,59,0.18), 0 0 0 0 rgba(16,185,129,0); }}
+}}
+@keyframes kShine {{ 0% {{ background-position: -150% 0; }} 100% {{ background-position: 250% 0; }} }}
+@keyframes kFloat {{ 0%,100% {{ transform: translateY(0px); }} 50% {{ transform: translateY(-6px); }} }}
+@keyframes kSpin {{ from {{ transform: rotate(0deg); }} to {{ transform: rotate(360deg); }} }}
+
+/* ---------- Logo, top-left corner ---------- */
+.k-logo-corner {{
+    position: fixed;
+    top: 14px;
+    left: 18px;
+    z-index: 999999;
+    width: 54px;
+    height: 54px;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 6px 18px rgba(6,78,59,0.35), 0 0 0 2px rgba(255,255,255,0.6);
+    animation: kFadeIn 0.7s ease, kFloat 4.5s ease-in-out infinite 0.7s;
+    background: #064E3B;
+}}
+.k-logo-corner img {{ width: 100%; height: 100%; object-fit: cover; display:block; }}
+
+/* ---------- Hero ---------- */
+.k-hero {{
+    position: relative;
+    background: linear-gradient(135deg, #052e22 0%, #064E3B 35%, #047857 70%, #059669 100%);
+    background-size: 220% 220%;
+    border-radius: 22px;
+    padding: 1.5rem 1.5rem 1.5rem 4.6rem;
     color: #fff;
     margin-bottom: 1.2rem;
-    box-shadow: 0 10px 25px rgba(6, 78, 59, 0.15);
-}
-.k-card {
+    box-shadow: 0 14px 32px rgba(6, 78, 59, 0.22);
+    overflow: hidden;
+    animation: kFadeUp 0.6s ease;
+}}
+.k-hero::after {{
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.10) 45%, transparent 60%);
+    background-size: 250% 100%;
+    animation: kShine 5s ease-in-out infinite;
+    pointer-events: none;
+}}
+
+/* ---------- Cards ---------- */
+.k-card {{
     background: #FFFFFF;
     border: 1px solid #E2E8F0;
     border-radius: 18px;
     padding: 1.25rem;
     margin-bottom: 1rem;
     box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-}
-.k-pill {
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    animation: kFadeUp 0.5s ease;
+}}
+.k-card:hover {{
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(6,78,59,0.12);
+    border-color: #A7F3D0;
+}}
+
+.k-pill {{
     display: inline-block;
     padding: 5px 14px;
     border-radius: 999px;
@@ -71,32 +138,99 @@ html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', 'Mukta', sans-ser
     font-size: 0.88rem;
     margin-right: 6px;
     margin-bottom: 6px;
-}
-.k-pill-crop { background: #064E3B; color: #fff; }
-.k-pill-diag { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
-.badge-verified {
+    transition: transform 0.2s ease;
+}}
+.k-pill:hover {{ transform: translateY(-2px) scale(1.03); }}
+.k-pill-crop {{ background: linear-gradient(135deg,#064E3B,#059669); color: #fff; }}
+.k-pill-diag {{ background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }}
+.badge-verified {{
     display: inline-flex;
     align-items: center;
-    background: #EFF6FF;
-    color: #1D4ED8;
+    background: #ECFDF5;
+    color: #047857;
     padding: 4px 10px;
     border-radius: 8px;
     font-size: 0.82rem;
     font-weight: 700;
     margin-top: 6px;
-}
-.tag-h { background: #DCFCE7; color: #166534; font-weight: 700; padding: 4px 12px; border-radius: 8px; }
-.tag-m { background: #FEF3C7; color: #92400E; font-weight: 700; padding: 4px 12px; border-radius: 8px; }
-.tag-c { background: #FEE2E2; color: #991B1B; font-weight: 700; padding: 4px 12px; border-radius: 8px; }
-.c-val { font-size: 2.2rem; font-weight: 800; color: #064E3B; line-height: 1.2; margin-top: 8px; }
-.t-chem { background: #FFFBEB; border-left: 4px solid #F59E0B; padding: 12px; border-radius: 10px; margin-bottom: 8px; }
-.t-bio { background: #F0FDF4; border-left: 4px solid #10B981; padding: 12px; border-radius: 10px; margin-bottom: 8px; }
-.w-box { background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 12px; padding: 12px; margin-bottom: 1rem; color: #1E293B; font-size: 0.88rem; }
-.s-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px; margin-bottom: 6px; font-size: 0.9rem; }
+    border: 1px solid #A7F3D0;
+}}
+.tag-h {{ background: #DCFCE7; color: #166534; font-weight: 700; padding: 4px 12px; border-radius: 8px; }}
+.tag-m {{ background: #FEF3C7; color: #92400E; font-weight: 700; padding: 4px 12px; border-radius: 8px; }}
+.tag-c {{ background: #FEE2E2; color: #991B1B; font-weight: 700; padding: 4px 12px; border-radius: 8px; }}
+.c-val {{
+    font-size: 2.2rem; font-weight: 800; color: #064E3B; line-height: 1.2; margin-top: 8px;
+    background: linear-gradient(135deg,#064E3B,#10B981);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    animation: kFadeUp 0.5s ease;
+}}
+.t-chem {{ background: #FFFBEB; border-left: 4px solid #F59E0B; padding: 12px; border-radius: 10px; margin-bottom: 8px; transition: transform .2s ease; }}
+.t-chem:hover {{ transform: translateX(3px); }}
+.t-bio {{ background: #F0FDF4; border-left: 4px solid #10B981; padding: 12px; border-radius: 10px; margin-bottom: 8px; transition: transform .2s ease; }}
+.t-bio:hover {{ transform: translateX(3px); }}
+.w-box {{ background: linear-gradient(135deg,#F0FDF4,#F8FAFC); border: 1px solid #A7F3D0; border-radius: 12px; padding: 12px; margin-bottom: 1rem; color: #1E293B; font-size: 0.88rem; }}
+.s-box {{ background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px; margin-bottom: 6px; font-size: 0.9rem; transition: background .2s ease, border-color .2s ease; }}
+.s-box:hover {{ background: #ECFDF5; border-color: #A7F3D0; }}
+
+/* ---------- Streamlit native buttons: green + animated ---------- */
+.stButton > button, .stDownloadButton > button {{
+    background: linear-gradient(135deg, #059669, #10B981) !important;
+    background-size: 200% auto !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: 14px !important;
+    font-weight: 700 !important;
+    padding: 0.6rem 1.1rem !important;
+    box-shadow: 0 6px 16px rgba(5,150,105,0.28) !important;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background-position 0.5s ease !important;
+}}
+.stButton > button:hover, .stDownloadButton > button:hover {{
+    transform: translateY(-2px) scale(1.015) !important;
+    box-shadow: 0 10px 22px rgba(5,150,105,0.4) !important;
+    background-position: right center !important;
+}}
+.stButton > button:active, .stDownloadButton > button:active {{
+    transform: translateY(0px) scale(0.98) !important;
+}}
+.stButton > button:focus, .stDownloadButton > button:focus {{
+    outline: none !important;
+    animation: kPulseGlow 1.4s ease-out 1;
+}}
+
+/* Primary CTA (Gemini button etc.) gets a slightly deeper tone via nth pass on hover already covered above */
+
+/* Selectbox / radio / uploader accents */
+div[data-baseweb="select"] > div {{
+    border-radius: 12px !important;
+    border-color: #A7F3D0 !important;
+    transition: border-color .2s ease, box-shadow .2s ease;
+}}
+div[data-baseweb="select"] > div:hover {{ border-color: #10B981 !important; box-shadow: 0 0 0 3px rgba(16,185,129,0.12); }}
+
+[data-testid="stFileUploaderDropzone"] {{
+    border-radius: 16px !important;
+    border: 2px dashed #A7F3D0 !important;
+    background: #F0FDF4 !important;
+    transition: border-color .2s ease, background .2s ease;
+}}
+[data-testid="stFileUploaderDropzone"]:hover {{
+    border-color: #10B981 !important;
+    background: #ECFDF5 !important;
+}}
+
+.stProgress > div > div > div > div {{
+    background: linear-gradient(90deg, #059669, #34D399) !important;
+}}
+
+.stRadio [role="radiogroup"] label {{
+    transition: transform .15s ease;
+}}
+.stRadio [role="radiogroup"] label:hover {{ transform: translateY(-1px); }}
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("""
+st.markdown(f"""
+<div class="k-logo-corner"><img src="data:image/jpeg;base64,{LOGO_B64}" alt="कृषी-AI logo"/></div>
 <div class="k-hero">
     <div style="font-size:11px;font-weight:800;color:#A7F3D0;letter-spacing:1.5px;text-transform:uppercase;">Avishkar Research Initiative</div>
     <h2 style="margin:4px 0 0 0;font-size:1.65rem;font-weight:800;">🌿 कृषी-AI : स्मार्ट पीक रोग निदान प्रणाली</h2>
@@ -450,8 +584,21 @@ if uploaded_file is not None and models_ready:
 
         a_txt = f"निदान: {c_name}, {diag}. औषध: {inf['chem']}."
         a_js = json.dumps(a_txt)
-        a_html = f'<script>function spk(){{window.speechSynthesis.cancel();var m=new SpeechSynthesisUtterance({a_js});m.lang="mr-IN";window.speechSynthesis.speak(m);}}</script><button onclick="spk()" style="width:100%;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:12px;border-radius:12px;font-weight:700;cursor:pointer;margin-top:10px;">🔊 ऑडिओ सल्ला ऐका (Listen Audio)</button>'
-        components.html(a_html, height=54)
+        a_html = f"""
+        <style>
+        @keyframes spkPulse {{ 0% {{ box-shadow:0 6px 16px rgba(5,150,105,0.28),0 0 0 0 rgba(16,185,129,0.4); }} 70% {{ box-shadow:0 6px 16px rgba(5,150,105,0.28),0 0 0 10px rgba(16,185,129,0); }} 100% {{ box-shadow:0 6px 16px rgba(5,150,105,0.28),0 0 0 0 rgba(16,185,129,0); }} }}
+        .k-spk-btn {{
+            width:100%; background:linear-gradient(135deg,#064E3B,#059669,#10b981); background-size:200% auto;
+            color:#fff; border:none; padding:12px; border-radius:12px; font-weight:700; cursor:pointer; margin-top:10px;
+            font-family:'Plus Jakarta Sans',sans-serif; transition:transform .18s ease, background-position .5s ease;
+        }}
+        .k-spk-btn:hover {{ transform:translateY(-2px) scale(1.01); background-position:right center; animation:spkPulse 1.2s ease-out 1; }}
+        .k-spk-btn:active {{ transform:translateY(0) scale(0.98); }}
+        </style>
+        <script>function spk(){{window.speechSynthesis.cancel();var m=new SpeechSynthesisUtterance({a_js});m.lang="mr-IN";window.speechSynthesis.speak(m);}}</script>
+        <button class="k-spk-btn" onclick="spk()">🔊 ऑडिओ सल्ला ऐका (Listen Audio)</button>
+        """
+        components.html(a_html, height=58)
 
     st.markdown('<div class="w-box"><b>🌤️ प्रादेशिक हवामान जोखीम:</b> स्थानिक तापमान: <b>२८°C</b> | हवेतील आर्द्रता: <b>७६%</b> (दमट वातावरण)<br><b>सल्ला:</b> दमट हवेमुळे बुरशीजन्य रोग वेगाने पसरू शकतात; सकाळी फवारणी करावी.</div>', unsafe_allow_html=True)
 
