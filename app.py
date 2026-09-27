@@ -388,12 +388,20 @@ if uploaded_file is not None and models_ready:
     tag_c = 'tag-h' if 'सुरक्षित' in s_txt else ('tag-m' if 'मध्यम' in s_txt else 'tag-c')
 
     with col_r:
+            with col_r:
         st.markdown('<div class="k-card"><b>🩺 निदान टर्मिनल (Diagnostic Terminal)</b></div>', unsafe_allow_html=True)
         st.markdown(f'<span class="k-pill k-pill-crop">{c_name}</span><span class="k-pill k-pill-diag">{diag}</span>', unsafe_allow_html=True)
         st.markdown(f'<span class="{tag_c}">● {s_txt}</span>', unsafe_allow_html=True)
         st.markdown(f'<div class="c-val">{f_conf:.1f}%</div><div class="badge-verified">✓ Verified by {engine_badge}</div>', unsafe_allow_html=True)
 
+        # Roboflow Result Display (Clean Single Line to prevent clipboard breaks)
         if rf_data:
             rf_color = "#10B981" if rf_data["is_healthy"] else "#EF4444"
-            st.markdown(
-                f'<div style
+            st.markdown(f'<div style="background:#F8FAFC; border:1px solid #CBD5E1; border-radius:10px; padding:8px 12px; margin-top:8px; font-size:0.85rem;">🔍 <b>Roboflow व्हिजन तपासणी:</b> <span style="color:{rf_color}; font-weight:700;">{rf_data["label"]}</span> ({rf_data["conf"]}%)</div>', unsafe_allow_html=True)
+
+        a_txt = f"निदान: {c_name}, {diag}. औषध: {inf['chem']}."
+        a_js = json.dumps(a_txt)
+        a_html = f'<script>function spk(){{window.speechSynthesis.cancel();var m=new SpeechSynthesisUtterance({a_js});m.lang="mr-IN";window.speechSynthesis.speak(m);}}</script><button onclick="spk()" style="width:100%;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:12px;border-radius:12px;font-weight:700;cursor:pointer;margin-top:10px;">🔊 ऑडिओ सल्ला ऐका (Listen Audio)</button>'
+        components.html(a_html, height=54)
+
+    st.markdown('<div class="w-box"><b>🌤️ प्रादेशिक हवामान जोखीम:</b> स्थानिक तापमान: <b>२८°C</b> | हवेतील आर्द्रता: <b>७६%</b> (दमट वातावरण)<br><b>सल्ला:</b> दमट हवेमुळे बुरशीजन्य रोग वेगाने पसरू शकतात; सकाळी फवारणी करावी.</div>', unsafe_allow_html=True)
