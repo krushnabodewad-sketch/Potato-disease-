@@ -248,7 +248,7 @@ if uploaded_file is not None and models_ready:
         sc = "soybean"
         engine_badge = "User Verified"
     else:
-        # 🌟 LAYER 1: PLANTNET BOTANICAL API (सर्वोच्च प्राधान्य - HIGHEST PRIORITY)
+        # 🌟 LAYER 1: PLANTNET BOTANICAL API (सर्वोच्च प्राधान्य)
         plantnet_success = False
         other_plant_detected = None
 
@@ -265,44 +265,37 @@ if uploaded_file is not None and models_ready:
                         plantnet_success = True
                         top_r = results[0]
                         top_species = top_r.get('species', {}).get('scientificNameWithoutAuthor', '')
-                        top_family = top_r.get('species', {}).get('family', {}).get('scientificNameWithoutAuthor', '')
                         common_list = top_r.get('species', {}).get('commonNames', [])
                         common_str = f" ({common_list[0]})" if common_list else ""
                         plantnet_detected_name = f"{top_species}{common_str}"
 
-                        # Check if matches our 3 supported crops
                         matched = False
                         for r in results[:4]:
                             spec = r.get('species', {}).get('scientificNameWithoutAuthor', '').lower()
                             fam = r.get('species', {}).get('family', {}).get('scientificNameWithoutAuthor', '').lower()
                             c_names = [c.lower() for c in r.get('species', {}).get('commonNames', [])]
 
-                            # 1. Cotton check
                             if "gossypium" in spec or "malvaceae" in fam or "cotton" in c_names:
                                 sc = "cotton"
                                 engine_badge = "PlantNet Botanical AI"
                                 matched = True
                                 break
-                            # 2. Potato check (Strict Solanum tuberosum)
                             elif "solanum tuberosum" in spec or "potato" in c_names:
                                 sc = "potato"
                                 engine_badge = "PlantNet Botanical AI"
                                 matched = True
                                 break
-                            # 3. Soybean check
                             elif "glycine max" in spec or "fabaceae" in fam or "soybean" in c_names:
                                 sc = "soybean"
                                 engine_badge = "PlantNet Botanical AI"
                                 matched = True
                                 break
 
-                        # जर वनस्पती ओळखली पण ती कापूस, बटाटा किंवा सोयाबीन नसेल (उदा. टोमॅटो, मिरची इत्यादी)
                         if not matched:
                             other_plant_detected = plantnet_detected_name
             except Exception:
                 plantnet_success = False
 
-        # जर PlantNet ने इतर पीक ओळखले तर त्वरित अलर्ट दाखवून थांबवणे
         if other_plant_detected:
             with col_r:
                 st.markdown('<div class="k-card"><b>🌱 वनस्पती ओळख निकाल (PlantNet Identification)</b></div>', unsafe_allow_html=True)
@@ -310,7 +303,7 @@ if uploaded_file is not None and models_ready:
                 st.button("🔄 दुसरे पान तपासा", on_click=reset_sample, use_container_width=True)
             st.stop()
 
-        # 🌟 LAYER 2: Gemini Vision API (फक्त जर PlantNet फेल झाले तरच Failsafe म्हणून)
+        # 🌟 LAYER 2: Gemini Vision API (Failsafe 1)
         if not sc and not plantnet_success and gemini_client:
             v_prompt = (
                 "You are an agricultural botanist. Examine this leaf closely. "
@@ -349,7 +342,7 @@ if uploaded_file is not None and models_ready:
                 except Exception:
                     continue
 
-        # 🌟 LAYER 3: Botanical Anatomy & Local CNN (Failsafe 2 - 100% Offline)
+        # 🌟 LAYER 3: Botanical Anatomy & Local CNN (Failsafe 2 - Offline)
         if not sc:
             r_c, g_c, b_c = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
             tot = 224 * 224
@@ -395,4 +388,12 @@ if uploaded_file is not None and models_ready:
     tag_c = 'tag-h' if 'सुरक्षित' in s_txt else ('tag-m' if 'मध्यम' in s_txt else 'tag-c')
 
     with col_r:
-        st.markdown('<div class="k-card"><b>🩺 निदान टर्
+        st.markdown('<div class="k-card"><b>🩺 निदान टर्मिनल (Diagnostic Terminal)</b></div>', unsafe_allow_html=True)
+        st.markdown(f'<span class="k-pill k-pill-crop">{c_name}</span><span class="k-pill k-pill-diag">{diag}</span>', unsafe_allow_html=True)
+        st.markdown(f'<span class="{tag_c}">● {s_txt}</span>', unsafe_allow_html=True)
+        st.markdown(f'<div class="c-val">{f_conf:.1f}%</div><div class="badge-verified">✓ Verified by {engine_badge}</div>', unsafe_allow_html=True)
+
+        if rf_data:
+            rf_color = "#10B981" if rf_data["is_healthy"] else "#EF4444"
+            st.markdown(
+                f'<div style
