@@ -396,8 +396,8 @@ if uploaded_file is not None and models_ready:
             "peanut": "🥜 भुईमूग (Peanut)",
             "zingiber officinale": "🫚 आले / अद्रक (Ginger)",
             "curcuma longa": "🌱 हळद (Turmeric)"
-}
-     if plantnet_key:
+        }
+        if plantnet_key:
             try:
                 url = f"https://my-api.plantnet.org/v2/identify/all?api-key={plantnet_key}"
                 files = [('images', ('leaf.jpg', img_bytes, 'image/jpeg'))]
