@@ -394,5 +394,60 @@ if uploaded_file is not None and models_ready:
         st.markdown(f'<div class="c-val">{f_conf:.1f}%</div><div class="badge-verified">✓ Verified by {engine_badge}</div>', unsafe_allow_html=True)
 
         if rf_data:
+           if rf_data:
             rf_color = "#10B981" if rf_data["is_healthy"] else "#EF4444"
-            st.markdown(f'<div sty
+            st.markdown(f'<div style="background:#F8FAFC; border:1px solid #CBD5E1; border-radius:10px; padding:8px 12px; margin-top:8px; font-size:0.85rem;">🔍 <b>Roboflow व्हिजन तपासणी:</b> <span style="color:{rf_color}; font-weight:700;">{rf_data["label"]}</span> ({rf_data["conf"]}%)</div>', unsafe_allow_html=True)
+
+        a_txt = f"निदान: {c_name}, {diag}. औषध: {inf['chem']}."
+        a_js = json.dumps(a_txt)
+        a_html = f'<script>function spk(){{window.speechSynthesis.cancel();var m=new SpeechSynthesisUtterance({a_js});m.lang="mr-IN";window.speechSynthesis.speak(m);}}</script><button onclick="spk()" style="width:100%;background:linear-gradient(135deg,#059669,#10b981);color:#fff;border:none;padding:12px;border-radius:12px;font-weight:700;cursor:pointer;margin-top:10px;">🔊 ऑडिओ सल्ला ऐका (Listen Audio)</button>'
+        components.html(a_html, height=54)
+
+    st.markdown('<div class="w-box"><b>🌤️ प्रादेशिक हवामान जोखीम:</b> स्थानिक तापमान: <b>२८°C</b> | हवेतील आर्द्रता: <b>७६%</b> (दमट वातावरण)<br><b>सल्ला:</b> दमट हवेमुळे बुरशीजन्य रोग वेगाने पसरू शकतात; सकाळी फवारणी करावी.</div>', unsafe_allow_html=True)
+
+    with st.expander("📊 संभाव्यता विवरण (Probabilities)", expanded=False):
+        for i in np.argsort(c_preds)[::-1]:
+            pct = float(c_preds[i]) * 100
+            st.write(f"• **{c_classes[i]}** : `{pct:.1f}%`")
+            st.progress(min(max(float(c_preds[i]), 0.0), 1.0))
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown(f'<div class="t-chem"><b style="color:#B45309;">🧪 रासायनिक उपचार:</b><br>{inf["chem"]}</div>', unsafe_allow_html=True)
+    with c2:
+        st.markdown(f'<div class="t-bio"><b style="color:#047857;">🌿 सेंद्रिय उपाय:</b><br>{inf["bio"]}</div>', unsafe_allow_html=True)
+
+    # Gemini Live Marathi Advisory with Auto-Fallback
+    if gemini_client:
+        st.markdown('<div class="k-card"><b>🤖 कृषी-AI तज्ज्ञ सल्लागार (Google Gemini)</b>', unsafe_allow_html=True)
+        if st.button("✨ Gemini कडून विशेष कृषी सल्ला मिळवा"):
+            with st.spinner("Gemini AI सल्ला तयार करत आहे..."):
+                adv_prompt = f"तू एक कृषी तज्ज्ञ आहेस. पीक: {c_name}, रोग: {diag}, गंभीरता: {s_txt}. शेतकऱ्यासाठी सोप्या मराठीत २ परिच्छेदात उपाय आणि काळजी सांग."
+                res_adv = None
+                for model_cand in FALLBACK_MODELS:
+                    try:
+                        res = gemini_client.models.generate_content(
+                            model=model_cand,
+                            contents=adv_prompt
+                        )
+                        if res and res.text:
+                            res_adv = res.text
+                            break
+                    except Exception:
+                        continue
+                if res_adv:
+                    st.info(res_adv)
+                else:
+                    st.warning("⚠️ AI सल्लागार सेवा सध्या व्यस्त आहे. वरील रासायनिक व सेंद्रिय उपचार वापरावेत.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown(f'<div class="k-card"><b>📅 पुढील फवारणी वेळापत्रक:</b><div class="s-box"><b>दिवस १:</b> वरील शिफारसीत घटकांची फवारणी करा.</div><div class="s-box"><b>दिवस ८:</b> {inf["d7"]}</div><div class="s-box"><b>दिवस १५:</b> {inf["d15"]}</div></div>', unsafe_allow_html=True)
+
+    rf_info = f"\nRoboflow तपासणी: {rf_data['label']} ({rf_data['conf']}%)" if rf_data else ""
+    rep = f"कृषी-AI : स्मार्ट पीक रोग निदान अहवाल\nपीक: {c_name}\nनिदान: {diag}\nविश्वास गुण: {f_conf:.1f}%\nतीव्रता: {s_txt}\nइंजिन: {engine_badge}{rf_info}\n\nरासायनिक: {inf['chem']}\nसेंद्रिय: {inf['bio']}\n\nदिवस ८: {inf['d7']}\nदिवस १५: {inf['d15']}\n"
+
+    d1, d2 = st.columns(2)
+    with d1:
+        st.download_button(label="⬇️ Download Report", data=rep.encode("utf-8-sig"), file_name=f"krushi_{sc}.txt", mime="text/plain; charset=utf-8", use_container_width=True)
+    with d2:
+        st.button("🔄 Try Another Sample", on_click=reset_sample, use_container_width=True)
