@@ -153,7 +153,7 @@ TREATMENTS = {
 }
 
 # ==========================================
-# 5. ROBOFLOW DISEASE DETECTION ENGINE (PRIMARY)
+# 5. ROBOFLOW DISEASE DETECTION ENGINE
 # ==========================================
 def identify_disease_roboflow(image_bytes, crop_type):
     if not roboflow_key:
@@ -175,7 +175,6 @@ def identify_disease_roboflow(image_bytes, crop_type):
                 rf_class = top_p.get("class", "").lower()
                 conf = round(float(top_p.get("confidence", 0)) * 100, 1)
 
-                # Roboflow वर्गाचे आपल्या डेटाबेसशी मॅपिंग
                 matched_diag = None
                 if crop_type == "potato":
                     if "early" in rf_class:
@@ -234,7 +233,7 @@ with col_r:
         st.info("📡 **निदान टर्मिनल सज्ज आहे.**\n\nडाव्या बाजूने फोटो अपलोड करा किंवा कॅमेऱ्याने काढा.")
 
 # ==========================================
-# 7. DIAGNOSTIC PIPELINE
+# 7. MULTI-LAYER DIAGNOSTIC PIPELINE
 # ==========================================
 if uploaded_file is not None and models_ready:
     img = Image.open(uploaded_file).convert('RGB')
@@ -246,10 +245,10 @@ if uploaded_file is not None and models_ready:
     img_bytes = img_byte_arr.getvalue()
 
     sc = None
-    plantnet_detected_name = ""
+    plant_badge = ""
 
     # ==========================================
-    # टप्पा १: PLANTNET द्वारे पिकाची अचूक जात ओळखणे (सर्वोच्च प्राधान्य)
+    # टप्पा १: PLANTNET द्वारे पिकाची अचूक जात ओळखणे
     # ==========================================
     if "बटाटा" in crop_mode:
         sc = "potato"
@@ -296,12 +295,15 @@ if uploaded_file is not None and models_ready:
             "curcuma longa": "🌱 हळद (Turmeric)"
         }
 
-        if plantnet_key:
+        if not plantnet_key:
+            st.error("⚠️ **PLANTNET_API_KEY सापडली नाही!** कृपया Streamlit Cloud च्या Secrets मध्ये API Key जोडा.")
+        else:
             try:
                 url = f"https://my-api.plantnet.org/v2/identify/all?api-key={plantnet_key}"
                 files = [('images', ('leaf.jpg', img_bytes, 'image/jpeg'))]
                 data = {'organs': ['leaf']}
-                resp = requests.post(url, files=files, data=data, timeout=8)
+                resp = requests.post(url, files=files, data=data, timeout=10)
+
                 if resp.status_code == 200:
                     p_res = resp.json()
                     results = p_res.get('results', [])
@@ -354,10 +356,12 @@ if uploaded_file is not None and models_ready:
 
                         if not matched:
                             other_plant_detected = plantnet_detected_name
-            except Exception:
+                else:
+                    st.warning(f"⚠️ PlantNet API प्रतिसाद त्रुटी: कोड {resp.status_code}")
+            except Exception as e:
+                st.error(f"⚠️ PlantNet नेटवर्क त्रुटी: {e}")
                 plantnet_success = False
 
-        # जर वनस्पती इतर कोणतीही असेल तर लगेच अलर्ट देऊन थांबवणे
         if other_plant_detected:
             with col_r:
                 st.markdown('<div class="k-card"><b>🌱 वनस्पती ओळख निकाल (PlantNet Identification)</b></div>', unsafe_allow_html=True)
@@ -402,14 +406,13 @@ if uploaded_file is not None and models_ready:
 
         if not sc:
             sc = "potato"
-            plant_badge = "Local Heuristic Engine"
+            plant_badge = "Local Heuristic Engine (Offline Backup)"
 
     # ==========================================
     # टप्पा २: ROBOFLOW द्वारे रोगाचे मुख्य निदान
     # ==========================================
     rf_result = identify_disease_roboflow(img_bytes, sc)
 
-    # स्थानिक मॉडेल्सचे प्रिडिक्शन्स (बॅकअप व संभाव्यता आलेखासाठी)
     pp = potato_model(np.expand_dims(arr, axis=0), training=False).numpy()[0]
     if np.sum(pp) > 1.05 or np.sum(pp) < 0.95: pp = tf.nn.softmax(pp).numpy()
     ip, cp = int(np.argmax(pp)), float(np.max(pp))
@@ -422,7 +425,6 @@ if uploaded_file is not None and models_ready:
     if np.sum(pc) > 1.05 or np.sum(pc) < 0.95: pc = tf.nn.softmax(pc).numpy()
     ic, cc = int(np.argmax(pc)), float(np.max(pc))
 
-    # निकाल निश्चित करणे (Roboflow ला मुख्य प्राधान्य)
     if sc == "potato":
         c_name = "🥔 बटाटा (Potato)"
         c_classes = POTATO_CLASSES
@@ -434,7 +436,7 @@ if uploaded_file is not None and models_ready:
         else:
             diag = POTATO_CLASSES[ip]
             f_conf = cp * 100
-            disease_engine = "Local TensorFlow CNN (Fallback)"
+            disease_engine = "Local TensorFlow CNN"
 
     elif sc == "cotton":
         c_name = "☁️ कापूस (Cotton)"
@@ -447,7 +449,7 @@ if uploaded_file is not None and models_ready:
         else:
             diag = COTTON_CLASSES[ic]
             f_conf = cc * 100
-            disease_engine = "Local TensorFlow CNN (Fallback)"
+            disease_engine = "Local TensorFlow CNN"
 
     else:
         c_name = "🌱 सोयाबीन (Soybean)"
@@ -460,14 +462,14 @@ if uploaded_file is not None and models_ready:
         else:
             diag = SOYBEAN_CLASSES[isoy]
             f_conf = cs * 100
-            disease_engine = "Local TensorFlow CNN (Fallback)"
+            disease_engine = "Local TensorFlow CNN"
 
     inf = TREATMENTS[diag]
     s_txt = inf['severity']
     tag_c = 'tag-h' if 'सुरक्षित' in s_txt else ('tag-m' if 'मध्यम' in s_txt else 'tag-c')
 
     # ==========================================
-    # टप्पा ३: UI वर अंतिम निकाल प्रदर्शित करणे
+    # टप्पा ३: अंतिम अहवाल
     # ==========================================
     with col_r:
         st.markdown('<div class="k-card"><b>🩺 निदान टर्मिनल (Diagnostic Terminal)</b></div>', unsafe_allow_html=True)
@@ -527,3 +529,4 @@ if uploaded_file is not None and models_ready:
         st.download_button(label="⬇️ Download Report", data=rep.encode("utf-8-sig"), file_name=f"krushi_{sc}.txt", mime="text/plain; charset=utf-8", use_container_width=True)
     with d2:
         st.button("🔄 Try Another Sample", on_click=reset_sample, use_container_width=True)
+       
