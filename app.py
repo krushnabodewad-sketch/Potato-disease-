@@ -255,18 +255,7 @@ if uploaded_file is not None and models_ready:
     plant_badge = ""
 
     # ==========================================
-    # टप्पा १: PLANTNET द्वारे पिकाची अचूक जात ओळखणे (सर्वोच्च प्राधान्य)
-    # ==========================================
-    if "बटाटा" in crop_mode:
-        sc = "potato"
-        plant_badge = "शेतकरी प्रमाणित (User Verified)"
-    elif "कापूस" in crop_mode:
-        sc = "cotton"
-        plant_badge = "शेतकरी प्रमाणित (User Verified)"
-    elif "सोयाबीन" in crop_mode:
-        sc = "soybean"
-        plant_badge = "शेतकरी प्रमाणित (User Verified)"
-    else:
+            # 🌟 LAYER 1: PLANTNET BOTANICAL API (With Strict Filter & Resilient Gemini Bridge)
         plantnet_success = False
         other_plant_detected = None
 
@@ -292,23 +281,16 @@ if uploaded_file is not None and models_ready:
             "rice": "🌾 भात / धान (Rice)",
             "paddy": "🌾 भात / धान (Paddy)",
             "saccharum officinarum": "🎋 ऊस (Sugarcane)",
-            "sugarcane": "🎋 ऊस (Sugarcane)",
-            "cajanus cajan": "🌱 तूर (Pigeon Pea / Arhar)",
-            "cicer arietinum": "🌱 हरभरा (Chickpea / Chana)",
-            "arachis hypogaea": "🥜 भुईमूग (Groundnut / Peanut)",
-            "groundnut": "🥜 भुईमूग (Groundnut)",
-            "peanut": "🥜 भुईमूग (Peanut)",
-            "zingiber officinale": "🫚 आले / अद्रक (Ginger)",
-            "curcuma longa": "🌱 हळद (Turmeric)"
+            "sugarcane": "🎋 ऊस (Sugarcane)"
         }
 
-        # 1.1 PlantNet Call
+        # 1.1 PlantNet Call (लहान पेलोडसह)
         if plantnet_key:
             try:
                 url = f"https://my-api.plantnet.org/v2/identify/all?api-key={plantnet_key}"
                 files = [('images', ('leaf.jpg', p_bytes, 'image/jpeg'))]
                 data = {'organs': ['leaf']}
-                resp = requests.post(url, files=files, data=data, timeout=6)
+                resp = requests.post(url, files=files, data=data, timeout=5)
 
                 if resp.status_code == 200:
                     p_res = resp.json()
@@ -327,7 +309,7 @@ if uploaded_file is not None and models_ready:
                                 marathi_name = v
                                 break
 
-                        plantnet_detected_name = marathi_name if marathi_name else (f"{top_species} ({common_eng})" if common_eng else top_species)
+                        plantnet_detected_name = marathi_name if marathi_name else f"{top_species} ({common_eng})"
 
                         matched = False
                         for r in results[:4]:
@@ -356,18 +338,18 @@ if uploaded_file is not None and models_ready:
             except Exception:
                 plantnet_success = False
 
-        # 1.2 Gemini Vision Botanical Bridge (जर PlantNet TimeOut किंवा अपयशी झाले तर)
-        if not sc and not plantnet_success and not other_plant_detected and gemini_client:
+        # 1.2 Gemini Botanical Vision (सुपर-फास्ट आणि अचूक Failsafe)
+        if not sc and not other_plant_detected and gemini_client:
             v_prompt = (
-                "You are an expert field botanist. Look at this leaf carefully.\n"
-                "Is it Cotton, Potato, Soybean, Eggplant/Brinjal, Tomato, or other?\n"
-                "Return strictly JSON: {\"plant\": \"Name in Marathi\", \"is_supported\": true/false, \"crop\": \"cotton/potato/soybean/other\"}\n"
-                "- If cotton: crop='cotton', is_supported=true\n"
-                "- If potato: crop='potato', is_supported=true\n"
-                "- If soybean: crop='soybean', is_supported=true\n"
-                "- If eggplant/brinjal: plant='🍆 वांगे (Brinjal / Eggplant)', is_supported=false, crop='other'\n"
-                "- If tomato: plant='🍅 टोमॅटो (Tomato)', is_supported=false, crop='other'\n"
-                "- If any other: is_supported=false, crop='other'"
+                "You are an expert field botanist. Identify the plant from this leaf photo.\n"
+                "Rules:\n"
+                "- If Cotton leaf: return 'cotton'\n"
+                "- If Potato leaf: return 'potato'\n"
+                "- If Soybean leaf: return 'soybean'\n"
+                "- If Eggplant / Brinjal leaf: return 'वांगे (Brinjal)'\n"
+                "- If Tomato leaf: return 'टोमॅटो (Tomato)'\n"
+                "- If any other plant: return the common Marathi name followed by English in brackets, like 'मिरची (Chilli)'.\n"
+                "Return strictly ONLY the single word or name without any markdown or extra text."
             )
             for m in FALLBACK_MODELS:
                 try:
@@ -376,19 +358,26 @@ if uploaded_file is not None and models_ready:
                         contents=[v_prompt, genai.types.Part.from_bytes(data=p_bytes, mime_type="image/jpeg")]
                     )
                     if res_g and res_g.text:
-                        raw = res_g.text.strip().replace("```json", "").replace("```", "").strip()
-                        parsed = json.loads(raw)
-                        if not parsed.get("is_supported", False):
-                            other_plant_detected = parsed.get("plant", "इतर पीक / वनस्पती")
+                        ans = res_g.text.strip().lower()
+                        if "cotton" in ans:
+                            sc = "cotton"
+                            plant_badge = "Gemini Botanical AI"
+                            break
+                        elif "potato" in ans:
+                            sc = "potato"
+                            plant_badge = "Gemini Botanical AI"
+                            break
+                        elif "soybean" in ans:
+                            sc = "soybean"
+                            plant_badge = "Gemini Botanical AI"
                             break
                         else:
-                            sc = parsed.get("crop")
-                            plant_badge = "Gemini Botanical AI"
+                            other_plant_detected = res_g.text.strip()
                             break
                 except Exception:
                     continue
 
-        # जर वनस्पती इतर कोणतीही असेल (वांगे, टोमॅटो इत्यादी) तर येथेच थांबवणे
+        # जर वांगे, टोमॅटो किंवा इतर पीक असेल तर थेट थांबवणे
         if other_plant_detected:
             with col_r:
                 st.markdown('<div class="k-card"><b>🌱 वनस्पती ओळख निकाल (Botanical Identification)</b></div>', unsafe_allow_html=True)
@@ -396,69 +385,15 @@ if uploaded_file is not None and models_ready:
                 st.button("🔄 दुसरे पान तपासा", on_click=reset_sample, use_container_width=True)
             st.stop()
 
+        # जर काहीही ओळखता आले नाही, तर बटाटा न धरता थेट अलर्ट दाखवा
         if not sc:
-            sc = "potato"
-            plant_badge = "Local Heuristic Engine (Offline Backup)"
+            with col_r:
+                st.warning("⚠️ या पानातून पिकाची जात स्पष्ट ओळखता आली नाही. कृपया पानाचा जवळून स्पष्ट फोटो अपलोड करा.")
+                st.button("🔄 पुन्हा प्रयत्न करा", on_click=reset_sample, use_container_width=True)
+            st.stop()
 
-    # ==========================================
-    # टप्पा २: ROBOFLOW द्वारे रोगाचे मुख्य निदान
-    # ==========================================
-    rf_result = identify_disease_roboflow(img_bytes, sc)
-
-    pp = potato_model(np.expand_dims(arr, axis=0), training=False).numpy()[0]
-    if np.sum(pp) > 1.05 or np.sum(pp) < 0.95: pp = tf.nn.softmax(pp).numpy()
-    ip, cp = int(np.argmax(pp)), float(np.max(pp))
-
-    ps = soybean_model(np.expand_dims(arr / 255.0, axis=0), training=False).numpy()[0]
-    if np.sum(ps) > 1.05 or np.sum(ps) < 0.95: ps = tf.nn.softmax(ps).numpy()
-    isoy, cs = int(np.argmax(ps)), float(np.max(ps))
-
-    pc = cotton_model(np.expand_dims(arr / 255.0, axis=0), training=False).numpy()[0]
-    if np.sum(pc) > 1.05 or np.sum(pc) < 0.95: pc = tf.nn.softmax(pc).numpy()
-    ic, cc = int(np.argmax(pc)), float(np.max(pc))
-
-    if sc == "potato":
-        c_name = "🥔 बटाटा (Potato)"
-        c_classes = POTATO_CLASSES
-        c_preds = pp
-        if rf_result and rf_result.get("diag"):
-            diag = rf_result["diag"]
-            f_conf = rf_result["conf"]
-            disease_engine = f"Roboflow AI ({rf_result['raw_label']})"
-        else:
-            diag = POTATO_CLASSES[ip]
-            f_conf = cp * 100
-            disease_engine = "Local TensorFlow CNN"
-
-    elif sc == "cotton":
-        c_name = "☁️ कापूस (Cotton)"
-        c_classes = COTTON_CLASSES
-        c_preds = pc
-        if rf_result and rf_result.get("diag"):
-            diag = rf_result["diag"]
-            f_conf = rf_result["conf"]
-            disease_engine = f"Roboflow AI ({rf_result['raw_label']})"
-        else:
-            diag = COTTON_CLASSES[ic]
-            f_conf = cc * 100
-            disease_engine = "Local TensorFlow CNN"
-
-    else:
-        c_name = "🌱 सोयाबीन (Soybean)"
-        c_classes = SOYBEAN_CLASSES
-        c_preds = ps
-        if rf_result and rf_result.get("diag"):
-            diag = rf_result["diag"]
-            f_conf = rf_result["conf"]
-            disease_engine = f"Roboflow AI ({rf_result['raw_label']})"
-        else:
-            diag = SOYBEAN_CLASSES[isoy]
-            f_conf = cs * 100
-            disease_engine = "Local TensorFlow CNN"
-
-    inf = TREATMENTS[diag]
-    s_txt = inf['severity']
-    tag_c = 'tag-h' if 'सुरक्षित' in s_txt else ('tag-m' if 'मध्यम' in s_txt else 'tag-c')
+                        
+ 
 
     # ==========================================
     # टप्पा ३: निकाल सादरीकरण
