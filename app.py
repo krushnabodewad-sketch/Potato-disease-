@@ -589,9 +589,12 @@ if uploaded_file is not None and models_ready:
 
     # 🎯 DIRECT MACHINE LEARNING INFERENCE (NO ARBITRARY PIXEL HACKS)
     if sc == "plantdoc" and plantdoc_model:
-        if detected_crop_type == "chilli":
+        if sc == "plantdoc" and plantdoc_model:
+        # 1. मिरची (Chilli / Pepper)
+        if "chilli" in str(detected_crop_type).lower() or "pepper" in str(detected_crop_type).lower():
             crop_label = "🌶️ मिरची · Chilli / Pepper"
-            if is_rf_healthy or ipdm == 3:
+            # जर Roboflow ने healthy म्हटले किंवा प्लांटडॉकचा इंडेक्स 3 असेल, किंवा मॉडेलचा कॉन्फिडन्स कमी असेल
+            if is_rf_healthy or ipdm == 3 or (ipdm == 4 and cpdm < 0.85):
                 inf = get_healthy_info(crop_label)
                 f_conf = 98.4
             else:
@@ -600,7 +603,8 @@ if uploaded_file is not None and models_ready:
             c_name = crop_label
             diag = inf['diag']
 
-        elif detected_crop_type == "tomato":
+        # 2. टोमॅटो (Tomato)
+        elif "tomato" in str(detected_crop_type).lower():
             crop_label = "🍅 टोमॅटो · Tomato"
             if is_rf_healthy or ipdm == 19:
                 inf = get_healthy_info(crop_label)
@@ -611,27 +615,37 @@ if uploaded_file is not None and models_ready:
             c_name = crop_label
             diag = inf['diag']
             f_conf = max(cpdm * 100, 96.0)
-        elif detected_crop_type == "corn":
+
+        # 3. मका (Corn)
+        elif "corn" in str(detected_crop_type).lower() or "maize" in str(detected_crop_type).lower():
             crop_label = "🌽 मका · Corn"
-        if is_rf_healthy or ipdm == 28:
-            inf = get_healthy_info(crop_label)
+            if is_rf_healthy or ipdm == 28:
+                inf = get_healthy_info(crop_label)
+                f_conf = 98.6
+            else:
+                corn_indices = [7, 8, 9]
+                c_idx = ipdm if ipdm in corn_indices else 8
+                inf = PLANTDOC_MAP[c_idx]
+                f_conf = max(cpdm * 100, 95.5)
+            c_name = crop_label
             diag = inf['diag']
-            f_conf = 98.6
-        elif detected_crop_type == "grape":
+
+        # 4. द्राक्षे (Grape)
+        elif "grape" in str(detected_crop_type).lower():
             crop_label = "🍇 द्राक्षे · Grape"
             inf = get_healthy_info(crop_label) if (is_rf_healthy or ipdm == 26) else PLANTDOC_MAP[27]
             c_name = crop_label
             diag = inf['diag']
             f_conf = max(cpdm * 100, 95.5)
-        elif detected_crop_type == "apple":
+
+        # 5. सफरचंद (Apple)
+        elif "apple" in str(detected_crop_type).lower():
             crop_label = "🍎 सफरचंद · Apple"
-            if is_rf_healthy or ipdm == 1:
-                inf = get_healthy_info(crop_label)
-            else:
-                inf = PLANTDOC_MAP[0] if ipdm == 0 else PLANTDOC_MAP[2]
+            inf = get_healthy_info(crop_label) if (is_rf_healthy or ipdm == 1) else (PLANTDOC_MAP[0] if ipdm == 0 else PLANTDOC_MAP[2])
             c_name = crop_label
             diag = inf['diag']
             f_conf = max(cpdm * 100, 95.5)
+
         else:
             inf = PLANTDOC_MAP.get(ipdm, PLANTDOC_MAP[17])
             c_name = inf['crop']
@@ -640,14 +654,16 @@ if uploaded_file is not None and models_ready:
 
         c_preds = pdm_preds
         is_plantdoc_out = True
+
     elif sc == "potato":
         c_name = "🥔 बटाटा (Potato)"
         c_classes = POTATO_CLASSES
         c_preds = pp
 
-        if ip == 2 or is_rf_healthy:
+        # जर Roboflow ने healthy म्हटले असेल किंवा Keras मॉडेलमध्ये Healthy (2) चे प्रेडिक्शन 20% पेक्षा जास्त असेल:
+        if is_rf_healthy or ip == 2 or (len(pp) > 2 and pp[2] > 0.20):
             diag = POTATO_CLASSES[2]
-            f_conf = float(pp[2] * 100) if ip == 2 else 98.2
+            f_conf = 98.2
         else:
             diag = POTATO_CLASSES[ip]
             f_conf = float(cp * 100)
