@@ -47,15 +47,15 @@ def generate_gradcam_heatmap(img_array, model, pred_index=None):
         g = sample_img[:, :, 1].astype(np.float32)
         b = sample_img[:, :, 2].astype(np.float32)
 
-        # Excess Green Index (Matti aani background isolate karne)
+        # Excess Green Index (माती आणि पार्श्वभूमी वेगळी करणे)
         exg = 2.0 * g - r - b
         is_plant = exg > 10.0
 
-        # Asli karpa / necrosis spot intensity
+        # करपा / ठिपके तीव्रता
         spot_raw = (r * 1.35 + b * 0.35) - (g * 0.95)
         spot_raw = np.maximum(0.0, spot_raw)
 
-        # Sirf leaf foliage area par mask karna
+        # फक्त पानाच्या भागावर मास्क ठेवणे
         spot_intensity = np.where(is_plant, spot_raw, 0.0)
 
         max_s = np.max(spot_intensity)
@@ -97,7 +97,7 @@ def create_superimposed_vis(original_pil_img, heatmap, alpha=0.60):
 
         orig_arr = np.array(original_pil_img, dtype=np.float32)
 
-        # Actual hotspot areas overlay
+        # Hotspot areas overlay
         mask_weight = np.expand_dims(np.where(norm_heat > 0.08, norm_heat * alpha, 0.0), axis=-1)
         superimposed = jet_rgb * mask_weight + orig_arr * (1.0 - mask_weight)
         superimposed = np.clip(superimposed, 0, 255).astype(np.uint8)
@@ -334,7 +334,7 @@ PLANTDOC_MAP = {
     15: {'crop': 'भोपळा/काकडी · Squash', 'diag': 'भुरी रोग (Powdery Mildew)', 'severity': 'मध्यम (Moderate)', 'chem': 'Difenoconazole 25% EC किंवा Sulphur 80% WDG', 'brands': 'Score (Syngenta), Sulfex', 'cost': '₹ ३५ - ₹ ५० प्रति पंप', 'dose_15L': '१० मिली स्कोअर (किंवा ३० ग्रॅम सल्फेक्स) + १० मिली स्टिकर', 'dose_200L': '१५० मिली स्कोअर (किंवा ४०० ग्रॅम सल्फेक्स)', 'bio': 'दूध व पाण्याचे मिश्रण (१:१०) फवारावे.', 'compat': '✅ सुरक्षित; ❌ सल्फर ३२°C पेक्षा जास्त तापमानात फवारू नका.', 'symptoms': 'पानाच्या वरच्या पृष्ठभागावर पांढऱ्या राखेसारखी किंवा पिठासारखी पावडर पसरलेली दिसते.', 'd8': 'सकाळी लवकर फवारणी करावी.', 'd15': 'हवा खेळती ठेवा.'},
     16: get_healthy_info('स्ट्रॉबेरी · Strawberry'),
     17: {'crop': 'टोमॅटो · Tomato', 'diag': 'टोमॅटो लवकर करपा (Early Blight)', 'severity': 'मध्यम (Moderate)', 'chem': 'Mancozeb 75% WP किंवा Amistar Top', 'brands': 'Indofil M-45, Amistar Top', 'cost': '₹ ३५ - ₹ ६० प्रति पंप', 'dose_15L': '३५ ग्रॅम मॅन्कोझेब (किंवा १५ मिली अमिस्टार टॉप)', 'dose_200L': '५०० ग्रॅम मॅन्कोझेब (किंवा २०० मिली अमिस्टार टॉप)', 'bio': 'निंबोळी तेल ५० मिली + ताक २०० मिली प्रति पंप.', 'compat': '✅ सुरक्षित; ❌ अल्कधर्मी द्रावण टाळा.', 'symptoms': 'खालच्या जुन्या पानांवर गोलाकार वलयांकित तपकिरी करपा डाग उमटतात.', 'd8': 'खालची जुनी पिवळी पाने छाटून टाका.', 'd15': 'ट्रायकोडर्मा मुळाशी द्या.'},
-    18: {'crop': 'टोमॅटो · Tomato', 'diag': 'सेप्टोरिया करपा (Septoria Leaf Spot)', 'severity': 'मध्यम (Moderate)', 'chem': 'Copper Oxychloride 50% WP (COC)', 'brands': 'Blitox, Blue Copper', 'cost': '₹ ३५ - ₹ ४५ प्रति पंप', 'dose_15L': '३५ ग्रॅम पावडर + १० मिली स्टिकर', 'dose_200L': '५०० ग्रॅम पावडर + १०० मिली स्टिकर', 'bio': 'ट्रायकोडर्मा व्हिरिडी ५० ग्रॅम प्रति पंप.', 'compat': '⚠️ कॉपर इतर किडींच्या औषधांसोबत मिसळताना काळजी घ्या.', 'symptoms': 'पानांवर लहान, असंख्य राखाडी मध्यभाग व काळी किनार असलेले ठिपके दिसतात.', 'd8': 'पानांवर पाण्याचा शिडकाव टाळा.', 'd15': 'हवा खेळती ठेवा.'},
+        18: {'crop': 'टोमॅटो · Tomato', 'diag': 'सेप्टोरिया करपा (Septoria Leaf Spot)', 'severity': 'मध्यम (Moderate)', 'chem': 'Copper Oxychloride 50% WP (COC)', 'brands': 'Blitox, Blue Copper', 'cost': '₹ ३५ - ₹ ४५ प्रति पंप', 'dose_15L': '३५ ग्रॅम पावडर + १० मिली स्टिकर', 'dose_200L': '५०० ग्रॅम पावडर + १०० मिली स्टिकर', 'bio': 'ट्रायकोडर्मा व्हिरिडी ५० ग्रॅम प्रति पंप.', 'compat': '⚠️ कॉपर इतर किडींच्या औषधांसोबत मिसळताना काळजी घ्या.', 'symptoms': 'पानांवर लहान, असंख्य राखाडी मध्यभाग व काळी किनार असलेले ठिपके दिसतात.', 'd8': 'पानांवर पाण्याचा शिडकाव टाळा.', 'd15': 'हवा खेळती ठेवा.'},
     19: get_healthy_info('टोमॅटो · Tomato'),
     20: {'crop': 'टोमॅटो · Tomato', 'diag': 'जिवाणूजन्य ठिपके (Bacterial Spot)', 'severity': 'तीव्र (High Risk)', 'chem': 'Copper Hydroxide 53.8% DF + Streptocycline', 'brands': 'Kocide (DuPont) + Streptocycline', 'cost': '₹ ५० - ₹ ६० प्रति पंप', 'dose_15L': '३० ग्रॅम कोसाईड + २ ग्रॅम स्ट्रेप्टोसायक्लिन', 'dose_200L': '४०० ग्रॅम कोसाईड + २० ग्रॅम स्ट्रेप्टोसायक्लिन', 'bio': 'हळद पावडर आणि गोमूत्र द्रावण फवारावे.', 'compat': '✅ स्ट्रेप्टोसायक्लिनसोबत सुरक्षित; ❌ कीटकनाशके टाळा.', 'symptoms': 'पानांवर तेलकट, ओलसर काळपट बारीक ठिपके पडतात व नंतर पाने पिवळी पडतात.', 'd8': 'स्यूडोमोनास फ्लुओरेसेन्स फवारा.', 'd15': 'रोगट पाने तोडून टाका.'},
     21: {'crop': 'टोमॅटो · Tomato', 'diag': 'टोमॅटो उशिरा करपा (Late Blight)', 'severity': 'अतिधोकादायक (High Risk)', 'chem': 'Cymoxanil 8% + Mancozeb 64% WP (Curzate) किंवा Sectin', 'brands': 'Curzate, Sectin, Melody Duo', 'cost': '₹ ६५ - ₹ ८५ प्रति पंप', 'dose_15L': '३५ ग्रॅम पावडर + १० मिली स्टिकर', 'dose_200L': '५०० ग्रॅम पावडर + १५० मिली स्टिकर', 'bio': 'बोर्डो मिश्रण १% फवारावे.', 'compat': '✅ सुरक्षित; ❌ कॉपर सोबत मिक्स करू नका.', 'symptoms': 'दमट हवेत पानांवर आणि देठांवर पाण्याचे चट्टे पडून ते वेगाने काळे पडून कुजतात.', 'd8': 'सेक्टिन ३० ग्रॅम फवारा.', 'd15': 'जमिनीत पाणी साचू देऊ नका.'},
@@ -493,7 +493,10 @@ if uploaded_file is not None and models_ready:
                             spec = r.get('species', {}).get('scientificNameWithoutAuthor', '').lower()
                             c_names = [c.lower() for c in r.get('species', {}).get('commonNames', [])]
 
-                            if "capsicum" in spec or any("pepper" in c or "chilli" in c or "chili" in c for c in c_names):
+                            # Prioritize corn first to prevent misclassification
+                            if "zea mays" in spec or any("corn" in c or "maize" in c for c in c_names):
+                                sc = "plantdoc"; detected_crop_type = "corn"; engine_badge = "PlantNet Botanical AI"; plantnet_success = True; break
+                            elif "capsicum" in spec or any("pepper" in c or "chilli" in c or "chili" in c for c in c_names):
                                 sc = "plantdoc"; detected_crop_type = "chilli"; engine_badge = "PlantNet Botanical AI"; plantnet_success = True; break
                             elif "lycopersicum" in spec or any("tomato" in c for c in c_names):
                                 sc = "plantdoc"; detected_crop_type = "tomato"; engine_badge = "PlantNet Botanical AI"; plantnet_success = True; break
@@ -503,8 +506,6 @@ if uploaded_file is not None and models_ready:
                                 sc = "potato"; engine_badge = "PlantNet Botanical AI"; plantnet_success = True; break
                             elif "glycine max" in spec or any("soybean" in c for c in c_names):
                                 sc = "soybean"; engine_badge = "PlantNet Botanical AI"; plantnet_success = True; break
-                            elif "zea mays" in spec or any("corn" in c or "maize" in c for c in c_names):
-                                sc = "plantdoc"; detected_crop_type = "corn"; engine_badge = "PlantNet Botanical AI"; plantnet_success = True; break
                             elif "vitis" in spec or any("grape" in c for c in c_names):
                                 sc = "plantdoc"; detected_crop_type = "grape"; engine_badge = "PlantNet Botanical AI"; plantnet_success = True; break
                             elif "malus" in spec or any("apple" in c for c in c_names):
@@ -519,7 +520,7 @@ if uploaded_file is not None and models_ready:
         if not sc and not unsupported_plant_detected and gemini_client:
             v_prompt = (
                 "Identify the exact plant in this image. "
-                "If it is chilli/pepper, tomato, potato, cotton, soybean, corn/maize, grape, or apple, "
+                "If it is corn/maize, chilli/pepper, tomato, potato, cotton, soybean, grape, or apple, "
                 "return strictly ONLY that single word. "
                 "If it is ANY other plant (e.g. brinjal, mango, sugarcane, guava, onion, etc.), "
                 "return 'UNSUPPORTED: <Plant Name in Marathi and English>'. Example: 'UNSUPPORTED: वांगे (Brinjal)'."
@@ -536,6 +537,8 @@ if uploaded_file is not None and models_ready:
                         if "unsupported:" in txt_l:
                             unsupported_plant_detected = txt.split(":", 1)[1].strip()
                             break
+                        elif "corn" in txt_l or "maize" in txt_l:
+                            sc = "plantdoc"; detected_crop_type = "corn"; engine_badge = "Gemini Vision AI"; break
                         elif "chilli" in txt_l or "pepper" in txt_l or "chili" in txt_l:
                             sc = "plantdoc"; detected_crop_type = "chilli"; engine_badge = "Gemini Vision AI"; break
                         elif "tomato" in txt_l:
@@ -546,8 +549,6 @@ if uploaded_file is not None and models_ready:
                             sc = "cotton"; engine_badge = "Gemini Vision AI"; break
                         elif "soybean" in txt_l:
                             sc = "soybean"; engine_badge = "Gemini Vision AI"; break
-                        elif "corn" in txt_l or "maize" in txt_l:
-                            sc = "plantdoc"; detected_crop_type = "corn"; engine_badge = "Gemini Vision AI"; break
                         elif "grape" in txt_l:
                             sc = "plantdoc"; detected_crop_type = "grape"; engine_badge = "Gemini Vision AI"; break
                         elif "apple" in txt_l:
@@ -587,35 +588,10 @@ if uploaded_file is not None and models_ready:
     active_model_instance = plantdoc_model if (sc == "plantdoc") else (potato_model if sc == "potato" else (cotton_model if sc == "cotton" else soybean_model))
     input_tensor = np.expand_dims(arr / 255.0, axis=0) if sc != "potato" else np.expand_dims(arr, axis=0)
 
-    # DIRECT MACHINE LEARNING INFERENCE (NO ARBITRARY OVERRIDES)
+    # DIRECT MACHINE LEARNING INFERENCE
     if sc == "plantdoc" and plantdoc_model:
-        # 1. Chilli / Pepper
-        if "chilli" in str(detected_crop_type).lower() or "pepper" in str(detected_crop_type).lower():
-            crop_label = "🌶️ मिरची · Chilli / Pepper"
-            if is_rf_healthy or ipdm == 3 or (ipdm == 4 and cpdm < 0.85):
-                inf = get_healthy_info(crop_label)
-                f_conf = 98.4
-            else:
-                inf = PLANTDOC_MAP[4]
-                f_conf = max(cpdm * 100, 95.8)
-            c_name = crop_label
-            diag = inf['diag']
-
-        # 2. टोमॅटो (Tomato)
-        elif "tomato" in str(detected_crop_type).lower():
-            crop_label = "🍅 टोमॅटो · Tomato"
-            if is_rf_healthy or ipdm == 19:
-                inf = get_healthy_info(crop_label)
-            else:
-                tomato_indices = [17, 18, 20, 21, 22, 23, 24, 25]
-                t_idx = ipdm if ipdm in tomato_indices else 17
-                inf = PLANTDOC_MAP[t_idx]
-            c_name = crop_label
-            diag = inf['diag']
-            f_conf = max(cpdm * 100, 96.0)
-
-        # 3. मका (Corn)
-        elif "corn" in str(detected_crop_type).lower() or "maize" in str(detected_crop_type).lower():
+        # 1. मका (Corn) - Check Corn FIRST to avoid misdetection
+        if "corn" in str(detected_crop_type).lower() or "maize" in str(detected_crop_type).lower():
             crop_label = "🌽 मका · Corn"
             if is_rf_healthy or ipdm == 28:
                 inf = get_healthy_info(crop_label)
@@ -627,6 +603,31 @@ if uploaded_file is not None and models_ready:
                 f_conf = max(cpdm * 100, 95.5)
             c_name = crop_label
             diag = inf['diag']
+
+        # 2. मिरची (Chilli / Pepper)
+        elif "chilli" in str(detected_crop_type).lower() or "pepper" in str(detected_crop_type).lower():
+            crop_label = "🌶️ मिरची · Chilli / Pepper"
+            if is_rf_healthy or ipdm == 3 or (ipdm == 4 and cpdm < 0.85):
+                inf = get_healthy_info(crop_label)
+                f_conf = 98.4
+            else:
+                inf = PLANTDOC_MAP[4]
+                f_conf = max(cpdm * 100, 95.8)
+            c_name = crop_label
+            diag = inf['diag']
+
+        # 3. टोमॅटो (Tomato)
+        elif "tomato" in str(detected_crop_type).lower():
+            crop_label = "🍅 टोमॅटो · Tomato"
+            if is_rf_healthy or ipdm == 19:
+                inf = get_healthy_info(crop_label)
+            else:
+                tomato_indices = [17, 18, 20, 21, 22, 23, 24, 25]
+                t_idx = ipdm if ipdm in tomato_indices else 17
+                inf = PLANTDOC_MAP[t_idx]
+            c_name = crop_label
+            diag = inf['diag']
+            f_conf = max(cpdm * 100, 96.0)
 
         # 4. द्राक्षे (Grape)
         elif "grape" in str(detected_crop_type).lower():
@@ -658,7 +659,6 @@ if uploaded_file is not None and models_ready:
         c_classes = POTATO_CLASSES
         c_preds = pp
 
-        # जर Roboflow ने healthy म्हटले असेल किंवा Keras मॉडेलमध्ये Healthy (2) चे प्रेडिक्शन 20% पेक्षा जास्त असेल:
         if is_rf_healthy or ip == 2 or (len(pp) > 2 and pp[2] > 0.20):
             diag = POTATO_CLASSES[2]
             f_conf = 98.2
@@ -668,7 +668,7 @@ if uploaded_file is not None and models_ready:
 
         inf = TREATMENTS[diag]
         is_plantdoc_out = False
-        
+
     elif sc == "cotton":
         c_name = "☁️ कापूस (Cotton)"
         c_classes = COTTON_CLASSES
