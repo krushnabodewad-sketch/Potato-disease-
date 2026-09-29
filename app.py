@@ -344,6 +344,7 @@ PLANTDOC_MAP = {
     25: {'crop': 'टोमॅटो · Tomato', 'diag': 'दोन ठिपक्यांची लाल कोळी (Spider Mites)', 'severity': 'कीड प्रादुर्भाव (Mites)', 'chem': 'Propargite 57% EC किंवा Abamectin 1.9% EC', 'brands': 'Omite (Dhanuka), Vertimec', 'cost': '₹ ५० - ₹ ६५ प्रति पंप', 'dose_15L': '३० मिली ओमाईट (किंवा १० मिली व्हर्टिमेक)', 'dose_200L': '४०० मिली ओमाईट (किंवा १५० मिली व्हर्टिमेक)', 'bio': 'गंधक (Sulphur 80% WDG) ३० ग्रॅम प्रति पंप.', 'compat': '⚠️ गंधक आणि तेल एकत्र फवारू नये.', 'symptoms': 'पानांवर पांढुरके बारीक ठिपके दिसतात व पानांखाली बारीक जाळे तयार होते.', 'd8': 'पानांखाली जोरदार पाण्याचा फवारा मारा.', 'd15': 'कोळीनाशकाची पुनरावृत्ती.'},
     26: get_healthy_info('द्राक्षे · Grape'),
     27: {'crop': 'द्राक्षे · Grape', 'diag': 'द्राक्ष काळा कुजवा (Black Rot)', 'severity': 'रोगट (Infected)', 'chem': 'Pyraclostrobin + Metiram (Cabrio Top)', 'brands': 'Cabrio Top (BASF)', 'cost': '₹ ७० - ₹ ८५ प्रति पंप', 'dose_15L': '३० ग्रॅम पावडर + १० मिली स्टिकर', 'dose_200L': '४०० ग्रॅम पावडर + १५० मिली स्टिकर', 'bio': 'बोर्डो मिश्रण १% किंवा ट्रायकोडर्मा ५० ग्रॅम/पंप.', 'compat': '✅ सुरक्षित; ❌ तेलयुक्त द्रव्यांशी मिसळू नका.', 'symptoms': 'पानांवर तांबूस-तपकिरी गोलाकार डाग पडतात व फळे काळी पडून सुकतात.', 'd8': 'सुकलेले घोस व रोगट पाने काढा.', 'd15': 'बुरशीनाशक आलटून-पालटून वापरा.'}
+    28: get_healthy_info('मका · Corn'),
 }
 
 TREATMENTS = {
@@ -607,15 +608,10 @@ if uploaded_file is not None and models_ready:
             f_conf = max(cpdm * 100, 96.0)
         elif detected_crop_type == "corn":
             crop_label = "🌽 मका · Corn"
-            if is_rf_healthy:
-                inf = get_healthy_info(crop_label)
-            else:
-                corn_indices = [7, 8, 9]
-                c_idx = ipdm if ipdm in corn_indices else 8
-                inf = PLANTDOC_MAP[c_idx]
-            c_name = crop_label
+            if is_rf_healthy or ipdm == 28:
+            inf = get_healthy_info(crop_label)
             diag = inf['diag']
-            f_conf = max(cpdm * 100, 95.5)
+            f_conf = 98.6
         elif detected_crop_type == "grape":
             crop_label = "🍇 द्राक्षे · Grape"
             inf = get_healthy_info(crop_label) if (is_rf_healthy or ipdm == 26) else PLANTDOC_MAP[27]
@@ -643,15 +639,13 @@ if uploaded_file is not None and models_ready:
         c_name = "🥔 बटाटा (Potato)"
         c_classes = POTATO_CLASSES
         c_preds = pp
-        
-        # Jar Roboflow ne healthy sangitle tar healthy, nahitar model chya top prediction nusar
-        if is_rf_healthy and ip != 0 and ip != 1:
+          
+        if ip == 2 or is_rf_healthy:
             diag = POTATO_CLASSES[2]
-            f_conf = 98.5
-        else:
+            f_conf = float(pp[2] * 100) if ip == 2 else 98.2
+    else:
             diag = POTATO_CLASSES[ip]
             f_conf = float(cp * 100)
-            
         inf = TREATMENTS[diag]
         is_plantdoc_out = False
     elif sc == "cotton":
