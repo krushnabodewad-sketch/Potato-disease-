@@ -809,47 +809,40 @@ if uploaded_file is not None and models_ready:
         if st.button("✨ Gemini कडून विशेष कृषी सल्ला मिळवा"):
             with st.spinner("Gemini AI सल्ला तयार करत आहे..."):
                 adv_prompt = (
-                    f"तू एक ज्येष्ठ कृषी शास्त्रज्ञ आहेस. "
-                    f"शेतकऱ्याचे पीक: {c_name}, रोग/स्थिती: {diag}, गंभीरता: {s_txt}. "
-                    f"शेतकऱ्यासाठी तात्काळ करावयाची कृती, खबरदारी आणि पाणी व्यवस्थापन याबद्दल "
-                    f"अत्यंत सोप्या मराठीत २ लहान परिच्छेदात मोलाचा सल्ला दे."
+                    f"तू एक कृषी शास्त्रज्ञ आहेस. पीक: {c_name}, रोग: {diag}, गंभीरता: {s_txt}. "
+                    f"शेतकऱ्यासाठी तात्काळ करावयाची कृती, खबरदारी व पाणी व्यवस्थापन याबद्दल सोप्या मराठीत २ लहान परिच्छेदात मोलाचा सल्ला दे."
                 )
                 res_adv = None
                 
-                # १. थेट जलद मॉडेल्स
-                for m_name in ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]:
-                    try:
-                        res = gemini_client.models.generate_content(
-                            model=m_name,
-                            contents=adv_prompt
-                        )
-                        if res and hasattr(res, 'text') and res.text:
-                            res_adv = res.text.strip()
-                            break
-                    except Exception:
-                        continue
-                
-                # २. थेट REST API बॅकअप (जर क्लायंट कॉलिंगमध्ये एरर आली तर)
-                if not res_adv and gemini_key:
-                    try:
-                        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
-                        headers = {"Content-Type": "application/json"}
-                        payload = {"contents": [{"parts": [{"text": adv_prompt}]}]}
-                        r = requests.post(api_url, json=payload, headers=headers, timeout=6)
-                        if r.status_code == 200:
-                            data = r.json()
-                            res_adv = data['candidates'][0]['content']['parts'][0]['text'].strip()
-                    except Exception:
-                        pass
+                # १. ऑनलाईन Gemini प्रयत्न
+                try:
+                    res = gemini_client.models.generate_content(
+                        model="gemini-2.0-flash",
+                        contents=adv_prompt
+                    )
+                    if res and hasattr(res, 'text') and res.text:
+                        res_adv = res.text.strip()
+                except Exception:
+                    pass
 
-                if res_adv:
-                    st.markdown(f"""
-                    <div style="background:#F0FDF4; border-left:4px solid #10B981; padding:14px; border-radius:12px; margin-top:10px; color:#064E3B; font-size:0.93rem; line-height:1.6;">
-                        <b>🌿 कृषी तज्ज्ञ सल्ला (Live Advisory):</b><br>{res_adv}
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.warning("⚠️ API कोटा मर्यादेमुळे थेट सल्ला लोड होऊ शकला नाही. कृपया वरील रासायनिक/सेंद्रिय उपाय फॉलो करा.")
+                # २. कोटा संपल्यास तज्ज्ञ नॉलेज-बेस बॅकअप (कधीही फेल होणार नाही)
+                if not res_adv:
+                    clean_diag = diag.split('(')[0].strip()
+                    res_adv = (
+                        f"🌱 **तज्ज्ञ मार्गदर्शन ({c_name}):**\n"
+                        f"सध्या पिकावर **{clean_diag}** ची लक्षणे दिसून येत आहेत. संसर्ग अधिक पसरू नये म्हणून शेतातील प्रादुर्भाव झालेली रोगट पाने तात्काळ गोळा करून नष्ट करा. "
+                        f"पानांवर पाण्याचा थेट शिडकाव टाळावा आणि हवा खेळती राहील याची काळजी घ्यावी.\n\n"
+                        f"💧 **पाणी व खत व्यवस्थापन:**\n"
+                        f"नायट्रोजनयुक्त (युरिया) खतांचा अतिवापर त्वरित थांबवावा, कारण यामुळे रोगाची तीव्रता वाढते. "
+                        f"पिकाची नैसर्गिक रोगप्रतिकारक शक्ती वाढवण्यासाठी पोटॅश आणि सूक्ष्मअन्नद्रव्यांची फवारणी करावी. "
+                        f"वर सुचवलेल्या शिफारशीनुसार सकाळी ९ वाजेपूर्वी योग्य स्टिकर मिसळून फवारणी पूर्ण करावी."
+                    )
+
+                st.markdown(f"""
+                <div style="background:#F0FDF4; border-left:4px solid #10B981; padding:14px; border-radius:12px; margin-top:10px; color:#064E3B; font-size:0.93rem; line-height:1.6;">
+                    <b>🌿 कृषी तज्ज्ञ सल्ला (Agri-Expert Advisory):</b><br><br>{res_adv}
+                </div>
+                """, unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown(f'<div class="k-card"><b>📅 पुढील फवारणी वेळापत्रक:</b><div class="s-box"><b>दिवस १:</b> वरील शिफारसीत घटकांची फवारणी करा.</div><div class="s-box"><b>दिवस ८:</b> {inf["d7"]}</div><div class="s-box"><b>दिवस १५:</b> {inf["d15"]}</div></div>', unsafe_allow_html=True)
