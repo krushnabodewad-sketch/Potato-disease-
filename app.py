@@ -901,15 +901,23 @@ if uploaded_file is not None and models_ready:
     </html>
     """
 
-    wa_msg = f"""*🌿 कृषी-AI : पीक रोग निदान अहवाल*
+        cur_date_str = datetime.now().strftime("%d-%m-%Y")
+    wa_msg = f"""*🌿 कृषी-AI : अचूक पीक रोग निदान अहवाल*
+📅 *तारीख:* {cur_date_str} | *पडताळणी:* {engine_badge}
+━━━━━━━━━━━━━━━━━━━
 🌾 *पीक:* {c_name}
 🩺 *निदान:* {diag}
-📊 *विश्वासार्हता:* {f_conf:.1f}% ({s_txt})
-
+📊 *अचूकता:* {f_conf:.1f}% ({s_txt})
+━━━━━━━━━━━━━━━━━━━
 🧪 *शिफारस औषध:* {inf['chem']}
-🏷️ *ब्रँड नावे:* {inf.get('brands', 'उपलब्ध ब्रँड')}
-💧 *१५ लिटर पंप डोस:* {inf.get('dose_15L', 'योग्य प्रमाण')}
-🌿 *सेंद्रिय उपाय:* {inf['bio']}"""
+🏷️ *ब्रँड नावे:* {inf.get('brands', 'स्थानिक कृषी केंद्रात उपलब्ध')}
+💧 *१५L बॅटरी पंप:* {inf.get('dose_15L', 'योग्य प्रमाण')}
+🚜 *२००L ट्रॅक्टर ड्रम:* {inf.get('dose_200L', 'योग्य प्रमाण')}
+⚗️ *सुसंगतता:* {inf.get('compat', 'सावधगिरीने वापरावे')}
+🌿 *सेंद्रिय पर्याय:* {inf['bio']}
+🌤️ *हवामान:* {weather_data['temp']}°C | {rain_alert}
+━━━━━━━━━━━━━━━━━━━
+_Avishkar Research Initiative • AI Precision Agro-Diagnostic Slip_"""
 
     wa_url = f"https://api.whatsapp.com/send?text={urllib.parse.quote(wa_msg)}"
 
