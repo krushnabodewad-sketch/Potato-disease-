@@ -804,27 +804,52 @@ if uploaded_file is not None and models_ready:
                 st.write(f"• **{c_classes[i]}** : `{pct:.1f}%`")
                 st.progress(min(max(float(c_preds[i]), 0.0), 1.0))
 
-    if gemini_client:
+        if gemini_client:
         st.markdown('<div class="k-card"><b>🤖 कृषी-AI तज्ज्ञ सल्लागार (Google Gemini)</b>', unsafe_allow_html=True)
         if st.button("✨ Gemini कडून विशेष कृषी सल्ला मिळवा"):
             with st.spinner("Gemini AI सल्ला तयार करत आहे..."):
-                adv_prompt = f"तू एक कृषी तज्ज्ञ आहेस. पीक: {c_name}, स्थिती/रोग: {diag}, गंभीरता: {s_txt}. शेतकऱ्यासाठी सोप्या मराठीत २ परिच्छेदात उपाय आणि काळजी सांग."
+                adv_prompt = (
+                    f"तू एक ज्येष्ठ कृषी शास्त्रज्ञ आहेस. "
+                    f"शेतकऱ्याचे पीक: {c_name}, रोग/स्थिती: {diag}, गंभीरता: {s_txt}. "
+                    f"शेतकऱ्यासाठी तात्काळ करावयाची कृती, खबरदारी आणि पाणी व्यवस्थापन याबद्दल "
+                    f"अत्यंत सोप्या मराठीत २ लहान परिच्छेदात मोलाचा सल्ला दे."
+                )
                 res_adv = None
-                for model_cand in FALLBACK_MODELS:
+                
+                # १. थेट जलद मॉडेल्स
+                for m_name in ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]:
                     try:
                         res = gemini_client.models.generate_content(
-                            model=model_cand,
+                            model=m_name,
                             contents=adv_prompt
                         )
-                        if res and res.text:
-                            res_adv = res.text
+                        if res and hasattr(res, 'text') and res.text:
+                            res_adv = res.text.strip()
                             break
                     except Exception:
                         continue
+                
+                # २. थेट REST API बॅकअप (जर क्लायंट कॉलिंगमध्ये एरर आली तर)
+                if not res_adv and gemini_key:
+                    try:
+                        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
+                        headers = {"Content-Type": "application/json"}
+                        payload = {"contents": [{"parts": [{"text": adv_prompt}]}]}
+                        r = requests.post(api_url, json=payload, headers=headers, timeout=6)
+                        if r.status_code == 200:
+                            data = r.json()
+                            res_adv = data['candidates'][0]['content']['parts'][0]['text'].strip()
+                    except Exception:
+                        pass
+
                 if res_adv:
-                    st.info(res_adv)
+                    st.markdown(f"""
+                    <div style="background:#F0FDF4; border-left:4px solid #10B981; padding:14px; border-radius:12px; margin-top:10px; color:#064E3B; font-size:0.93rem; line-height:1.6;">
+                        <b>🌿 कृषी तज्ज्ञ सल्ला (Live Advisory):</b><br>{res_adv}
+                    </div>
+                    """, unsafe_allow_html=True)
                 else:
-                    st.warning("⚠️ AI सल्लागार सेवा सध्या व्यस्त आहे. वरील रासायनिक व सेंद्रिय उपचार वापरावेत.")
+                    st.warning("⚠️ API कोटा मर्यादेमुळे थेट सल्ला लोड होऊ शकला नाही. कृपया वरील रासायनिक/सेंद्रिय उपाय फॉलो करा.")
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown(f'<div class="k-card"><b>📅 पुढील फवारणी वेळापत्रक:</b><div class="s-box"><b>दिवस १:</b> वरील शिफारसीत घटकांची फवारणी करा.</div><div class="s-box"><b>दिवस ८:</b> {inf["d7"]}</div><div class="s-box"><b>दिवस १५:</b> {inf["d15"]}</div></div>', unsafe_allow_html=True)
