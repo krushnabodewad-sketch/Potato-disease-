@@ -107,11 +107,12 @@ def generate_gradcam_heatmap(img_array, model, pred_index=None):
         return Image.fromarray(superimposed)
     except Exception:
         return original_pil_img
-        
+
 
 # ==========================================
 # 3. WEATHER FETCHER (Open-Meteo API)
 # ==========================================
+
 @st.cache_data(ttl=900)
 def get_live_weather(lat=19.1383, lon=77.3210):
     try:
