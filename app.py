@@ -608,7 +608,7 @@ if uploaded_file is not None and models_ready:
             f_conf = max(cpdm * 100, 96.0)
         elif detected_crop_type == "corn":
             crop_label = "🌽 मका · Corn"
-            if is_rf_healthy or ipdm == 28:
+        if is_rf_healthy or ipdm == 28:
             inf = get_healthy_info(crop_label)
             diag = inf['diag']
             f_conf = 98.6
