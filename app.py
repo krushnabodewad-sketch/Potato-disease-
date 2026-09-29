@@ -335,7 +335,7 @@ if uploaded_file is not None and models_ready:
     if np.sum(pc) > 1.05 or np.sum(pc) < 0.95: pc = tf.nn.softmax(pc).numpy()
     ic, cc = int(np.argmax(pc)), float(np.max(pc))
 
- pdm_preds = None
+    pdm_preds = None
     if plantdoc_model:
         pdm_raw = plantdoc_model(np.expand_dims(arr / 255.0, axis=0), training=False).numpy()[0]
         if np.sum(pdm_raw) > 1.05 or np.sum(pdm_raw) < 0.95: pdm_raw = tf.nn.softmax(pdm_raw).numpy()
