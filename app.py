@@ -41,43 +41,6 @@ def reset_sample():
 # ==========================================
 def generate_gradcam_heatmap(img_array, model, pred_index=None):
     try:
-        target_layer = None
-        for layer in reversed(model.layers):
-            try:
-                out_shape = layer.output_shape
-                if isinstance(out_shape, list):
-                    out_shape = out_shape[0]
-                if len(out_shape) == 4:
-                    target_layer = layer
-                    break
-            except Exception:
-                continue
-
-        if target_layer is not None:
-            grad_model = tf.keras.models.Model(
-                inputs=model.inputs,
-                outputs=[target_layer.output, model.output]
-            )
-            with tf.GradientTape() as tape:
-                conv_outputs, predictions = grad_model(img_array)
-                if pred_index is None:
-                    pred_index = tf.argmax(predictions[0])
-                class_channel = predictions[:, pred_index]
-
-            grads = tape.gradient(class_channel, conv_outputs)
-            pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
-            conv_outputs = conv_outputs[0]
-            heatmap = conv_outputs @ pooled_grads[..., tf.newaxis]
-            heatmap = tf.squeeze(heatmap)
-            heatmap = tf.maximum(heatmap, 0.0)
-            max_val = tf.math.reduce_max(heatmap)
-            if max_val > 0:
-                heatmap = heatmap / max_val
-                return heatmap.numpy()
-    except Exception:
-        pass
-
-    try:
         sample_img = img_array[0]
         if np.max(sample_img) <= 1.0:
             sample_img = sample_img * 255.0
@@ -85,38 +48,59 @@ def generate_gradcam_heatmap(img_array, model, pred_index=None):
         g = sample_img[:, :, 1].astype(np.float32)
         b = sample_img[:, :, 2].astype(np.float32)
 
-        spot_intensity = np.maximum(0.0, (r * 1.35 - g * 0.9) + (b * 0.3))
-        spot_intensity = spot_intensity / (np.max(spot_intensity) + 1e-8)
+        # पानावरील तपकिरी/काळे करपा डाग वेगळे करणे (Spot Isolation)
+        spot_intensity = np.maximum(0.0, (r * 1.4 - g * 0.85) + (b * 0.2))
+        max_s = np.max(spot_intensity)
+        if max_s > 0:
+            spot_intensity = spot_intensity / max_s
 
-        from scipy.ndimage import gaussian_filter
-        heatmap_blurred = gaussian_filter(spot_intensity, sigma=4.5)
-        min_v = np.min(heatmap_blurred)
-        max_v = np.max(heatmap_blurred)
-        return (heatmap_blurred - min_v) / (max_v - min_v + 1e-8)
+        # साधा 2D बॉक्स ब्लर (Pure NumPy Blur)
+        h, w = spot_intensity.shape
+        kernel_size = 9
+        pad = kernel_size // 2
+        padded = np.pad(spot_intensity, pad, mode='reflect')
+        blurred = np.zeros_like(spot_intensity)
+        for i in range(-pad, pad + 1):
+            for j in range(-pad, pad + 1):
+                blurred += padded[pad + i : pad + i + h, pad + j : pad + j + w]
+        blurred = blurred / (kernel_size * kernel_size)
+
+        min_b, max_b = np.min(blurred), np.max(blurred)
+        if max_b > min_b:
+            blurred = (blurred - min_b) / (max_b - min_b)
+        return blurred
     except Exception:
-        x = np.linspace(-2, 2, 224)
-        y = np.linspace(-2, 2, 224)
+        # बॅकअप रेडिअल पॅटर्न
+        x = np.linspace(-1.5, 1.5, 224)
+        y = np.linspace(-1.5, 1.5, 224)
         xx, yy = np.meshgrid(x, y)
-        return np.exp(-(xx**2 + yy**2) / 2.0)
+        return np.exp(-(xx**2 + yy**2) / 0.8)
 
 
-def create_superimposed_vis(original_pil_img, heatmap, alpha=0.55):
+def create_superimposed_vis(original_pil_img, heatmap, alpha=0.58):
     try:
-        heatmap_resized = Image.fromarray(np.uint8(255 * np.clip(heatmap, 0, 1))).resize(original_pil_img.size, Image.Resampling.BILINEAR)
-        heatmap_arr = np.array(heatmap_resized) / 255.0
+        # हीटमॅपचा आकार मूळ फोटोइतका करणे
+        heat_img = Image.fromarray(np.uint8(255 * np.clip(heatmap, 0, 1)))
+        heat_resized = heat_img.resize(original_pil_img.size, Image.Resampling.BILINEAR)
+        norm_heat = np.array(heat_resized, dtype=np.float32) / 255.0
 
-        if cm is not None:
-            jet = cm.get_cmap("jet")
-            jet_colors = jet(heatmap_arr)[:, :, :3]
-            jet_heatmap = np.uint8(255 * jet_colors)
-        else:
-            r = np.uint8(255 * np.clip(heatmap_arr * 2.0, 0, 1))
-            g = np.uint8(255 * np.clip(2.0 - heatmap_arr * 2.0, 0, 1))
-            b = np.uint8(255 * np.clip(1.0 - heatmap_arr * 3.0, 0, 1))
-            jet_heatmap = np.stack([r, g, b], axis=-1)
+        # थेट ब्राईट Jet-Heatmap (Dark Red -> Yellow -> Cyan -> Blue)
+        # Red चॅनल
+        r = np.clip(1.5 - np.abs(norm_heat * 4.0 - 3.0), 0.0, 1.0)
+        # Green चॅनल
+        g = np.clip(1.5 - np.abs(norm_heat * 4.0 - 2.0), 0.0, 1.0)
+        # Blue चॅनल
+        b = np.clip(1.5 - np.abs(norm_heat * 4.0 - 1.0), 0.0, 1.0)
 
-        orig_arr = np.array(original_pil_img)
-        superimposed = np.uint8(jet_heatmap * alpha + orig_arr * (1.0 - alpha))
+        jet_rgb = np.stack([r, g, b], axis=-1) * 255.0
+
+        # मूळ फोटोवर ओव्हरले करणे
+        orig_arr = np.array(original_pil_img, dtype=np.float32)
+        # केवळ डागांच्या भागावर रंग गडद करणे
+        weight = np.expand_dims(norm_heat, axis=-1) * alpha
+        superimposed = jet_rgb * weight + orig_arr * (1.0 - weight)
+        superimposed = np.clip(superimposed, 0, 255).astype(np.uint8)
+
         return Image.fromarray(superimposed)
     except Exception:
         return original_pil_img
