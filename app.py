@@ -89,6 +89,24 @@ def generate_gradcam_heatmap(img_array, model, pred_index=None):
             return h
         except Exception:
             return None
+            def create_superimposed_vis(original_pil_img, heatmap, alpha=0.45):
+    try:
+        heatmap_resized = np.uint8(255 * heatmap)
+        jet = cm.get_cmap("jet")
+        jet_colors = jet(np.arange(256))[:, :3]
+        jet_heatmap = jet_colors[heatmap_resized]
+
+        jet_heatmap = tf.keras.preprocessing.image.array_to_img(jet_heatmap)
+        jet_heatmap = jet_heatmap.resize(original_pil_img.size)
+        jet_heatmap = tf.keras.preprocessing.image.img_to_array(jet_heatmap)
+
+        orig_arr = tf.keras.preprocessing.image.img_to_array(original_pil_img)
+        superimposed = jet_heatmap * alpha + orig_arr * (1 - alpha)
+        superimposed = np.clip(superimposed, 0, 255).astype("uint8")
+        return Image.fromarray(superimposed)
+    except Exception:
+        return original_pil_img
+        
 
 # ==========================================
 # 3. WEATHER FETCHER (Open-Meteo API)
