@@ -901,7 +901,7 @@ if uploaded_file is not None and models_ready:
     </html>
     """
 
-        cur_date_str = datetime.now().strftime("%d-%m-%Y")
+    cur_date_str = datetime.now().strftime("%d-%m-%Y")
     wa_msg = f"""*🌿 कृषी-AI : अचूक पीक रोग निदान अहवाल*
 📅 *तारीख:* {cur_date_str} | *पडताळणी:* {engine_badge}
 ━━━━━━━━━━━━━━━━━━━
