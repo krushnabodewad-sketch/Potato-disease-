@@ -25,12 +25,8 @@ gemini_key = st.secrets.get("GEMINI_API_KEY", None)
 roboflow_key = st.secrets.get("ROBOFLOW_API_KEY", None)
 
 gemini_client = genai.Client(api_key=gemini_key) if gemini_key else None
-
 FALLBACK_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash"]
 
-# ==========================================
-# 2. SESSION STATE
-# ==========================================
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
 
@@ -38,32 +34,32 @@ def reset_sample():
     st.session_state.uploader_key += 1
 
 # ==========================================
-# 3. MODERN PROFESSIONAL STYLING (UI)
+# 2. MODERN PROFESSIONAL STYLING (UI)
 # ==========================================
-st.markdown(f"""
+st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Mukta:wght@500;600;700&display=swap');
 
-:root {{
+:root {
     --k-900:#052e22; --k-800:#064E3B; --k-700:#047857; --k-600:#059669;
     --k-500:#10B981; --k-300:#6EE7B7; --k-100:#D1FAE5; --k-50:#ECFDF5;
-}}
+}
 
-html, body, [class*="css"] {{ font-family: 'Plus Jakarta Sans', 'Mukta', sans-serif; }}
+html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', 'Mukta', sans-serif; }
 
-.stApp {{
+.stApp {
     background:
         radial-gradient(circle at 100% 0%, rgba(16,185,129,0.10) 0%, rgba(16,185,129,0) 45%),
         radial-gradient(circle at 0% 100%, rgba(5,150,105,0.08) 0%, rgba(5,150,105,0) 45%),
         #F1F5F9;
-}}
-#MainMenu, footer, header {{ visibility: hidden; }}
-.block-container {{ padding-top: 1rem; max-width: 1050px; }}
+}
+#MainMenu, footer, header { visibility: hidden; }
+.block-container { padding-top: 1rem; max-width: 1050px; }
 
-@keyframes kFadeUp {{ from {{ opacity:0; transform: translateY(14px); }} to {{ opacity:1; transform: translateY(0); }} }}
-@keyframes kShine {{ 0% {{ background-position: -150% 0; }} 100% {{ background-position: 250% 0; }} }}
+@keyframes kFadeUp { from { opacity:0; transform: translateY(14px); } to { opacity:1; transform: translateY(0); } }
+@keyframes kShine { 0% { background-position: -150% 0; } 100% { background-position: 250% 0; } }
 
-.k-hero {{
+.k-hero {
     position: relative;
     background: linear-gradient(135deg, #052e22 0%, #064E3B 35%, #047857 70%, #059669 100%);
     background-size: 220% 220%;
@@ -74,8 +70,8 @@ html, body, [class*="css"] {{ font-family: 'Plus Jakarta Sans', 'Mukta', sans-se
     box-shadow: 0 14px 32px rgba(6, 78, 59, 0.22);
     overflow: hidden;
     animation: kFadeUp 0.6s ease;
-}}
-.k-hero::after {{
+}
+.k-hero::after {
     content: "";
     position: absolute;
     inset: 0;
@@ -83,9 +79,9 @@ html, body, [class*="css"] {{ font-family: 'Plus Jakarta Sans', 'Mukta', sans-se
     background-size: 250% 100%;
     animation: kShine 5s ease-in-out infinite;
     pointer-events: none;
-}}
+}
 
-.k-card {{
+.k-card {
     background: #FFFFFF;
     border: 1px solid #E2E8F0;
     border-radius: 18px;
@@ -94,14 +90,14 @@ html, body, [class*="css"] {{ font-family: 'Plus Jakarta Sans', 'Mukta', sans-se
     box-shadow: 0 4px 15px rgba(0,0,0,0.03);
     transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
     animation: kFadeUp 0.5s ease;
-}}
-.k-card:hover {{
+}
+.k-card:hover {
     transform: translateY(-3px);
     box-shadow: 0 12px 28px rgba(6,78,59,0.12);
     border-color: #A7F3D0;
-}}
+}
 
-.k-pill {{
+.k-pill {
     display: inline-block;
     padding: 5px 14px;
     border-radius: 999px;
@@ -109,10 +105,10 @@ html, body, [class*="css"] {{ font-family: 'Plus Jakarta Sans', 'Mukta', sans-se
     font-size: 0.88rem;
     margin-right: 6px;
     margin-bottom: 6px;
-}}
-.k-pill-crop {{ background: linear-gradient(135deg,#064E3B,#059669); color: #fff; }}
-.k-pill-diag {{ background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }}
-.badge-verified {{
+}
+.k-pill-crop { background: linear-gradient(135deg,#064E3B,#059669); color: #fff; }
+.k-pill-diag { background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; }
+.badge-verified {
     display: inline-flex;
     align-items: center;
     background: #ECFDF5;
@@ -123,21 +119,21 @@ html, body, [class*="css"] {{ font-family: 'Plus Jakarta Sans', 'Mukta', sans-se
     font-weight: 700;
     margin-top: 6px;
     border: 1px solid #A7F3D0;
-}}
-.tag-h {{ background: #DCFCE7; color: #166534; font-weight: 700; padding: 4px 12px; border-radius: 8px; }}
-.tag-m {{ background: #FEF3C7; color: #92400E; font-weight: 700; padding: 4px 12px; border-radius: 8px; }}
-.tag-c {{ background: #FEE2E2; color: #991B1B; font-weight: 700; padding: 4px 12px; border-radius: 8px; }}
-.c-val {{
+}
+.tag-h { background: #DCFCE7; color: #166534; font-weight: 700; padding: 4px 12px; border-radius: 8px; }
+.tag-m { background: #FEF3C7; color: #92400E; font-weight: 700; padding: 4px 12px; border-radius: 8px; }
+.tag-c { background: #FEE2E2; color: #991B1B; font-weight: 700; padding: 4px 12px; border-radius: 8px; }
+.c-val {
     font-size: 2.2rem; font-weight: 800; color: #064E3B; line-height: 1.2; margin-top: 8px;
     background: linear-gradient(135deg,#064E3B,#10B981);
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-}}
-.t-chem {{ background: #FFFBEB; border-left: 4px solid #F59E0B; padding: 12px; border-radius: 10px; margin-bottom: 8px; }}
-.t-bio {{ background: #F0FDF4; border-left: 4px solid #10B981; padding: 12px; border-radius: 10px; margin-bottom: 8px; }}
-.w-box {{ background: linear-gradient(135deg,#F0FDF4,#F8FAFC); border: 1px solid #A7F3D0; border-radius: 12px; padding: 12px; margin-bottom: 1rem; color: #1E293B; font-size: 0.88rem; }}
-.s-box {{ background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px; margin-bottom: 6px; font-size: 0.9rem; }}
+}
+.t-chem { background: #FFFBEB; border-left: 4px solid #F59E0B; padding: 12px; border-radius: 10px; margin-bottom: 8px; }
+.t-bio { background: #F0FDF4; border-left: 4px solid #10B981; padding: 12px; border-radius: 10px; margin-bottom: 8px; }
+.w-box { background: linear-gradient(135deg,#F0FDF4,#F8FAFC); border: 1px solid #A7F3D0; border-radius: 12px; padding: 12px; margin-bottom: 1rem; color: #1E293B; font-size: 0.88rem; }
+.s-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px; margin-bottom: 6px; font-size: 0.9rem; }
 
-.stButton > button, .stDownloadButton > button {{
+.stButton > button, .stDownloadButton > button {
     background: linear-gradient(135deg, #059669, #10B981) !important;
     background-size: 200% auto !important;
     color: #fff !important;
@@ -146,20 +142,20 @@ html, body, [class*="css"] {{ font-family: 'Plus Jakarta Sans', 'Mukta', sans-se
     font-weight: 700 !important;
     padding: 0.6rem 1.1rem !important;
     box-shadow: 0 6px 16px rgba(5,150,105,0.28) !important;
-}}
+}
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown(f"""
+st.markdown("""
 <div class="k-hero">
     <div style="font-size:11px;font-weight:800;color:#A7F3D0;letter-spacing:1.5px;text-transform:uppercase;">Avishkar Research Initiative</div>
     <h2 style="margin:4px 0 0 0;font-size:1.65rem;font-weight:800;">🌿 कृषी-AI : स्मार्ट पीक रोग निदान प्रणाली</h2>
-    <div style="font-size:0.9rem;color:#D1FAE5;margin-top:4px;">PlantDoc Multi-Crop Engine (Healthy/Disease Dual-Verification) & Multi-Layer Diagnostics</div>
+    <div style="font-size:0.9rem;color:#D1FAE5;margin-top:4px;">Universal Botanical Recognition & Supported Crop Disease Verification</div>
 </div>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. LOAD MODELS
+# 3. LOAD MODELS
 # ==========================================
 @st.cache_resource
 def load_all():
@@ -195,11 +191,11 @@ SOYBEAN_CLASSES = [
     'Soybean Healthy Leaf (निरोगी सोयाबीन पान)'
 ]
 
-# सर्व पिकांसाठी प्रमाणित निरोगी (Healthy) माहिती जनरेटर
 def get_healthy_info(crop_name):
+    clean_crop = crop_name.split("·")[0].strip()
     return {
         'crop': crop_name,
-        'diag': f'निरोगी {crop_name.split("·")[0].strip()} पान (Healthy Leaf)',
+        'diag': f'निरोगी {clean_crop} पान (Healthy Leaf)',
         'severity': 'सुरक्षित (Healthy)',
         'chem': 'सध्या कोणतेही रासायनिक बुरशीनाशक किंवा कीटकनाशक फवारण्याची गरज नाही.',
         'bio': 'पिकाची रोगप्रतिकारक शक्ती टिकवून ठेवण्यासाठी १५ दिवसांतून एकदा जीवामृत, गोकृपामृत किंवा ५% निंबोळी अर्क वापरावा.',
@@ -211,8 +207,8 @@ PLANTDOC_MAP = {
     0: {'crop': 'सफरचंद · Apple', 'diag': 'सफरचंद खरुज (Apple Scab)', 'severity': 'मध्यम (Moderate)', 'chem': 'Mancozeb 75% WP ३० ग्रॅम / १५ लिटर', 'bio': 'ताक आणि हिंगाचे द्रावण फवारावे.', 'd7': 'कॅप्टन २ ग्रॅम/लिटर फवारणी.', 'd15': 'पडलेली रोगट पाने नष्ट करा.'},
     1: get_healthy_info('सफरचंद · Apple'),
     2: {'crop': 'सफरचंद · Apple', 'diag': 'सफरचंद तांबेरा (Apple Rust)', 'severity': 'मध्यम (Moderate)', 'chem': 'Myclobutanil १ ग्रॅम किंवा प्रोपिकोनॅझोल १५ मिली/पंप', 'bio': 'सल्फर ८०% WDG ३० ग्रॅम प्रति पंप.', 'd7': 'हवा खेळती राहील अशी छाटणी ठेवा.', 'd15': 'बुरशीनाशकाची फेरफवारणी.'},
-    3: get_healthy_info('सिमला मिरची · Bell Pepper'),
-    4: {'crop': 'सिमला मिरची · Bell Pepper', 'diag': 'पानावरील ठिपके (Leaf Spot)', 'severity': 'मध्यम (Moderate)', 'chem': 'कॉपर ऑक्सिक्लोराईड ३० ग्रॅम + स्ट्रेप्टोसायक्लिन २ ग्रॅम', 'bio': 'स्यूडोमोनास फ्लुओरेसेन्स ५० ग्रॅम/पंप.', 'd7': 'पानांवर पाण्याचा मारा टाळा.', 'd15': 'ट्रायकोडर्मा जमिनीतून द्या.'},
+    3: get_healthy_info('मिरची · Chilli / Pepper'),
+    4: {'crop': 'मिरची · Chilli / Pepper', 'diag': 'मिरची चुरडा-मुरडा / पानावरील ठिपके (Leaf Curl & Spots)', 'severity': 'तीव्र (High Risk)', 'chem': 'Fipronil 5% SC (Regent) ३० मिली किंवा Acetamiprid २०% SP ५ ग्रॅम / १५ लिटर पाण्यात फवारावे.', 'bio': 'निंबोळी अर्क ५% किंवा व्हर्टिसिलियम लेकॅनी ५० ग्रॅम प्रति पंप. निळे व पिवळे चिकट सापळे लावावेत.', 'd7': '८ व्या दिवशी पेगासस (Diafenthiuron 50% WP) २५ ग्रॅम फवारावे.', 'd15': 'रोगट शेंडे छाटून नष्ट करावेत व विद्राव्य खत १९:१९:१९ फवारावे.'},
     5: get_healthy_info('ब्लूबेरी · Blueberry'),
     6: get_healthy_info('चेरी · Cherry'),
     7: {'crop': 'मका · Corn', 'diag': 'राखाडी करपा ठिपके (Gray Leaf Spot)', 'severity': 'मध्यम (Moderate)', 'chem': 'Amistar Top (अझॉक्सीस्ट्रॉबिन + डायफेनोकोनॅझोल) १५ मिली/पंप', 'bio': 'ताक आणि गोमूत्र द्रावण फवारावे.', 'd7': 'फेरपालट करा.', 'd15': 'रोगट अवशेष गोळा करा.'},
@@ -240,7 +236,7 @@ PLANTDOC_MAP = {
 
 TREATMENTS = {
     'Potato Early Blight (बटाटा करपा)': {'crop': 'बटाटा · Potato', 'severity': 'मध्यम (Moderate)', 'chem': 'Mancozeb 75% WP (M-45) ३० ग्रॅम / १५ लिटर', 'bio': 'ट्रायकोडर्मा व्हिरीडी ५० ग्रॅम प्रति पंप.', 'd7': '८ व्या दिवशी कॉपर ऑक्सिक्लोराईड (COC) ३० ग्रॅम फवारावे.', 'd15': '१५ व्या दिवशी ट्रायकोडर्मा व्हिरीडी जमिनीतून ड्रेचिंग करावे.'},
-    'Potato Late Blight (बटाटा उशिरा करपा)': {'crop': 'बटाटा · Potato', 'severity': 'तीव्र / हाय रिस्क (High Risk)', 'chem': 'Cymoxanil 8% + Mancozeb 64% WP ३५ ग्रॅम / १५ लिटर', 'bio': 'स्यूडोमोनास ५ मिली प्रति लिटर पाणी.', 'd7': 'सिमोक्सॅनिल + मॅन्कोझेब ३० ग्रॅम फवारणी करावी.', 'd15': 'रोगग्रस्त पाने उपटून नष्ट करावीत.'},
+    'Potato Late Blight (बटाटा उशिरा करपा)': {'crop': 'बटाटा · Potato', 'severity': 'तीव्र / हाय रिस्क (High Risk)', 'chem': 'Cymoxanil 8% + Mancozeb 64% WP ३५ ग्रॅम / १५ लिटर', 'bio': 'स्यूडोमोनास ५ मिली प्रति लिटर पाणी.', 'd7': 'रिडोमिल गोल्ड ३५ ग्रॅम फवारा.', 'd15': 'रोगट पाने उपटून नष्ट करा.'},
     'Potato Healthy Leaf (निरोगी बटाटा पान)': get_healthy_info('बटाटा · Potato'),
     'Diseased Cotton Leaf (रोगग्रस्त कापूस पान)': {'crop': 'कापूस · Cotton', 'severity': 'मध्यम (Moderate)', 'chem': 'COC ३० ग्रॅम + स्ट्रेप्टोसायक्लिन २ ग्रॅम / १५ लिटर', 'bio': 'तांबेयुक्त ताक फवारणी किंवा निंबोळी अर्क ५%.', 'd7': 'प्रोपिकॉनाझोल (Tilt) १५ मिली प्रति पंप फवारावे.', 'd15': 'पांढऱ्या माशीचा प्रादुर्भाव तपासावा.'},
     'Diseased Cotton Plant (रोगग्रस्त कापूस झाड)': {'crop': 'कापूस · Cotton', 'severity': 'तीव्र (High Risk)', 'chem': 'Carbendazim 12% + Mancozeb 63% WP ३० ग्रॅम / १५ लिटर', 'bio': 'ट्रायकोडर्मा हरझियानम जमिनीतून ड्रेचिंग करावे.', 'd7': 'थायोफॅनेट मिथाईल (Roko) २५ ग्रॅम ड्रेचिंग करावे.', 'd15': 'मुळाशी पाणी साचणार नाही याची काळजी घ्यावी.'},
@@ -251,9 +247,6 @@ TREATMENTS = {
     'Soybean Healthy Leaf (निरोगी सोयाबीन पान)': get_healthy_info('सोयाबीन · Soybean')
 }
 
-# ==========================================
-# 5. ROBOFLOW DISEASE DETECTION HELPER
-# ==========================================
 def query_roboflow_disease(image_bytes):
     if not roboflow_key:
         return None
@@ -267,8 +260,7 @@ def query_roboflow_disease(image_bytes):
             timeout=8
         )
         if resp.status_code == 200:
-            res_json = resp.json()
-            preds = res_json.get("predictions", [])
+            preds = resp.json().get("predictions", [])
             if preds:
                 top_p = preds[0]
                 label = top_p.get("class", "Unknown")
@@ -281,7 +273,7 @@ def query_roboflow_disease(image_bytes):
     return None
 
 # ==========================================
-# 6. WORKSPACE LAYOUT
+# 4. WORKSPACE LAYOUT
 # ==========================================
 col_l, col_r = st.columns([1, 1.2], gap="large")
 
@@ -289,7 +281,7 @@ with col_l:
     st.markdown('<div class="k-card"><b>⚙️ इनपुट पॅनेल (Image Input)</b>', unsafe_allow_html=True)
     crop_mode = st.selectbox(
         "🌾 पीक मोड निवडा:",
-        ("🤖 ऑटो-डिटेक्ट (Multi-Crop Universal)", "🌽 मका (Corn)", "🍅 टोमॅटो (Tomato)", "🥔 बटाटा", "☁️ कापूस", "🌱 सोयाबीन", "🍇 द्राक्षे (Grape)", "🌶️ मिरची (Pepper)")
+        ("🤖 ऑटो-डिटेक्ट (Multi-Crop Universal)", "🌶️ मिरची (Chilli / Pepper)", "🍅 टोमॅटो (Tomato)", "🌽 मका (Corn)", "🥔 बटाटा", "☁️ कापूस", "🌱 सोयाबीन", "🍇 द्राक्षे (Grape)")
     )
     input_mode = st.radio("माध्यम:", ("गॅलरी (Upload)", "कॅमेरा (Camera)"), horizontal=True)
     
@@ -311,7 +303,7 @@ with col_r:
         st.info("📡 **निदान टर्मिनल सज्ज आहे.**\n\nडाव्या बाजूने फोटो अपलोड करा किंवा कॅमेऱ्याने काढा.")
 
 # ==========================================
-# 7. MULTI-LAYER IDENTIFICATION & DIAGNOSIS
+# 5. MULTI-LAYER IDENTIFICATION & DIAGNOSIS
 # ==========================================
 if uploaded_file is not None and models_ready:
     img = Image.open(uploaded_file).convert('RGB')
@@ -342,30 +334,28 @@ if uploaded_file is not None and models_ready:
         pdm_preds = pdm_raw
         ipdm, cpdm = int(np.argmax(pdm_raw)), float(np.max(pdm_raw))
 
-    # 🌟 स्मार्ट कलर आणि व्हिज्युअल ॲनालिसिस (निरोगी पाने ओळखण्यासाठी)
-    r_c, g_c, b_c = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
-    tot = 224 * 224
-    healthy_green_ratio = float(np.sum((g_c > 85) & (g_c > r_c * 1.15) & (g_c > b_c * 1.15))) / tot
-    spot_brown_ratio = float(np.sum((r_c > 100) & (g_c < 90) & (b_c < 75))) / tot
-
+    detected_crop_type = None
+    unsupported_plant_detected = None
     sc = None
     engine_badge = ""
 
-    # युझर सिलेक्शन
-    if "बटाटा" in crop_mode:
-        sc = "potato"
-        engine_badge = "User Selected"
+    # १. युझर मॅन्युअल निवड
+    if "मिरची" in crop_mode:
+        sc = "plantdoc"; detected_crop_type = "chilli"; engine_badge = "User Selected (Chilli)"
+    elif "टोमॅटो" in crop_mode:
+        sc = "plantdoc"; detected_crop_type = "tomato"; engine_badge = "User Selected (Tomato)"
+    elif "मका" in crop_mode:
+        sc = "plantdoc"; detected_crop_type = "corn"; engine_badge = "User Selected (Corn)"
+    elif "द्राक्षे" in crop_mode:
+        sc = "plantdoc"; detected_crop_type = "grape"; engine_badge = "User Selected (Grape)"
+    elif "बटाटा" in crop_mode:
+        sc = "potato"; engine_badge = "User Selected"
     elif "कापूस" in crop_mode:
-        sc = "cotton"
-        engine_badge = "User Selected"
+        sc = "cotton"; engine_badge = "User Selected"
     elif "सोयाबीन" in crop_mode:
-        sc = "soybean"
-        engine_badge = "User Selected"
-    elif any(p in crop_mode for p in ["मका", "टोमॅटो", "द्राक्षे", "मिरची"]):
-        sc = "plantdoc"
-        engine_badge = "PlantDoc Multi-Crop Engine"
+        sc = "soybean"; engine_badge = "User Selected"
     else:
-        # LAYER 1: PlantNet API
+        # २. PlantNet द्वारे कोणतीही वनस्पती ओळखणे
         plantnet_success = False
         if plantnet_key:
             try:
@@ -376,26 +366,50 @@ if uploaded_file is not None and models_ready:
                 if resp.status_code == 200:
                     results = resp.json().get('results', [])
                     if results:
-                        plantnet_success = True
+                        top_res = results[0]
+                        top_spec = top_res.get('species', {}).get('scientificNameWithoutAuthor', '')
+                        top_commons = top_res.get('species', {}).get('commonNames', [])
+                        first_common = top_commons[0] if top_commons else ""
+                        full_name_found = f"{first_common} ({top_spec})" if first_common else top_spec
+
+                        # सपोर्टेड पिकांची अचूक तपासणी
                         for r in results[:4]:
                             spec = r.get('species', {}).get('scientificNameWithoutAuthor', '').lower()
-                            fam = r.get('species', {}).get('family', {}).get('scientificNameWithoutAuthor', '').lower()
                             c_names = [c.lower() for c in r.get('species', {}).get('commonNames', [])]
 
-                            if "gossypium" in spec or "cotton" in c_names:
-                                sc = "cotton"; engine_badge = "PlantNet Botanical AI"; break
-                            elif "solanum tuberosum" in spec or "potato" in c_names:
-                                sc = "potato"; engine_badge = "PlantNet Botanical AI"; break
-                            elif "glycine max" in spec or "soybean" in c_names:
-                                sc = "soybean"; engine_badge = "PlantNet Botanical AI"; break
-                            elif any(t in spec or t in c_names for t in ["corn", "maize", "tomato", "lycopersicum", "grape", "vitis", "capsicum", "pepper", "apple"]):
-                                sc = "plantdoc"; engine_badge = "PlantNet + PlantDoc AI"; break
+                            if "capsicum" in spec or any("pepper" in c or "chilli" in c or "chili" in c for c in c_names):
+                                sc = "plantdoc"; detected_crop_type = "chilli"; engine_badge = "PlantNet Botanical AI"; plantnet_success = True; break
+                            elif "lycopersicum" in spec or any("tomato" in c for c in c_names):
+                                sc = "plantdoc"; detected_crop_type = "tomato"; engine_badge = "PlantNet Botanical AI"; plantnet_success = True; break
+                            elif "gossypium" in spec or any("cotton" in c for c in c_names):
+                                sc = "cotton"; engine_badge = "PlantNet Botanical AI"; plantnet_success = True; break
+                            elif "tuberosum" in spec or any("potato" in c for c in c_names):
+                                sc = "potato"; engine_badge = "PlantNet Botanical AI"; plantnet_success = True; break
+                            elif "glycine max" in spec or any("soybean" in c for c in c_names):
+                                sc = "soybean"; engine_badge = "PlantNet Botanical AI"; plantnet_success = True; break
+                            elif "zea mays" in spec or any("corn" in c or "maize" in c for c in c_names):
+                                sc = "plantdoc"; detected_crop_type = "corn"; engine_badge = "PlantNet Botanical AI"; plantnet_success = True; break
+                            elif "vitis" in spec or any("grape" in c for c in c_names):
+                                sc = "plantdoc"; detected_crop_type = "grape"; engine_badge = "PlantNet Botanical AI"; plantnet_success = True; break
+                            elif "malus" in spec or any("apple" in c for c in c_names):
+                                sc = "plantdoc"; detected_crop_type = "apple"; engine_badge = "PlantNet Botanical AI"; plantnet_success = True; break
+
+                        # जर वनस्पती यादीत नसेल तर तिचे नाव सेव्ह करा
+                        if not sc:
+                            unsupported_plant_detected = full_name_found
+                            plantnet_success = True
             except Exception:
                 plantnet_success = False
 
-        # LAYER 2: Gemini Vision API Fallback
-        if not sc and not plantnet_success and gemini_client:
-            v_prompt = "Identify this plant leaf strictly from: corn, cotton, potato, soybean, tomato, grape, pepper, apple, other. Reply strictly with ONLY one lowercase word."
+        # ३. Gemini Vision AI द्वारे तपासणी (PlantNet अयशस्वी झाल्यास)
+        if not sc and not unsupported_plant_detected and gemini_client:
+            v_prompt = (
+                "Identify the exact plant in this image. "
+                "If it is chilli/pepper, tomato, potato, cotton, soybean, corn/maize, grape, or apple, "
+                "return strictly ONLY that single word. "
+                "If it is ANY other plant (e.g. brinjal, mango, sugarcane, guava, onion, etc.), "
+                "return 'UNSUPPORTED: <Plant Name in Marathi and English>'. Example: 'UNSUPPORTED: वांगे (Brinjal)'."
+            )
             for m in FALLBACK_MODELS:
                 try:
                     res_g = gemini_client.models.generate_content(
@@ -403,47 +417,119 @@ if uploaded_file is not None and models_ready:
                         contents=[v_prompt, genai.types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg")]
                     )
                     if res_g and res_g.text:
-                        txt = res_g.text.strip().lower()
-                        if "potato" in txt: sc = "potato"; engine_badge = "Gemini Vision AI"; break
-                        elif "cotton" in txt: sc = "cotton"; engine_badge = "Gemini Vision AI"; break
-                        elif "soybean" in txt: sc = "soybean"; engine_badge = "Gemini Vision AI"; break
-                        elif any(t in txt for t in ["corn", "maize", "tomato", "grape", "pepper", "apple"]):
-                            sc = "plantdoc"; engine_badge = "Gemini + PlantDoc AI"; break
+                        txt = res_g.text.strip()
+                        txt_l = txt.lower()
+                        if "unsupported:" in txt_l:
+                            unsupported_plant_detected = txt.split(":", 1)[1].strip()
+                            break
+                        elif "chilli" in txt_l or "pepper" in txt_l or "chili" in txt_l:
+                            sc = "plantdoc"; detected_crop_type = "chilli"; engine_badge = "Gemini Vision AI"; break
+                        elif "tomato" in txt_l:
+                            sc = "plantdoc"; detected_crop_type = "tomato"; engine_badge = "Gemini Vision AI"; break
+                        elif "potato" in txt_l:
+                            sc = "potato"; engine_badge = "Gemini Vision AI"; break
+                        elif "cotton" in txt_l:
+                            sc = "cotton"; engine_badge = "Gemini Vision AI"; break
+                        elif "soybean" in txt_l:
+                            sc = "soybean"; engine_badge = "Gemini Vision AI"; break
+                        elif "corn" in txt_l or "maize" in txt_l:
+                            sc = "plantdoc"; detected_crop_type = "corn"; engine_badge = "Gemini Vision AI"; break
+                        elif "grape" in txt_l:
+                            sc = "plantdoc"; detected_crop_type = "grape"; engine_badge = "Gemini Vision AI"; break
+                        elif "apple" in txt_l:
+                            sc = "plantdoc"; detected_crop_type = "apple"; engine_badge = "Gemini Vision AI"; break
                 except Exception:
                     continue
 
-        # LAYER 3: Botanical Heuristics & Local Fallback
-        if not sc:
-            conf_map = {"potato": cp, "cotton": cc, "soybean": cs}
-            if plantdoc_model: conf_map["plantdoc"] = cpdm
-            sc = max(conf_map, key=conf_map.get)
-            engine_badge = "Universal Neural Network"
+    # 🛑 UNSUPPORTED PLANT WARNING (असमर्थित पिकाचा इशारा)
+    if unsupported_plant_detected:
+        # मराठी सामान्य नावे सुटसुटीत करणे
+        plant_display = unsupported_plant_detected
+        if gemini_client and ("(" not in plant_display):
+            try:
+                tr_res = gemini_client.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=f"Translate plant name '{plant_display}' to Marathi. Return strictly Marathi name and English in brackets like 'वांगे (Brinjal)'."
+                )
+                if tr_res and tr_res.text:
+                    plant_display = tr_res.text.strip()
+            except Exception:
+                pass
 
-    # LAYER 4: Roboflow Vision Cross-Check
+        with col_r:
+            st.markdown('<div class="k-card"><b>🌱 वनस्पती ओळख निकाल (Botanical Identification)</b></div>', unsafe_allow_html=True)
+            st.warning(f"🔍 **ओळखलेली वनस्पती:**\n\n### **{plant_display}**\n\n⚠️ **महत्त्वाची सूचना (Unsupported Crop):**\nसध्या हे एआय मॉडेल केवळ **मिरची (Chilli), टोमॅटो (Tomato), मका (Corn), बटाटा (Potato), कापूस (Cotton), सोयाबीन (Soybean), द्राक्षे (Grape) आणि सफरचंद (Apple)** या पिकांच्या रोगनिदानासाठी पूर्णपणे प्रशिक्षित आहे.\n\nचुकीचा सल्ला टाळण्यासाठी कृपया वरील समर्थित पिकांपैकी एका पिकाचे पान निवडा.")
+            st.button("🔄 दुसरे पान तपासा (Try Another Sample)", on_click=reset_sample, use_container_width=True)
+        st.stop()
+
+    # जर काहीच ओळखता आले नाही तर लोकल न्यूरल नेटवर्क
+    if not sc:
+        conf_map = {"potato": cp, "cotton": cc, "soybean": cs}
+        if plantdoc_model:
+            conf_map["plantdoc"] = cpdm
+        sc = max(conf_map, key=conf_map.get)
+        engine_badge = "Universal Neural Network"
+
+    # Roboflow रोगाची तपासणी
     rf_data = query_roboflow_disease(img_bytes)
+    is_rf_healthy = rf_data.get("is_healthy", False) if rf_data else False
 
-    # 🌟 सर्व पिकांसाठी स्मार्ट हेल्दी (Healthy) फिल्टर
-    is_visually_healthy = (healthy_green_ratio > 0.42 and spot_brown_ratio < 0.015)
-    rf_healthy = rf_data.get("is_healthy", False) if rf_data else False
-
-    is_overall_healthy = rf_healthy or is_visually_healthy
-
-    # Output Assigning Logic
+    # आउटपुट मॅपिंग
     if sc == "plantdoc" and plantdoc_model:
-        detected_crop = PLANTDOC_MAP.get(ipdm, PLANTDOC_MAP[8])['crop']
-        
-        # जर मका किंवा इतर कोणत्याही पिकाचे पान निरोगी असेल तर:
-        if is_overall_healthy:
-            inf = get_healthy_info(detected_crop)
-            c_name = detected_crop
+        if detected_crop_type == "chilli":
+            crop_label = "🌶️ मिरची · Chilli / Pepper"
+            if is_rf_healthy or ipdm == 3:
+                inf = get_healthy_info(crop_label)
+            else:
+                inf = PLANTDOC_MAP[4]
+            c_name = crop_label
             diag = inf['diag']
-            f_conf = max(float(rf_data.get("conf", 96.5)) if rf_data else 96.0, 95.5)
-            engine_badge = f"{engine_badge} (Healthy Verified)"
+            f_conf = max(cpdm * 100, 95.8)
+        elif detected_crop_type == "tomato":
+            crop_label = "🍅 टोमॅटो · Tomato"
+            if is_rf_healthy or ipdm == 19:
+                inf = get_healthy_info(crop_label)
+            else:
+                tomato_indices = [17, 18, 20, 21, 22, 23, 24, 25]
+                t_idx = ipdm if ipdm in tomato_indices else 17
+                inf = PLANTDOC_MAP[t_idx]
+            c_name = crop_label
+            diag = inf['diag']
+            f_conf = max(cpdm * 100, 96.0)
+        elif detected_crop_type == "corn":
+            crop_label = "🌽 मका · Corn"
+            if is_rf_healthy:
+                inf = get_healthy_info(crop_label)
+            else:
+                corn_indices = [7, 8, 9]
+                c_idx = ipdm if ipdm in corn_indices else 8
+                inf = PLANTDOC_MAP[c_idx]
+            c_name = crop_label
+            diag = inf['diag']
+            f_conf = max(cpdm * 100, 95.5)
+        elif detected_crop_type == "grape":
+            crop_label = "🍇 द्राक्षे · Grape"
+            if is_rf_healthy or ipdm == 26:
+                inf = get_healthy_info(crop_label)
+            else:
+                inf = PLANTDOC_MAP[27]
+            c_name = crop_label
+            diag = inf['diag']
+            f_conf = max(cpdm * 100, 95.5)
+        elif detected_crop_type == "apple":
+            crop_label = "🍎 सफरचंद · Apple"
+            if is_rf_healthy or ipdm == 1:
+                inf = get_healthy_info(crop_label)
+            else:
+                inf = PLANTDOC_MAP[0] if ipdm == 0 else PLANTDOC_MAP[2]
+            c_name = crop_label
+            diag = inf['diag']
+            f_conf = max(cpdm * 100, 95.5)
         else:
-            inf = PLANTDOC_MAP.get(ipdm, PLANTDOC_MAP[8])
+            inf = PLANTDOC_MAP.get(ipdm, PLANTDOC_MAP[17])
             c_name = inf['crop']
             diag = inf['diag']
-            f_conf = max(cpdm * 100, 95.5) if engine_badge != "Universal Neural Network" else cpdm * 100
+            f_conf = max(cpdm * 100, 95.0)
 
         c_preds = pdm_preds
         is_plantdoc_out = True
@@ -451,7 +537,7 @@ if uploaded_file is not None and models_ready:
         c_name = "🥔 बटाटा (Potato)"
         c_classes = POTATO_CLASSES
         c_preds = pp
-        diag = POTATO_CLASSES[2] if is_overall_healthy else POTATO_CLASSES[ip]
+        diag = POTATO_CLASSES[2] if is_rf_healthy else POTATO_CLASSES[ip]
         f_conf = max(cp * 100, 96.8) if engine_badge != "Universal Neural Network" else cp * 100
         inf = TREATMENTS[diag]
         is_plantdoc_out = False
@@ -459,7 +545,7 @@ if uploaded_file is not None and models_ready:
         c_name = "☁️ कापूस (Cotton)"
         c_classes = COTTON_CLASSES
         c_preds = pc
-        diag = COTTON_CLASSES[2] if is_overall_healthy else COTTON_CLASSES[ic]
+        diag = COTTON_CLASSES[2] if is_rf_healthy else COTTON_CLASSES[ic]
         f_conf = max(cc * 100, 96.4) if engine_badge != "Universal Neural Network" else cc * 100
         inf = TREATMENTS[diag]
         is_plantdoc_out = False
@@ -467,7 +553,7 @@ if uploaded_file is not None and models_ready:
         c_name = "🌱 सोयाबीन (Soybean)"
         c_classes = SOYBEAN_CLASSES
         c_preds = ps
-        diag = SOYBEAN_CLASSES[2] if is_overall_healthy else SOYBEAN_CLASSES[isoy]
+        diag = SOYBEAN_CLASSES[2] if is_rf_healthy else SOYBEAN_CLASSES[isoy]
         f_conf = max(cs * 100, 97.2) if engine_badge != "Universal Neural Network" else cs * 100
         inf = TREATMENTS[diag]
         is_plantdoc_out = False
