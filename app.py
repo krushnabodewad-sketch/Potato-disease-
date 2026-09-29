@@ -90,7 +90,7 @@ def generate_gradcam_heatmap(img_array, model, pred_index=None):
         except Exception:
             return None
             
-            def create_superimposed_vis(original_pil_img, heatmap, alpha=0.45):
+def create_superimposed_vis(original_pil_img, heatmap, alpha=0.45):
     try:
         heatmap_resized = np.uint8(255 * heatmap)
         jet = cm.get_cmap("jet")
