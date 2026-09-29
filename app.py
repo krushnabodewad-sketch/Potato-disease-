@@ -646,8 +646,8 @@ if uploaded_file is not None and models_ready:
     else:
             diag = POTATO_CLASSES[ip]
             f_conf = float(cp * 100)
-        inf = TREATMENTS[diag]
-        is_plantdoc_out = False
+            inf = TREATMENTS[diag]
+            is_plantdoc_out = False
     elif sc == "cotton":
         c_name = "☁️ कापूस (Cotton)"
         c_classes = COTTON_CLASSES
