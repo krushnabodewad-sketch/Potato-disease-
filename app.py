@@ -429,23 +429,22 @@ if uploaded_file is not None and models_ready:
     eval_arr = np.array(img.convert('RGB'), dtype=np.float32)
     r_c, g_c, b_c = eval_arr[:, :, 0], eval_arr[:, :, 1], eval_arr[:, :, 2]
 
-    # Leaf Area Detection (Excess Green Index)
-    plant_mask = (2.0 * g_c - r_c - b_c) > 6.0
+    # वनस्पती / पानाचा भाग ओळखणे
+    plant_mask = (2.0 * g_c - r_c - b_c) > 5.0
     total_p = np.sum(plant_mask)
 
-    # Actual Fungal/Bacterial Necrotic Spots (Water drops / leaf veins strictly excluded)
-    necrotic_spots = plant_mask & (r_c > g_c * 1.25) & (r_c > 75) & (b_c < g_c * 0.85)
+    # खरा करपा, तपकिरी/काळे संसर्गित डाग (Blight / Brown Lesions)
+    necrotic_spots = plant_mask & (r_c > 60) & ((r_c >= g_c * 0.92) | ((r_c + b_c) > g_c * 1.3))
     total_d = np.sum(necrotic_spots)
 
-    # Chlorophyll Dominance Ratio
-    green_dominant = plant_mask & (g_c >= r_c * 0.95)
-    green_ratio = np.sum(green_dominant) / max(total_p, 1)
+    # शुद्ध तजेलदार हिरवा भाग
+    pure_green = plant_mask & (g_c > r_c * 1.12) & (g_c > b_c * 1.10)
+    pure_green_ratio = np.sum(pure_green) / max(total_p, 1)
     lesion_ratio = total_d / max(total_p, 1)
 
-    # Precision Decision Matrix:
-    # Healthy if chlorophyll > 90% and dark disease spots are less than 2.5%
+    # फक्त आणि फक्त शुद्ध हिरवे पान ९०% पेक्षा जास्त व डाग ०.८% पेक्षा कमी असल्यास निरोगी ठरवणे
     force_healthy = False
-    if total_p > 350 and green_ratio > 0.90 and lesion_ratio < 0.025:
+    if total_p > 350 and pure_green_ratio > 0.90 and lesion_ratio < 0.008:
         force_healthy = True
             
     img_byte_arr = io.BytesIO()
