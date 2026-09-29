@@ -636,18 +636,20 @@ if uploaded_file is not None and models_ready:
         c_preds = pdm_preds
         is_plantdoc_out = True
     elif sc == "potato":
+        elif sc == "potato":
         c_name = "🥔 बटाटा (Potato)"
         c_classes = POTATO_CLASSES
         c_preds = pp
-          
+
         if ip == 2 or is_rf_healthy:
             diag = POTATO_CLASSES[2]
             f_conf = float(pp[2] * 100) if ip == 2 else 98.2
-    else:
+        else:
             diag = POTATO_CLASSES[ip]
             f_conf = float(cp * 100)
-            inf = TREATMENTS[diag]
-            is_plantdoc_out = False
+
+        inf = TREATMENTS[diag]
+        is_plantdoc_out = False
     elif sc == "cotton":
         c_name = "☁️ कापूस (Cotton)"
         c_classes = COTTON_CLASSES
