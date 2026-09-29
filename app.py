@@ -696,35 +696,23 @@ if uploaded_file is not None and models_ready:
         # १. पानावरील शुद्ध हिरवा भाग (Green Dominance)
         is_green_leaf = (g_val > r_val * 1.02) & (g_val > b_val * 1.02) & (g_val > 40)
         
-        # २. गडद करपा किंवा काळपट-तपकिरी डाग (Dark Necrotic Blight Spots)
-        is_blight = (r_val > 65) & (r_val > g_val * 1.15) & (b_val < g_val)
-        
-        total_green = np.sum(is_green_leaf)
-        total_blight = np.sum(is_blight)
-        
-        # जर फोटोत पान प्रामुख्याने हिरवे असेल आणि खरे करपा डाग नगण्य (< १.५%) असतील:
-        if total_green > 1000 and (total_blight / max(total_green, 1)) < 0.015:
-            c_name_clean = c_name.split('(')[0].strip() if 'c_name' in locals() else "बटाटा"
-            diag = "Potato Healthy Leaf (निरोगी बटाटा पान)" if ("बटाटा" in str(diag) or "Potato" in str(diag)) else f"निरोगी {c_name_clean} पान"
-            s_txt = "सुरक्षित (Healthy)"
-            f_conf = 99.1
-            inf = get_healthy_info(c_name_clean)
+                # २. गडद करपा किंवा रोगट डाग तपासणे
         if force_healthy:
-            diag = "निरोगी पान (Healthy Leaf - No Disease)"
-            s_txt = "सुरक्षित (Healthy)"
+            diag = "Potato Healthy Leaf (निरोगी बटाटा पान)" if ("बटाटा" in str(c_name) or "Potato" in str(c_name)) else f"निरोगी पान (Healthy Leaf)"
             f_conf = 99.2
-            tag_c = 'tag-h'
             inf = {
+                'crop': 'बटाटा · Potato',
+                'diag': 'निरोगी बटाटा पान (Healthy Potato Leaf)',
                 'severity': 'सुरक्षित (Healthy)',
                 'chem': 'कोणत्याही रासायनिक औषधाची गरज नाही.',
                 'brands': 'रासायनिक फवारणी टाळा (खर्च ₹ ०)',
                 'dose_15L': 'औषध नको, फक्त स्वच्छ पाणी',
-                'dose_200L': 'औषध नको',
-                'bio': 'रोगप्रतिकारशक्ती टिकवण्यासाठी निंबोळी अर्क (Neem Oil) फवारावे.',
+                'dose_200L': 'औषध नको, फक्त स्वच्छ पाणी',
+                'bio': 'रोगप्रतिकारशक्ती टिकवण्यासाठी निंबोळी अर्क (Neem Oil) ५ मिली प्रति लिटर फवारावे.',
+                'compat': 'सर्व सेंद्रिय खतांशी सुरक्षित',
                 'symptoms': 'पान संपूर्णपणे हिरवेगार आणि टवटवीत असून त्यावर कोणताही करपा किंवा बुरशीजन्य डाग नाही.',
                 'd8': '८ व्या दिवशी सामान्य वाढ तपासावी.',
-                'd15': '१५ व्या दिवशी आवश्यकतेनुसार हलके खत द्यावे.'
-            }
+                'd15': '१५ व्या दिवशी आवश्यकतेनुसार हलके सूक्ष्मअन्नद्रव्य द्यावे.'}
             
     s_txt = inf['severity']
     tag_c = 'tag-h' if ('सुरक्षित' in s_txt or 'निरोगी' in s_txt or 'Safe' in s_txt) else ('tag-m' if 'मध्यम' in s_txt or 'Moderate' in s_txt else 'tag-c')
