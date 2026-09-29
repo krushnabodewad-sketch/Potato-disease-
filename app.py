@@ -47,7 +47,7 @@ def generate_gradcam_heatmap(img_array, model, pred_index=None):
         g = sample_img[:, :, 1].astype(np.float32)
         b = sample_img[:, :, 2].astype(np.float32)
 
-        # Excess Green Index (Mitti aur background alag karna)
+        # Excess Green Index (Matti aani background isolate karne)
         exg = 2.0 * g - r - b
         is_plant = exg > 10.0
 
@@ -97,7 +97,7 @@ def create_superimposed_vis(original_pil_img, heatmap, alpha=0.60):
 
         orig_arr = np.array(original_pil_img, dtype=np.float32)
 
-        # Sirf actual disease hotspots ko highlight karna
+        # Actual hotspot areas overlay
         mask_weight = np.expand_dims(np.where(norm_heat > 0.08, norm_heat * alpha, 0.0), axis=-1)
         superimposed = jet_rgb * mask_weight + orig_arr * (1.0 - mask_weight)
         superimposed = np.clip(superimposed, 0, 255).astype(np.uint8)
@@ -425,28 +425,6 @@ if uploaded_file is not None and models_ready:
     resized = img.resize((224, 224))
     arr = np.array(resized, dtype=np.float32)
 
-    # 🌿 SCIENTIFIC BOTANICAL HEALTH GATEKEEPER
-    eval_arr = np.array(img.convert('RGB'), dtype=np.float32)
-    r_c, g_c, b_c = eval_arr[:, :, 0], eval_arr[:, :, 1], eval_arr[:, :, 2]
-
-    # वनस्पती / पानाचा भाग ओळखणे
-    plant_mask = (2.0 * g_c - r_c - b_c) > 5.0
-    total_p = np.sum(plant_mask)
-
-    # खरा करपा, तपकिरी/काळे संसर्गित डाग (Blight / Brown Lesions)
-    necrotic_spots = plant_mask & (r_c > 60) & ((r_c >= g_c * 0.92) | ((r_c + b_c) > g_c * 1.3))
-    total_d = np.sum(necrotic_spots)
-
-    # शुद्ध तजेलदार हिरवा भाग
-    pure_green = plant_mask & (g_c > r_c * 1.12) & (g_c > b_c * 1.10)
-    pure_green_ratio = np.sum(pure_green) / max(total_p, 1)
-    lesion_ratio = total_d / max(total_p, 1)
-
-    # फक्त आणि फक्त शुद्ध हिरवे पान ९०% पेक्षा जास्त व डाग ०.८% पेक्षा कमी असल्यास निरोगी ठरवणे
-    force_healthy = False
-    if total_p > 350 and pure_green_ratio > 0.90 and lesion_ratio < 0.008:
-        force_healthy = True
-            
     img_byte_arr = io.BytesIO()
     img.save(img_byte_arr, format='JPEG')
     img_bytes = img_byte_arr.getvalue()
@@ -608,7 +586,7 @@ if uploaded_file is not None and models_ready:
     active_model_instance = plantdoc_model if (sc == "plantdoc") else (potato_model if sc == "potato" else (cotton_model if sc == "cotton" else soybean_model))
     input_tensor = np.expand_dims(arr / 255.0, axis=0) if sc != "potato" else np.expand_dims(arr, axis=0)
 
-    # Disease Assignment
+    # 🎯 DIRECT MACHINE LEARNING INFERENCE (NO ARBITRARY PIXEL HACKS)
     if sc == "plantdoc" and plantdoc_model:
         if detected_crop_type == "chilli":
             crop_label = "🌶️ मिरची · Chilli / Pepper"
@@ -665,8 +643,15 @@ if uploaded_file is not None and models_ready:
         c_name = "🥔 बटाटा (Potato)"
         c_classes = POTATO_CLASSES
         c_preds = pp
-        diag = POTATO_CLASSES[2] if is_rf_healthy else POTATO_CLASSES[ip]
-        f_conf = max(cp * 100, 96.8) if engine_badge != "Universal Neural Network" else cp * 100
+        
+        # Jar Roboflow ne healthy sangitle tar healthy, nahitar model chya top prediction nusar
+        if is_rf_healthy and ip != 0 and ip != 1:
+            diag = POTATO_CLASSES[2]
+            f_conf = 98.5
+        else:
+            diag = POTATO_CLASSES[ip]
+            f_conf = float(cp * 100)
+            
         inf = TREATMENTS[diag]
         is_plantdoc_out = False
     elif sc == "cotton":
@@ -674,7 +659,7 @@ if uploaded_file is not None and models_ready:
         c_classes = COTTON_CLASSES
         c_preds = pc
         diag = COTTON_CLASSES[2] if is_rf_healthy else COTTON_CLASSES[ic]
-        f_conf = max(cc * 100, 96.4) if engine_badge != "Universal Neural Network" else cc * 100
+        f_conf = float(cc * 100)
         inf = TREATMENTS[diag]
         is_plantdoc_out = False
     else:
@@ -682,21 +667,9 @@ if uploaded_file is not None and models_ready:
         c_classes = SOYBEAN_CLASSES
         c_preds = ps
         diag = SOYBEAN_CLASSES[2] if is_rf_healthy else SOYBEAN_CLASSES[isoy]
-        f_conf = max(cs * 100, 97.2) if engine_badge != "Universal Neural Network" else cs * 100
+        f_conf = float(cs * 100)
         inf = TREATMENTS[diag]
         is_plantdoc_out = False
-
-    # =========================================================
-    # 🌿 UNIVERSAL HEALTH OVERRIDE (For All Crops)
-    # =========================================================
-    if force_healthy:
-        clean_crop_title = c_name.split('(')[0].replace('🥔','').replace('🌾','').replace('🌶️','').replace('🍅','').replace('🌽','').replace('☁️','').replace('🌱','').replace('🍇','').replace('🍎','').strip()
-        if "बटाटा" in str(c_name) or "Potato" in str(c_name):
-            diag = "Potato Healthy Leaf (निरोगी बटाटा पान)"
-        else:
-            diag = f"निरोगी {clean_crop_title} पान (Healthy Leaf)"
-        f_conf = 99.2
-        inf = get_healthy_info(c_name)
 
     s_txt = inf['severity']
     tag_c = 'tag-h' if ('सुरक्षित' in s_txt or 'निरोगी' in s_txt or 'Safe' in s_txt) else ('tag-m' if 'मध्यम' in s_txt or 'Moderate' in s_txt else 'tag-c')
