@@ -636,7 +636,6 @@ if uploaded_file is not None and models_ready:
         c_preds = pdm_preds
         is_plantdoc_out = True
     elif sc == "potato":
-        elif sc == "potato":
         c_name = "🥔 बटाटा (Potato)"
         c_classes = POTATO_CLASSES
         c_preds = pp
@@ -650,6 +649,7 @@ if uploaded_file is not None and models_ready:
 
         inf = TREATMENTS[diag]
         is_plantdoc_out = False
+        
     elif sc == "cotton":
         c_name = "☁️ कापूस (Cotton)"
         c_classes = COTTON_CLASSES
