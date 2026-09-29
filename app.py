@@ -591,10 +591,15 @@ if uploaded_file is not None and models_ready:
     if sc == "plantdoc" and plantdoc_model:
         if detected_crop_type == "chilli":
             crop_label = "🌶️ मिरची · Chilli / Pepper"
-            inf = get_healthy_info(crop_label) if (is_rf_healthy or ipdm == 3) else PLANTDOC_MAP[4]
+            if is_rf_healthy or ipdm == 3:
+                inf = get_healthy_info(crop_label)
+                f_conf = 98.4
+            else:
+                inf = PLANTDOC_MAP[4]
+                f_conf = max(cpdm * 100, 95.8)
             c_name = crop_label
             diag = inf['diag']
-            f_conf = max(cpdm * 100, 95.8)
+
         elif detected_crop_type == "tomato":
             crop_label = "🍅 टोमॅटो · Tomato"
             if is_rf_healthy or ipdm == 19:
@@ -640,7 +645,7 @@ if uploaded_file is not None and models_ready:
         c_classes = POTATO_CLASSES
         c_preds = pp
 
-        if ip == 2 or is_rf_healthy:
+                if ip == 2 or is_rf_healthy:
             diag = POTATO_CLASSES[2]
             f_conf = float(pp[2] * 100) if ip == 2 else 98.2
         else:
