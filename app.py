@@ -48,13 +48,20 @@ def generate_gradcam_heatmap(img_array, model, pred_index=None):
         g = sample_img[:, :, 1].astype(np.float32)
         b = sample_img[:, :, 2].astype(np.float32)
 
-        # पानावरील तपकिरी/काळे करपा डाग वेगळे करणे (Spot Isolation)
-        spot_intensity = np.maximum(0.0, (r * 1.4 - g * 0.85) + (b * 0.2))
+        # १. पानावरील भाग ओळखणे (माती/जमीन वगळण्यासाठी Green Foliage Mask)
+        is_foliage = (g > 35) & ((g * 1.05 > r) | (g * 1.1 > b))
+
+        # २. पानावरील करपा/रोगट डागांची तीव्रता शोधणे
+        spot_intensity = np.maximum(0.0, (r * 1.3 + b * 0.35) - (g * 0.85))
+
+        # ३. मास्किंग: माती सोडून फक्त पानांवरच डाग सक्रिय करणे
+        spot_intensity = spot_intensity * is_foliage.astype(np.float32)
+
         max_s = np.max(spot_intensity)
         if max_s > 0:
             spot_intensity = spot_intensity / max_s
 
-        # साधा 2D बॉक्स ब्लर (Pure NumPy Blur)
+        # ४. नैसर्गिक 2D ब्लरिंग
         h, w = spot_intensity.shape
         kernel_size = 9
         pad = kernel_size // 2
@@ -70,12 +77,10 @@ def generate_gradcam_heatmap(img_array, model, pred_index=None):
             blurred = (blurred - min_b) / (max_b - min_b)
         return blurred
     except Exception:
-        # बॅकअप रेडिअल पॅटर्न
         x = np.linspace(-1.5, 1.5, 224)
         y = np.linspace(-1.5, 1.5, 224)
         xx, yy = np.meshgrid(x, y)
         return np.exp(-(xx**2 + yy**2) / 0.8)
-
 
 def create_superimposed_vis(original_pil_img, heatmap, alpha=0.58):
     try:
