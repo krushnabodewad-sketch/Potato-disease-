@@ -804,7 +804,7 @@ if uploaded_file is not None and models_ready:
                 st.write(f"• **{c_classes[i]}** : `{pct:.1f}%`")
                 st.progress(min(max(float(c_preds[i]), 0.0), 1.0))
 
-        if gemini_client:
+    if gemini_client:
         st.markdown('<div class="k-card"><b>🤖 कृषी-AI तज्ज्ञ सल्लागार (Google Gemini)</b>', unsafe_allow_html=True)
         if st.button("✨ Gemini कडून विशेष कृषी सल्ला मिळवा"):
             with st.spinner("Gemini AI सल्ला तयार करत आहे..."):
