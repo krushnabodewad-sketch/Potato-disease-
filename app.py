@@ -48,22 +48,31 @@ def generate_gradcam_heatmap(img_array, model, pred_index=None):
         g = sample_img[:, :, 1].astype(np.float32)
         b = sample_img[:, :, 2].astype(np.float32)
 
-        # १. पानावरील भाग ओळखणे (माती/जमीन वगळण्यासाठी Green Foliage Mask)
-        is_foliage = (g > 35) & ((g * 1.05 > r) | (g * 1.1 > b))
+        # वनस्पती / झाडाची पाने अचूक ओळखणे (ExG - Excess Green Index)
+        # माती किंवा जमिनीसाठी ExG < 0 असतो, झाडाच्या पानांसाठी ExG > 0 असतो
+        exg = 2.0 * g - r - b
+        is_plant = exg > 15.0
 
-        # २. पानावरील करपा/रोगट डागांची तीव्रता शोधणे
-        spot_intensity = np.maximum(0.0, (r * 1.3 + b * 0.35) - (g * 0.85))
+        # पानावरील करपा, पिवळे किंवा तपकिरी डाग (Blight / Lesions on Plant)
+        # निरोगी हिरव्या भागापेक्षा डागांवर लाल व निळा घटक जास्त प्रमाणात परावर्तित होतो
+        spot_raw = (r * 1.4 + b * 0.4) - (g * 0.9)
+        spot_raw = np.maximum(0.0, spot_raw)
 
-        # ३. मास्किंग: माती सोडून फक्त पानांवरच डाग सक्रिय करणे
-        spot_intensity = spot_intensity * is_foliage.astype(np.float32)
+        # माती व पार्श्वभूमी १००% ब्लॉक करणे (Strict Masking)
+        spot_intensity = np.where(is_plant, spot_raw, 0.0)
 
         max_s = np.max(spot_intensity)
         if max_s > 0:
             spot_intensity = spot_intensity / max_s
 
-        # ४. नैसर्गिक 2D ब्लरिंग
+        # केवळ वरच्या २५% तीव्रतेच्या डागांनाच महत्त्व देणे (बॅकग्राउंड नॉईज पूर्ण काढून टाकणे)
+        spot_intensity = np.maximum(0.0, spot_intensity - 0.25)
+        if np.max(spot_intensity) > 0:
+            spot_intensity = spot_intensity / np.max(spot_intensity)
+
+        # स्मूथ 2D ब्लर
         h, w = spot_intensity.shape
-        kernel_size = 9
+        kernel_size = 7
         pad = kernel_size // 2
         padded = np.pad(spot_intensity, pad, mode='reflect')
         blurred = np.zeros_like(spot_intensity)
@@ -72,38 +81,28 @@ def generate_gradcam_heatmap(img_array, model, pred_index=None):
                 blurred += padded[pad + i : pad + i + h, pad + j : pad + j + w]
         blurred = blurred / (kernel_size * kernel_size)
 
-        min_b, max_b = np.min(blurred), np.max(blurred)
-        if max_b > min_b:
-            blurred = (blurred - min_b) / (max_b - min_b)
-        return blurred
+        return np.clip(blurred, 0.0, 1.0)
     except Exception:
-        x = np.linspace(-1.5, 1.5, 224)
-        y = np.linspace(-1.5, 1.5, 224)
-        xx, yy = np.meshgrid(x, y)
-        return np.exp(-(xx**2 + yy**2) / 0.8)
+        return np.zeros((224, 224), dtype=np.float32)
 
-def create_superimposed_vis(original_pil_img, heatmap, alpha=0.58):
+
+def create_superimposed_vis(original_pil_img, heatmap, alpha=0.65):
     try:
-        # हीटमॅपचा आकार मूळ फोटोइतका करणे
         heat_img = Image.fromarray(np.uint8(255 * np.clip(heatmap, 0, 1)))
         heat_resized = heat_img.resize(original_pil_img.size, Image.Resampling.BILINEAR)
         norm_heat = np.array(heat_resized, dtype=np.float32) / 255.0
 
-        # थेट ब्राईट Jet-Heatmap (Dark Red -> Yellow -> Cyan -> Blue)
-        # Red चॅनल
+        # तेजस्वी Jet Colormap (Dark Red -> Orange -> Yellow)
         r = np.clip(1.5 - np.abs(norm_heat * 4.0 - 3.0), 0.0, 1.0)
-        # Green चॅनल
         g = np.clip(1.5 - np.abs(norm_heat * 4.0 - 2.0), 0.0, 1.0)
-        # Blue चॅनल
         b = np.clip(1.5 - np.abs(norm_heat * 4.0 - 1.0), 0.0, 1.0)
-
         jet_rgb = np.stack([r, g, b], axis=-1) * 255.0
 
-        # मूळ फोटोवर ओव्हरले करणे
         orig_arr = np.array(original_pil_img, dtype=np.float32)
-        # केवळ डागांच्या भागावर रंग गडद करणे
-        weight = np.expand_dims(norm_heat, axis=-1) * alpha
-        superimposed = jet_rgb * weight + orig_arr * (1.0 - weight)
+
+        # केवळ उष्णता (Heat) ०.०५ पेक्षा जास्त असलेल्या डागांवरच ओव्हरले करणे, बाकी १००% ओरिजिनल ठेवणे
+        mask_weight = np.expand_dims(np.where(norm_heat > 0.05, norm_heat * alpha, 0.0), axis=-1)
+        superimposed = jet_rgb * mask_weight + orig_arr * (1.0 - mask_weight)
         superimposed = np.clip(superimposed, 0, 255).astype(np.uint8)
 
         return Image.fromarray(superimposed)
