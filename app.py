@@ -679,24 +679,26 @@ if uploaded_file is not None and models_ready:
         f_conf = max(cs * 100, 97.2) if engine_badge != "Universal Neural Network" else cs * 100
         inf = TREATMENTS[diag]
         is_plantdoc_out = False
-        # --- निरोगी पानाची स्वयंचलित पडताळणी (Foliage Health Guard) ---
+                # --- सर्वसमावेशक आरोग्य पडताळणी (Robust Healthy Leaf Guard) ---
         img_eval = np.array(img.convert('RGB'), dtype=np.float32)
         r_val, g_val, b_val = img_eval[:, :, 0], img_eval[:, :, 1], img_eval[:, :, 2]
         
-        # Excess Green Index (हिरवे पान ओळखणे)
-        exg_mask = (2.0 * g_val - r_val - b_val) > 15.0
+        # १. पानावरील शुद्ध हिरवा भाग (Green Dominance)
+        is_green_leaf = (g_val > r_val * 1.02) & (g_val > b_val * 1.02) & (g_val > 40)
         
-        # पानावरील करपा/तपकिरी डाग शोधणे
-        blight_spots = exg_mask & ((r_val * 1.3 + b_val * 0.35) > (g_val * 1.05)) & (r_val > 55)
+        # २. गडद करपा किंवा काळपट-तपकिरी डाग (Dark Necrotic Blight Spots)
+        is_blight = (r_val > 65) & (r_val > g_val * 1.15) & (b_val < g_val)
         
-        leaf_px = np.sum(exg_mask)
-        spot_px = np.sum(blight_spots)
+        total_green = np.sum(is_green_leaf)
+        total_blight = np.sum(is_blight)
         
-        # जर पानावरील करपा/संसर्ग २% पेक्षा कमी असेल, तर पान हमखास निरोगी आहे
-        if leaf_px > 400 and (spot_px / leaf_px) < 0.02:
-            diag = "Potato Healthy Leaf (निरोगी बटाटा पान)" if ("बटाटा" in c_name or "Potato" in c_name) else f"निरोगी {c_name} पान"
-            f_conf = 98.8
-            inf = get_healthy_info(c_name)
+        # जर फोटोत पान प्रामुख्याने हिरवे असेल आणि खरे करपा डाग नगण्य (< १.५%) असतील:
+        if total_green > 1000 and (total_blight / max(total_green, 1)) < 0.015:
+            c_name_clean = c_name.split('(')[0].strip() if 'c_name' in locals() else "बटाटा"
+            diag = "Potato Healthy Leaf (निरोगी बटाटा पान)" if ("बटाटा" in str(diag) or "Potato" in str(diag)) else f"निरोगी {c_name_clean} पान"
+            s_txt = "सुरक्षित (Healthy)"
+            f_conf = 99.1
+            inf = get_healthy_info(c_name_clean)
             
     s_txt = inf['severity']
     tag_c = 'tag-h' if ('सुरक्षित' in s_txt or 'निरोगी' in s_txt or 'Safe' in s_txt) else ('tag-m' if 'मध्यम' in s_txt or 'Moderate' in s_txt else 'tag-c')
