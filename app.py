@@ -709,7 +709,7 @@ if uploaded_file is not None and models_ready:
             s_txt = "सुरक्षित (Healthy)"
             f_conf = 99.1
             inf = get_healthy_info(c_name_clean)
-                    if force_healthy:
+        if force_healthy:
             diag = "निरोगी पान (Healthy Leaf - No Disease)"
             s_txt = "सुरक्षित (Healthy)"
             f_conf = 99.2
