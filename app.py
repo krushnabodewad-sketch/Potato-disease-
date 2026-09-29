@@ -8,6 +8,7 @@ from PIL import Image
 import numpy as np
 import streamlit.components.v1 as components
 from google import genai
+import urllib.parse
 import os
 
 # ==========================================
@@ -131,6 +132,7 @@ html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', 'Mukta', sans-ser
 .t-chem { background: #FFFBEB; border-left: 4px solid #F59E0B; padding: 12px; border-radius: 10px; margin-bottom: 8px; }
 .t-bio { background: #F0FDF4; border-left: 4px solid #10B981; padding: 12px; border-radius: 10px; margin-bottom: 8px; }
 .w-box { background: linear-gradient(135deg,#F0FDF4,#F8FAFC); border: 1px solid #A7F3D0; border-radius: 12px; padding: 12px; margin-bottom: 1rem; color: #1E293B; font-size: 0.88rem; }
+.calc-box { background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; padding: 14px; margin-top: 10px; margin-bottom: 12px; font-size: 0.92rem; color: #1E3A8A; }
 .s-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 14px; margin-bottom: 6px; font-size: 0.9rem; }
 
 .stButton > button, .stDownloadButton > button {
@@ -143,6 +145,25 @@ html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', 'Mukta', sans-ser
     padding: 0.6rem 1.1rem !important;
     box-shadow: 0 6px 16px rgba(5,150,105,0.28) !important;
 }
+
+.k-wa-btn {
+    display: block;
+    text-align: center;
+    background: linear-gradient(135deg, #25D366, #128C7E);
+    color: #FFFFFF !important;
+    text-decoration: none;
+    font-weight: 700;
+    padding: 11px 16px;
+    border-radius: 14px;
+    box-shadow: 0 6px 16px rgba(37,211,102,0.3);
+    margin-top: 10px;
+    font-size: 0.95rem;
+}
+.k-wa-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(37,211,102,0.4);
+    color: #FFFFFF !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -150,7 +171,7 @@ st.markdown("""
 <div class="k-hero">
     <div style="font-size:11px;font-weight:800;color:#A7F3D0;letter-spacing:1.5px;text-transform:uppercase;">Avishkar Research Initiative</div>
     <h2 style="margin:4px 0 0 0;font-size:1.65rem;font-weight:800;">🌿 कृषी-AI : स्मार्ट पीक रोग निदान प्रणाली</h2>
-    <div style="font-size:0.9rem;color:#D1FAE5;margin-top:4px;">Universal Botanical Recognition & Supported Crop Disease Verification</div>
+    <div style="font-size:0.9rem;color:#D1FAE5;margin-top:4px;">Universal Botanical Recognition, Dosage Calculator & Smart Farmer Advisory</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -198,52 +219,56 @@ def get_healthy_info(crop_name):
         'diag': f'निरोगी {clean_crop} पान (Healthy Leaf)',
         'severity': 'सुरक्षित (Healthy)',
         'chem': 'सध्या कोणतेही रासायनिक बुरशीनाशक किंवा कीटकनाशक फवारण्याची गरज नाही.',
+        'brands': 'कोणतेही रासायनिक औषध खरेदी करू नका.',
+        'cost': '₹ ० (खर्चाची गरज नाही)',
+        'dose_15L': 'औषध नको, फक्त स्वच्छ पाणी',
+        'dose_200L': 'औषध नको, फक्त स्वच्छ पाणी',
         'bio': 'पिकाची रोगप्रतिकारक शक्ती टिकवून ठेवण्यासाठी १५ दिवसांतून एकदा जीवामृत, गोकृपामृत किंवा ५% निंबोळी अर्क वापरावा.',
         'd7': 'संतुलित वाढीसाठी सूक्ष्मअन्नद्रव्ये (Micronutrients) २ मिली प्रति लिटर फवारावीत.',
         'd15': 'नियमित पाणी व्यवस्थापन ठेवा व किडींचा प्रादुर्भाव तपासत राहा.'
     }
 
 PLANTDOC_MAP = {
-    0: {'crop': 'सफरचंद · Apple', 'diag': 'सफरचंद खरुज (Apple Scab)', 'severity': 'मध्यम (Moderate)', 'chem': 'Mancozeb 75% WP ३० ग्रॅम / १५ लिटर', 'bio': 'ताक आणि हिंगाचे द्रावण फवारावे.', 'd7': 'कॅप्टन २ ग्रॅम/लिटर फवारणी.', 'd15': 'पडलेली रोगट पाने नष्ट करा.'},
+    0: {'crop': 'सफरचंद · Apple', 'diag': 'सफरचंद खरुज (Apple Scab)', 'severity': 'मध्यम (Moderate)', 'chem': 'Mancozeb 75% WP किंवा Captan 50% WP', 'brands': 'Indofil M-45, Dhanuka M-45, Captaf', 'cost': '₹ ३५ - ₹ ४५ प्रति पंप', 'dose_15L': '३५ ग्रॅम पावडर + १० मिली स्टिकर', 'dose_200L': '४०० ते ५०० ग्रॅम + १०० मिली स्टिकर', 'bio': 'ताक आणि हिंगाचे द्रावण फवारावे.', 'd7': 'कॅप्टन २ ग्रॅम/लिटर फवारणी.', 'd15': 'पडलेली रोगट पाने नष्ट करा.'},
     1: get_healthy_info('सफरचंद · Apple'),
-    2: {'crop': 'सफरचंद · Apple', 'diag': 'सफरचंद तांबेरा (Apple Rust)', 'severity': 'मध्यम (Moderate)', 'chem': 'Myclobutanil १ ग्रॅम किंवा प्रोपिकोनॅझोल १५ मिली/पंप', 'bio': 'सल्फर ८०% WDG ३० ग्रॅम प्रति पंप.', 'd7': 'हवा खेळती राहील अशी छाटणी ठेवा.', 'd15': 'बुरशीनाशकाची फेरफवारणी.'},
+    2: {'crop': 'सफरचंद · Apple', 'diag': 'सफरचंद तांबेरा (Apple Rust)', 'severity': 'मध्यम (Moderate)', 'chem': 'Myclobutanil 10% WP किंवा Propiconazole 25% EC', 'brands': 'Boon, Tilt, Result', 'cost': '₹ ४० - ₹ ५० प्रति पंप', 'dose_15L': '१५ मिली लिक्विड + १० मिली स्टिकर', 'dose_200L': '२०० मिली + १०० मिली स्टिकर', 'bio': 'सल्फर ८०% WDG ३० ग्रॅम प्रति पंप.', 'd7': 'हवा खेळती राहील अशी छाटणी ठेवा.', 'd15': 'बुरशीनाशकाची फेरफवारणी.'},
     3: get_healthy_info('मिरची · Chilli / Pepper'),
-    4: {'crop': 'मिरची · Chilli / Pepper', 'diag': 'मिरची चुरडा-मुरडा / पानावरील ठिपके (Leaf Curl & Spots)', 'severity': 'तीव्र (High Risk)', 'chem': 'Fipronil 5% SC (Regent) ३० मिली किंवा Acetamiprid २०% SP ५ ग्रॅम / १५ लिटर पाण्यात फवारावे.', 'bio': 'निंबोळी अर्क ५% किंवा व्हर्टिसिलियम लेकॅनी ५० ग्रॅम प्रति पंप. निळे व पिवळे चिकट सापळे लावावेत.', 'd7': '८ व्या दिवशी पेगासस (Diafenthiuron 50% WP) २५ ग्रॅम फवारावे.', 'd15': 'रोगट शेंडे छाटून नष्ट करावेत व विद्राव्य खत १९:१९:१९ फवारावे.'},
+    4: {'crop': 'मिरची · Chilli / Pepper', 'diag': 'मिरची चुरडा-मुरडा / पानावरील ठिपके (Leaf Curl & Spots)', 'severity': 'तीव्र (High Risk)', 'chem': 'Fipronil 5% SC किंवा Diafenthiuron 50% WP', 'brands': 'Regent, Pegasus, Agadi', 'cost': '₹ ५० - ₹ ६५ प्रति पंप', 'dose_15L': '३० मिली लिक्विड (किंवा २५ ग्रॅम पेगासस) + १० मिली स्टिकर', 'dose_200L': '४०० मिली लिक्विड (किंवा ३०० ग्रॅम पेगासस) + १५० मिली स्टिकर', 'bio': 'निंबोळी अर्क ५% किंवा व्हर्टिसिलियम लेकॅनी ५० ग्रॅम प्रति पंप. निळे व पिवळे चिकट सापळे लावावेत.', 'd7': '८ व्या दिवशी पेगासस (Diafenthiuron 50% WP) २५ ग्रॅम फवारावे.', 'd15': 'रोगट शेंडे छाटून नष्ट करावेत व विद्राव्य खत १९:१९:१९ फवारावे.'},
     5: get_healthy_info('ब्लूबेरी · Blueberry'),
     6: get_healthy_info('चेरी · Cherry'),
-    7: {'crop': 'मका · Corn', 'diag': 'राखाडी करपा ठिपके (Gray Leaf Spot)', 'severity': 'मध्यम (Moderate)', 'chem': 'Amistar Top (अझॉक्सीस्ट्रॉबिन + डायफेनोकोनॅझोल) १५ मिली/पंप', 'bio': 'ताक आणि गोमूत्र द्रावण फवारावे.', 'd7': 'फेरपालट करा.', 'd15': 'रोगट अवशेष गोळा करा.'},
-    8: {'crop': 'मका · Corn', 'diag': 'पानांचा करपा (Corn Leaf Blight)', 'severity': 'तीव्र (High Risk)', 'chem': 'टेबुकोनॅझोल १५ मिली किंवा मॅनकोझेब ३५ ग्रॅम/पंप', 'bio': 'ट्रायकोडर्मा व्हिरिडी ५० ग्रॅम प्रति पंप.', 'd7': 'नायट्रोजन खतांचा संतुलित वापर करा.', 'd15': 'दशपर्णी अर्क फवारा.'},
-    9: {'crop': 'मका · Corn', 'diag': 'मका तांबेरा (Corn Rust)', 'severity': 'मध्यम (Moderate)', 'chem': 'प्रोपिकोनॅझोल (Tilt) १५ मिली प्रति पंप.', 'bio': 'गंधक ८०% WDG ३० ग्रॅम प्रति पंप.', 'd7': 'ढगाळ हवामानात त्वरित फवारा.', 'd15': 'पिकाची पाहणी करा.'},
+    7: {'crop': 'मका · Corn', 'diag': 'राखाडी करपा ठिपके (Gray Leaf Spot)', 'severity': 'मध्यम (Moderate)', 'chem': 'Azoxystrobin 18.2% + Difenoconazole 11.4% SC', 'brands': 'Amistar Top, Godrej Custodia', 'cost': '₹ ६० - ₹ ७५ प्रति पंप', 'dose_15L': '१५ मिली लिक्विड + १० मिली स्टिकर', 'dose_200L': '२०० मिली + १०० मिली स्टिकर', 'bio': 'ताक आणि गोमूत्र द्रावण फवारावे.', 'd7': 'फेरपालट करा.', 'd15': 'रोगट अवशेष गोळा करा.'},
+    8: {'crop': 'मका · Corn', 'diag': 'पानांचा करपा (Corn Leaf Blight)', 'severity': 'तीव्र (High Risk)', 'chem': 'Tebuconazole 25.9% EC किंवा Mancozeb 75% WP', 'brands': 'Folicur, Indofil M-45, Raxil', 'cost': '₹ ३५ - ₹ ४५ प्रति पंप', 'dose_15L': '१५ मिली फॉलिक्युअर किंवा ३५ ग्रॅम मॅन्कोझेब + १० मिली स्टिकर', 'dose_200L': '२०० मिली फॉलिक्युअर किंवा ५०० ग्रॅम मॅन्कोझेब', 'bio': 'ट्रायकोडर्मा व्हिरिडी ५० ग्रॅम प्रति पंप.', 'd7': 'नायट्रोजन खतांचा संतुलित वापर करा.', 'd15': 'दशपर्णी अर्क फवारा.'},
+    9: {'crop': 'मका · Corn', 'diag': 'मका तांबेरा (Corn Rust)', 'severity': 'मध्यम (Moderate)', 'chem': 'Propiconazole 25% EC', 'brands': 'Tilt (Syngenta), Bumper', 'cost': '₹ ४० - ₹ ५० प्रति पंप', 'dose_15L': '१५ मिली लिक्विड + १० मिली स्टिकर', 'dose_200L': '२०० मिली + १०० मिली स्टिकर', 'bio': 'गंधक ८०% WDG ३० ग्रॅम प्रति पंप.', 'd7': 'ढगाळ हवामानात त्वरित फवारा.', 'd15': 'पिकाची पाहणी करा.'},
     10: get_healthy_info('पीच · Peach'),
-    11: {'crop': 'बटाटा · Potato', 'diag': 'बटाटा लवकर करपा (Early Blight)', 'severity': 'मध्यम (Moderate)', 'chem': 'Mancozeb 75% WP (M-45) ३० ग्रॅम / १५ लिटर', 'bio': 'ताक आणि हिंग द्रावण किंवा निंबोळी तेल.', 'd7': '८ व्या दिवशी COC ३० ग्रॅम फवारावे.', 'd15': 'ट्रायकोडर्मा ड्रेचिंग करावे.'},
-    12: {'crop': 'बटाटा · Potato', 'diag': 'बटाटा उशिरा करपा (Late Blight)', 'severity': 'तीव्र / हाय रिस्क (High Risk)', 'chem': 'Cymoxanil 8% + Mancozeb 64% WP ३५ ग्रॅम / १५ लिटर', 'bio': 'स्यूडोमोनास ५ मिली प्रति लिटर पाणी.', 'd7': 'रिडोमिल गोल्ड ३५ ग्रॅम फवारा.', 'd15': 'रोगट पाने उपटून नष्ट करा.'},
+    11: {'crop': 'बटाटा · Potato', 'diag': 'बटाटा लवकर करपा (Early Blight)', 'severity': 'मध्यम (Moderate)', 'chem': 'Mancozeb 75% WP (M-45)', 'brands': 'Indofil M-45, Dithane M-45', 'cost': '₹ ३० - ₹ ४० प्रति पंप', 'dose_15L': '३५ ग्रॅम पावडर + १० मिली स्टिकर', 'dose_200L': '५०० ग्रॅम पावडर + १०० मिली स्टिकर', 'bio': 'ताक आणि हिंग द्रावण किंवा निंबोळी तेल.', 'd7': '८ व्या दिवशी COC ३० ग्रॅम फवारावे.', 'd15': 'ट्रायकोडर्मा ड्रेचिंग करावे.'},
+    12: {'crop': 'बटाटा · Potato', 'diag': 'बटाटा उशिरा करपा (Late Blight)', 'severity': 'तीव्र / हाय रिस्क (High Risk)', 'chem': 'Cymoxanil 8% + Mancozeb 64% WP किंवा Metalaxyl + Mancozeb', 'brands': 'Curzate (Corteva), Ridomil Gold (Syngenta)', 'cost': '₹ ६५ - ₹ ८० प्रति पंप', 'dose_15L': '३५ ग्रॅम पावडर + १० मिली स्टिकर', 'dose_200L': '५०० ग्रॅम पावडर + १५० मिली स्टिकर', 'bio': 'स्यूडोमोनास ५ मिली प्रति लिटर पाणी.', 'd7': 'रिडोमिल गोल्ड ३५ ग्रॅम फवारा.', 'd15': 'रोगट पाने उपटून नष्ट करा.'},
     13: get_healthy_info('रास्पबेरी · Raspberry'),
     14: get_healthy_info('सोयाबीन · Soybean'),
-    15: {'crop': 'भोपळा/काकडी · Squash', 'diag': 'भुरी रोग (Powdery Mildew)', 'severity': 'मध्यम (Moderate)', 'chem': 'Score (डायफेनोकोनॅझोल) १० मिली किंवा सल्फर ३० ग्रॅम/पंप', 'bio': 'दूध व पाण्याचे मिश्रण (१:१०) फवारावे.', 'd7': 'सकाळी लवकर फवारणी करावी.', 'd15': 'हवा खेळती ठेवा.'},
+    15: {'crop': 'भोपळा/काकडी · Squash', 'diag': 'भुरी रोग (Powdery Mildew)', 'severity': 'मध्यम (Moderate)', 'chem': 'Difenoconazole 25% EC किंवा Sulphur 80% WDG', 'brands': 'Score (Syngenta), Sulfex', 'cost': '₹ ३५ - ₹ ५० प्रति पंप', 'dose_15L': '१० मिली स्कोअर (किंवा ३० ग्रॅम सल्फेक्स) + १० मिली स्टिकर', 'dose_200L': '१५० मिली स्कोअर (किंवा ४०० ग्रॅम सल्फेक्स)', 'bio': 'दूध व पाण्याचे मिश्रण (१:१०) फवारावे.', 'd7': 'सकाळी लवकर फवारणी करावी.', 'd15': 'हवा खेळती ठेवा.'},
     16: get_healthy_info('स्ट्रॉबेरी · Strawberry'),
-    17: {'crop': 'टोमॅटो · Tomato', 'diag': 'टोमॅटो लवकर करपा (Early Blight)', 'severity': 'मध्यम (Moderate)', 'chem': 'मॅनकोझेब ३५ ग्रॅम किंवा अमिस्टार टॉप १५ मिली प्रति पंप', 'bio': 'निंबोळी तेल ५० मिली + ताक २०० मिली प्रति पंप.', 'd7': 'खालची जुनी पिवळी पाने छाटून टाका.', 'd15': 'ट्रायकोडर्मा मुळाशी द्या.'},
-    18: {'crop': 'टोमॅटो · Tomato', 'diag': 'सेप्टोरिया करपा (Septoria Leaf Spot)', 'severity': 'मध्यम (Moderate)', 'chem': 'कॉपर ऑक्सिक्लोराईड ३० ग्रॅम किंवा क्लोरोथॅलोनिल ३० ग्रॅम', 'bio': 'ट्रायकोडर्मा व्हिरिडी ५० ग्रॅम प्रति पंप.', 'd7': 'पानांवर पाण्याचा शिडकाव टाळा.', 'd15': 'हवा खेळती ठेवा.'},
+    17: {'crop': 'टोमॅटो · Tomato', 'diag': 'टोमॅटो लवकर करपा (Early Blight)', 'severity': 'मध्यम (Moderate)', 'chem': 'Mancozeb 75% WP किंवा Amistar Top', 'brands': 'Indofil M-45, Amistar Top', 'cost': '₹ ३५ - ₹ ६० प्रति पंप', 'dose_15L': '३५ ग्रॅम मॅन्कोझेब (किंवा १५ मिली अमिस्टार टॉप)', 'dose_200L': '५०० ग्रॅम मॅन्कोझेब (किंवा २०० मिली अमिस्टार टॉप)', 'bio': 'निंबोळी तेल ५० मिली + ताक २०० मिली प्रति पंप.', 'd7': 'खालची जुनी पिवळी पाने छाटून टाका.', 'd15': 'ट्रायकोडर्मा मुळाशी द्या.'},
+    18: {'crop': 'टोमॅटो · Tomato', 'diag': 'सेप्टोरिया करपा (Septoria Leaf Spot)', 'severity': 'मध्यम (Moderate)', 'chem': 'Copper Oxychloride 50% WP (COC)', 'brands': 'Blitox, Blue Copper', 'cost': '₹ ३५ - ₹ ४५ प्रति पंप', 'dose_15L': '३५ ग्रॅम पावडर + १० मिली स्टिकर', 'dose_200L': '५०० ग्रॅम पावडर + १०० मिली स्टिकर', 'bio': 'ट्रायकोडर्मा व्हिरिडी ५० ग्रॅम प्रति पंप.', 'd7': 'पानांवर पाण्याचा शिडकाव टाळा.', 'd15': 'हवा खेळती ठेवा.'},
     19: get_healthy_info('टोमॅटो · Tomato'),
-    20: {'crop': 'टोमॅटो · Tomato', 'diag': 'जिवाणूजन्य ठिपके (Bacterial Spot)', 'severity': 'तीव्र (High Risk)', 'chem': 'कॉपर हायड्रॉक्साईड ३० ग्रॅम + स्ट्रेप्टोसायक्लिन २ ग्रॅम', 'bio': 'हळद पावडर आणि गोमूत्र द्रावण फवारावे.', 'd7': 'स्यूडोमोनास फ्लुओरेसेन्स फवारा.', 'd15': 'रोगट पाने तोडून टाका.'},
-    21: {'crop': 'टोमॅटो · Tomato', 'diag': 'टोमॅटो उशिरा करपा (Late Blight)', 'severity': 'अतिधोकादायक (High Risk)', 'chem': 'Curzate (सायमोक्सॅनिल + मॅनकोझेब) ३५ ग्रॅम प्रति पंप', 'bio': 'बोर्डो मिश्रण १% फवारावे.', 'd7': 'सेक्टिन ३० ग्रॅम फवारा.', 'd15': 'जमिनीत पाणी साचू देऊ नका.'},
-    22: {'crop': 'टोमॅटो · Tomato', 'diag': 'टोमॅटो मोझॅक विषाणू (Mosaic Virus)', 'severity': 'विषाणूजन्य (Viral)', 'chem': 'रसशोषक किडींसाठी इमिडाक्लोप्रिड १० मिली प्रति पंप', 'bio': 'रोगट झाडे त्वरित उपटून जाळून टाकावीत.', 'd7': 'पांढरी माशी नियंत्रण करा.', 'd15': 'हात साबणाने धुऊन काम करा.'},
-    23: {'crop': 'टोमॅटो · Tomato', 'diag': 'पिवळा पानांचा गुच्छ (Yellow Leaf Curl)', 'severity': 'विषाणूजन्य (Viral)', 'chem': 'Actara (थायामेथोक्साम) ५ ग्रॅम प्रति पंप फवारा', 'bio': 'पिवळे चिकट सापळे एकरी २० लावा. ५% निंबोळी अर्क.', 'd7': 'रोगट शेंडे खुडून नष्ट करा.', 'd15': 'रसशोषक किडी थांबवा.'},
-    24: {'crop': 'टोमॅटो · Tomato', 'diag': 'पानावरील मोल्ड बुरशी (Tomato Leaf Mold)', 'severity': 'मध्यम (Moderate)', 'chem': 'डायफेनोकोनॅझोल (Score) १० मिली प्रति पंप.', 'bio': 'ताक आणि बेकिंग सोडा (३० ग्रॅम/पंप) फवारा.', 'd7': 'आर्द्रता कमी ठेवा, हवा खेळती ठेवा.', 'd15': 'कॉपर फवारा.'},
-    25: {'crop': 'टोमॅटो · Tomato', 'diag': 'दोन ठिपक्यांची लाल कोळी (Spider Mites)', 'severity': 'कीड प्रादुर्भाव (Mites)', 'chem': 'Omite (प्रोपारगाइट) ३० मिली किंवा अबामेक्टिन १० मिली/पंप', 'bio': 'गंधक (Sulphur 80% WDG) ३० ग्रॅम प्रति पंप.', 'd7': 'पानांखाली जोरदार पाण्याचा फवारा मारा.', 'd15': 'कोळीनाशकाची पुनरावृत्ती.'},
+    20: {'crop': 'टोमॅटो · Tomato', 'diag': 'जिवाणूजन्य ठिपके (Bacterial Spot)', 'severity': 'तीव्र (High Risk)', 'chem': 'Copper Hydroxide 53.8% DF + Streptocycline', 'brands': 'Kocide (DuPont) + Streptocycline', 'cost': '₹ ५० - ₹ ६० प्रति पंप', 'dose_15L': '३० ग्रॅम कोसाईड + २ ग्रॅम स्ट्रेप्टोसायक्लिन', 'dose_200L': '४०० ग्रॅम कोसाईड + २० ग्रॅम स्ट्रेप्टोसायक्लिन', 'bio': 'हळद पावडर आणि गोमूत्र द्रावण फवारावे.', 'd7': 'स्यूडोमोनास फ्लुओरेसेन्स फवारा.', 'd15': 'रोगट पाने तोडून टाका.'},
+    21: {'crop': 'टोमॅटो · Tomato', 'diag': 'टोमॅटो उशिरा करपा (Late Blight)', 'severity': 'अतिधोकादायक (High Risk)', 'chem': 'Cymoxanil 8% + Mancozeb 64% WP (Curzate) किंवा Sectin', 'brands': 'Curzate, Sectin, Melody Duo', 'cost': '₹ ६५ - ₹ ८५ प्रति पंप', 'dose_15L': '३५ ग्रॅम पावडर + १० मिली स्टिकर', 'dose_200L': '५०० ग्रॅम पावडर + १५० मिली स्टिकर', 'bio': 'बोर्डो मिश्रण १% फवारावे.', 'd7': 'सेक्टिन ३० ग्रॅम फवारा.', 'd15': 'जमिनीत पाणी साचू देऊ नका.'},
+    22: {'crop': 'टोमॅटो · Tomato', 'diag': 'टोमॅटो मोझॅक विषाणू (Mosaic Virus)', 'severity': 'विषाणूजन्य (Viral)', 'chem': 'Imidacloprid 17.8% SL (मावा-तुडतुडे नियंत्रणासाठी)', 'brands': 'Confidor (Bayer), Tatamida', 'cost': '₹ ३० - ₹ ४० प्रति पंप', 'dose_15L': '१० मिली लिक्विड + १० मिली स्टिकर', 'dose_200L': '१५० मिली लिक्विड + १०० मिली स्टिकर', 'bio': 'रोगट झाडे त्वरित उपटून जाळून टाकावीत.', 'd7': 'पांढरी माशी नियंत्रण करा.', 'd15': 'हात साबणाने धुऊन काम करा.'},
+    23: {'crop': 'टोमॅटो · Tomato', 'diag': 'पिवळा पानांचा गुच्छ (Yellow Leaf Curl)', 'severity': 'विषाणूजन्य (Viral)', 'chem': 'Thiamethoxam 25% WG (पांढऱ्या माशीसाठी)', 'brands': 'Actara (Syngenta), Areva', 'cost': '₹ ३५ - ₹ ४५ प्रति पंप', 'dose_15L': '५ ते ८ ग्रॅम पावडर + १० मिली स्टिकर', 'dose_200L': '१०० ग्रॅम पावडर + १०० मिली स्टिकर', 'bio': 'पिवळे चिकट सापळे एकरी २० लावा. ५% निंबोळी अर्क.', 'd7': 'रोगट शेंडे खुडून नष्ट करा.', 'd15': 'रसशोषक किडी थांबवा.'},
+    24: {'crop': 'टोमॅटो · Tomato', 'diag': 'पानावरील मोल्ड बुरशी (Tomato Leaf Mold)', 'severity': 'मध्यम (Moderate)', 'chem': 'Difenoconazole 25% EC किंवा Mancozeb', 'brands': 'Score, Indofil M-45', 'cost': '₹ ४० - ₹ ५० प्रति पंप', 'dose_15L': '१० मिली स्कोअर + १० मिली स्टिकर', 'dose_200L': '१५० मिली स्कोअर + १०० मिली स्टिकर', 'bio': 'ताक आणि बेकिंग सोडा (३० ग्रॅम/पंप) फवारा.', 'd7': 'आर्द्रता कमी ठेवा, हवा खेळती ठेवा.', 'd15': 'कॉपर फवारा.'},
+    25: {'crop': 'टोमॅटो · Tomato', 'diag': 'दोन ठिपक्यांची लाल कोळी (Spider Mites)', 'severity': 'कीड प्रादुर्भाव (Mites)', 'chem': 'Propargite 57% EC किंवा Abamectin 1.9% EC', 'brands': 'Omite (Dhanuka), Vertimec', 'cost': '₹ ५० - ₹ ६५ प्रति पंप', 'dose_15L': '३० मिली ओमाईट (किंवा १० मिली व्हर्टिमेक)', 'dose_200L': '४०० मिली ओमाईट (किंवा १५० मिली व्हर्टिमेक)', 'bio': 'गंधक (Sulphur 80% WDG) ३० ग्रॅम प्रति पंप.', 'd7': 'पानांखाली जोरदार पाण्याचा फवारा मारा.', 'd15': 'कोळीनाशकाची पुनरावृत्ती.'},
     26: get_healthy_info('द्राक्षे · Grape'),
-    27: {'crop': 'द्राक्षे · Grape', 'diag': 'द्राक्ष काळा कुजवा (Black Rot)', 'severity': 'रोगट (Infected)', 'chem': 'Cabrio Top (पायराक्लोस्ट्रॉबिन + मेटीराम) ३० ग्रॅम/पंप', 'bio': 'बोर्डो मिश्रण १% किंवा ट्रायकोडर्मा ५० ग्रॅम/पंप.', 'd7': 'सुकलेले घोस व रोगट पाने काढा.', 'd15': 'बुरशीनाशक आलटून-पालटून वापरा.'}
+    27: {'crop': 'द्राक्षे · Grape', 'diag': 'द्राक्ष काळा कुजवा (Black Rot)', 'severity': 'रोगट (Infected)', 'chem': 'Pyraclostrobin + Metiram (Cabrio Top)', 'brands': 'Cabrio Top (BASF)', 'cost': '₹ ७० - ₹ ८५ प्रति पंप', 'dose_15L': '३० ग्रॅम पावडर + १० मिली स्टिकर', 'dose_200L': '४०० ग्रॅम पावडर + १५० मिली स्टिकर', 'bio': 'बोर्डो मिश्रण १% किंवा ट्रायकोडर्मा ५० ग्रॅम/पंप.', 'd7': 'सुकलेले घोस व रोगट पाने काढा.', 'd15': 'बुरशीनाशक आलटून-पालटून वापरा.'}
 }
 
 TREATMENTS = {
-    'Potato Early Blight (बटाटा करपा)': {'crop': 'बटाटा · Potato', 'severity': 'मध्यम (Moderate)', 'chem': 'Mancozeb 75% WP (M-45) ३० ग्रॅम / १५ लिटर', 'bio': 'ट्रायकोडर्मा व्हिरीडी ५० ग्रॅम प्रति पंप.', 'd7': '८ व्या दिवशी कॉपर ऑक्सिक्लोराईड (COC) ३० ग्रॅम फवारावे.', 'd15': '१५ व्या दिवशी ट्रायकोडर्मा व्हिरीडी जमिनीतून ड्रेचिंग करावे.'},
-    'Potato Late Blight (बटाटा उशिरा करपा)': {'crop': 'बटाटा · Potato', 'severity': 'तीव्र / हाय रिस्क (High Risk)', 'chem': 'Cymoxanil 8% + Mancozeb 64% WP ३५ ग्रॅम / १५ लिटर', 'bio': 'स्यूडोमोनास ५ मिली प्रति लिटर पाणी.', 'd7': 'रिडोमिल गोल्ड ३५ ग्रॅम फवारा.', 'd15': 'रोगट पाने उपटून नष्ट करा.'},
+    'Potato Early Blight (बटाटा करपा)': {'crop': 'बटाटा · Potato', 'severity': 'मध्यम (Moderate)', 'chem': 'Mancozeb 75% WP (M-45)', 'brands': 'Indofil M-45, Dithane M-45', 'cost': '₹ ३० - ₹ ४० प्रति पंप', 'dose_15L': '३५ ग्रॅम पावडर + १० मिली स्टिकर', 'dose_200L': '५०० ग्रॅम पावडर + १०० मिली स्टिकर', 'bio': 'ट्रायकोडर्मा व्हिरीडी ५० ग्रॅम प्रति पंप.', 'd7': '८ व्या दिवशी कॉपर ऑक्सिक्लोराईड (COC) ३० ग्रॅम फवारावे.', 'd15': '१५ व्या दिवशी ट्रायकोडर्मा व्हिरीडी जमिनीतून ड्रेचिंग करावे.'},
+    'Potato Late Blight (बटाटा उशिरा करपा)': {'crop': 'बटाटा · Potato', 'severity': 'तीव्र / हाय रिस्क (High Risk)', 'chem': 'Cymoxanil 8% + Mancozeb 64% WP', 'brands': 'Curzate, Ridomil Gold', 'cost': '₹ ६५ - ₹ ८० प्रति पंप', 'dose_15L': '३५ ग्रॅम पावडर + १० मिली स्टिकर', 'dose_200L': '५०० ग्रॅम पावडर + १५० मिली स्टिकर', 'bio': 'स्यूडोमोनास ५ मिली प्रति लिटर पाणी.', 'd7': 'सिमोक्सॅनिल + मॅन्कोझेब ३० ग्रॅम फवारणी करावी.', 'd15': 'रोगग्रस्त पाने उपटून नष्ट करावीत.'},
     'Potato Healthy Leaf (निरोगी बटाटा पान)': get_healthy_info('बटाटा · Potato'),
-    'Diseased Cotton Leaf (रोगग्रस्त कापूस पान)': {'crop': 'कापूस · Cotton', 'severity': 'मध्यम (Moderate)', 'chem': 'COC ३० ग्रॅम + स्ट्रेप्टोसायक्लिन २ ग्रॅम / १५ लिटर', 'bio': 'तांबेयुक्त ताक फवारणी किंवा निंबोळी अर्क ५%.', 'd7': 'प्रोपिकॉनाझोल (Tilt) १५ मिली प्रति पंप फवारावे.', 'd15': 'पांढऱ्या माशीचा प्रादुर्भाव तपासावा.'},
-    'Diseased Cotton Plant (रोगग्रस्त कापूस झाड)': {'crop': 'कापूस · Cotton', 'severity': 'तीव्र (High Risk)', 'chem': 'Carbendazim 12% + Mancozeb 63% WP ३० ग्रॅम / १५ लिटर', 'bio': 'ट्रायकोडर्मा हरझियानम जमिनीतून ड्रेचिंग करावे.', 'd7': 'थायोफॅनेट मिथाईल (Roko) २५ ग्रॅम ड्रेचिंग करावे.', 'd15': 'मुळाशी पाणी साचणार नाही याची काळजी घ्यावी.'},
+    'Diseased Cotton Leaf (रोगग्रस्त कापूस पान)': {'crop': 'कापूस · Cotton', 'severity': 'मध्यम (Moderate)', 'chem': 'COC 50% WP + Streptocycline', 'brands': 'Blitox + Streptocycline, Tilt', 'cost': '₹ ४० - ₹ ५० प्रति पंप', 'dose_15L': '३० ग्रॅम ब्लिटॉक्स + २ ग्रॅम स्ट्रेप्टोसायक्लिन', 'dose_200L': '४०० ग्रॅम ब्लिटॉक्स + २० ग्रॅम स्ट्रेप्टोसायक्लिन', 'bio': 'तांबेयुक्त ताक फवारणी किंवा निंबोळी अर्क ५%.', 'd7': 'प्रोपिकॉनाझोल (Tilt) १५ मिली प्रति पंप फवारावे.', 'd15': 'पांढऱ्या माशीचा प्रादुर्भाव तपासावा.'},
+    'Diseased Cotton Plant (रोगग्रस्त कापूस झाड)': {'crop': 'कापूस · Cotton', 'severity': 'तीव्र (High Risk)', 'chem': 'Carbendazim 12% + Mancozeb 63% WP', 'brands': 'Saaf (UPL), Sixer', 'cost': '₹ ३५ - ₹ ४५ प्रति पंप', 'dose_15L': '३५ ग्रॅम साफ पावडर + १० मिली स्टिकर', 'dose_200L': '५०० ग्रॅम साफ पावडर + १०० मिली स्टिकर', 'bio': 'ट्रायकोडर्मा हरझियानम जमिनीतून ड्रेचिंग करावे.', 'd7': 'थायोफॅनेट मिथाईल (Roko) २५ ग्रॅम ड्रेचिंग करावे.', 'd15': 'मुळाशी पाणी साचणार नाही याची काळजी घ्यावी.'},
     'Fresh Cotton Leaf (निरोगी कापूस पान)': get_healthy_info('कापूस · Cotton'),
     'Fresh Cotton Plant (निरोगी कापूस झाड)': get_healthy_info('कापूस · Cotton'),
-    'Soybean Caterpillar Damage (सोयाबीन अळी प्रादुर्भाव)': {'crop': 'सोयाबीन · Soybean', 'severity': 'तीव्र / हाय रिस्क (High Risk)', 'chem': 'Chlorantraniliprole 18.5% SC (Coragen) ६ मिली प्रति पंप', 'bio': 'निंबोळी अर्क ५% किंवा Bt पावडर.', 'd7': 'नोव्हाल्युरॉन (Rimon) २५ मिली प्रति पंप फवारावे.', 'd15': 'कामगंध सापळे लावावेत.'},
-    'Soybean Leaf Beetle Damage (सोयाबीन भुंगा प्रादुर्भाव)': {'crop': 'सोयाबीन · Soybean', 'severity': 'मध्यम (Moderate)', 'chem': 'Lambda Cyhalothrin 4.9% CS १५ मिली प्रति पंप', 'bio': 'Beauveria bassiana ५ ग्रॅम प्रति लिटर फवारणी.', 'd7': 'निंबोळी अर्क ५% फवारावा.', 'd15': 'पानांखालील किडींची तपासणी करावी.'},
+    'Soybean Caterpillar Damage (सोयाबीन अळी प्रादुर्भाव)': {'crop': 'सोयाबीन · Soybean', 'severity': 'तीव्र / हाय रिस्क (High Risk)', 'chem': 'Chlorantraniliprole 18.5% SC', 'brands': 'Coragen (FMC), Cover', 'cost': '₹ ७५ - ₹ ९० प्रति पंप', 'dose_15L': '६ ते ७ मिली कोराजन + १० मिली स्टिकर', 'dose_200L': '८० ते १०० मिली कोराजन + १५० मिली स्टिकर', 'bio': 'निंबोळी अर्क ५% किंवा Bt पावडर.', 'd7': 'नोव्हाल्युरॉन (Rimon) २५ मिली प्रति पंप फवारावे.', 'd15': 'कामगंध सापळे लावावेत.'},
+    'Soybean Leaf Beetle Damage (सोयाबीन भुंगा प्रादुर्भाव)': {'crop': 'सोयाबीन · Soybean', 'severity': 'मध्यम (Moderate)', 'chem': 'Lambda Cyhalothrin 4.9% CS', 'brands': 'Karate (Syngenta), Kung Fu', 'cost': '₹ ३० - ₹ ४० प्रति पंप', 'dose_15L': '१५ मिली कराटे + १० मिली स्टिकर', 'dose_200L': '२०० मिली कराटे + १०० मिली स्टिकर', 'bio': 'Beauveria bassiana ५ ग्रॅम प्रति लिटर फवारणी.', 'd7': 'निंबोळी अर्क ५% फवारावा.', 'd15': 'पानांखालील किडींची तपासणी करावी.'},
     'Soybean Healthy Leaf (निरोगी सोयाबीन पान)': get_healthy_info('सोयाबीन · Soybean')
 }
 
@@ -285,6 +310,9 @@ with col_l:
     )
     input_mode = st.radio("माध्यम:", ("गॅलरी (Upload)", "कॅमेरा (Camera)"), horizontal=True)
     
+    # Leaf Camera Guide
+    st.info("🎯 **अचूक निकालासाठी टीप:** फोटो काढताना केवळ **एकाच पानाचा जवळून (Close-up) स्वच्छ फोटो** घ्या. फळे, फांद्या किंवा जास्त सावली फोटोत येणार नाही याची काळजी घ्या.")
+
     up_key = f"up_{st.session_state.uploader_key}"
     if input_mode == "गॅलरी (Upload)":
         uploaded_file = st.file_uploader("पानाचा फोटो निवडा:", type=["jpg", "jpeg", "png", "webp"], label_visibility="collapsed", key="g_" + up_key)
@@ -314,7 +342,6 @@ if uploaded_file is not None and models_ready:
     img.save(img_byte_arr, format='JPEG')
     img_bytes = img_byte_arr.getvalue()
 
-    # स्थानिक मॉडेल्स प्रेडिक्शन
     pp = potato_model(np.expand_dims(arr, axis=0), training=False).numpy()[0] if potato_model else [0, 0, 0]
     if np.sum(pp) > 1.05 or np.sum(pp) < 0.95: pp = tf.nn.softmax(pp).numpy()
     ip, cp = int(np.argmax(pp)), float(np.max(pp))
@@ -327,22 +354,6 @@ if uploaded_file is not None and models_ready:
     if np.sum(pc) > 1.05 or np.sum(pc) < 0.95: pc = tf.nn.softmax(pc).numpy()
     ic, cc = int(np.argmax(pc)), float(np.max(pc))
 
-    # PlantDoc मॉडेल प्रेडिक्शन
-    pdm_preds = None
-    if plantdoc_model:
-        pdm_raw = plantdoc_model(np.expand_dims(arr / 255.0, axis=0), training=False).numpy()[0]
-        if np.sum(pp) > 1.05 or np.sum(pp) < 0.95: pp = tf.nn.softmax(pp).numpy()
-    ip, cp = int(np.argmax(pp)), float(np.max(pp))
-
-    ps = soybean_model(np.expand_dims(arr / 255.0, axis=0), training=False).numpy()[0] if soybean_model else [0, 0, 0]
-    if np.sum(ps) > 1.05 or np.sum(ps) < 0.95: ps = tf.nn.softmax(ps).numpy()
-    isoy, cs = int(np.argmax(ps)), float(np.max(ps))
-
-    pc = cotton_model(np.expand_dims(arr / 255.0, axis=0), training=False).numpy()[0] if cotton_model else [0, 0, 0, 0]
-    if np.sum(pc) > 1.05 or np.sum(pc) < 0.95: pc = tf.nn.softmax(pc).numpy()
-    ic, cc = int(np.argmax(pc)), float(np.max(pc))
-
-    # PlantDoc मॉडेल प्रेडिक्शन
     pdm_preds = None
     if plantdoc_model:
         pdm_raw = plantdoc_model(np.expand_dims(arr / 255.0, axis=0), training=False).numpy()[0]
@@ -355,7 +366,6 @@ if uploaded_file is not None and models_ready:
     sc = None
     engine_badge = ""
 
-    # १. युझर मॅन्युअल निवड
     if "मिरची" in crop_mode:
         sc = "plantdoc"; detected_crop_type = "chilli"; engine_badge = "User Selected (Chilli)"
     elif "टोमॅटो" in crop_mode:
@@ -371,7 +381,6 @@ if uploaded_file is not None and models_ready:
     elif "सोयाबीन" in crop_mode:
         sc = "soybean"; engine_badge = "User Selected"
     else:
-        # २. PlantNet द्वारे कोणतीही वनस्पती ओळखणे
         plantnet_success = False
         if plantnet_key:
             try:
@@ -388,7 +397,6 @@ if uploaded_file is not None and models_ready:
                         first_common = top_commons[0] if top_commons else ""
                         full_name_found = f"{first_common} ({top_spec})" if first_common else top_spec
 
-                        # सपोर्टेड पिकांची अचूक तपासणी
                         for r in results[:4]:
                             spec = r.get('species', {}).get('scientificNameWithoutAuthor', '').lower()
                             c_names = [c.lower() for c in r.get('species', {}).get('commonNames', [])]
@@ -410,14 +418,12 @@ if uploaded_file is not None and models_ready:
                             elif "malus" in spec or any("apple" in c for c in c_names):
                                 sc = "plantdoc"; detected_crop_type = "apple"; engine_badge = "PlantNet Botanical AI"; plantnet_success = True; break
 
-                        # जर वनस्पती यादीत नसेल तर तिचे नाव सेव्ह करा
                         if not sc:
                             unsupported_plant_detected = full_name_found
                             plantnet_success = True
             except Exception:
                 plantnet_success = False
 
-        # ३. Gemini Vision AI द्वारे तपासणी (PlantNet अयशस्वी झाल्यास)
         if not sc and not unsupported_plant_detected and gemini_client:
             v_prompt = (
                 "Identify the exact plant in this image. "
@@ -457,7 +463,6 @@ if uploaded_file is not None and models_ready:
                 except Exception:
                     continue
 
-    # 🛑 UNSUPPORTED PLANT WARNING (असमर्थित पिकाचा इशारा)
     if unsupported_plant_detected:
         plant_display = unsupported_plant_detected
         if gemini_client and ("(" not in plant_display):
@@ -473,11 +478,10 @@ if uploaded_file is not None and models_ready:
 
         with col_r:
             st.markdown('<div class="k-card"><b>🌱 वनस्पती ओळख निकाल (Botanical Identification)</b></div>', unsafe_allow_html=True)
-            st.warning(f"🔍 **ओळखलेली वनस्पती:**\n\n### **{plant_display}**\n\n⚠️ **महत्त्वाची सूचना (Unsupported Crop):**\nसध्या हे एआय मॉडेल केवळ **मिरची (Chilli), टोमॅटो (Tomato), मका (Corn), बटाटा (Potato), कापूस (Cotton), सोयाबीन (Soybean), द्राक्षे (Grape) आणि सफरचंद (Apple)** या पिकांच्या रोगनिदानासाठी पूर्णपणे प्रशिक्षित आहे.\n\nचुकीचा सल्ला टाळण्यासाठी कृपया वरील समर्थित पिकांपैकी एका पिकाचे पान निवडा.")
+            st.warning(f"""🔍 **ओळखलेली वनस्पती:**\n\n### **{plant_display}**\n\n⚠️ **महत्त्वाची सूचना (Unsupported Crop):**\nसध्या हे एआय मॉडेल केवळ **मिरची (Chilli), टोमॅटो (Tomato), मका (Corn), बटाटा (Potato), कापूस (Cotton), सोयाबीन (Soybean), द्राक्षे (Grape) आणि सफरचंद (Apple)** या पिकांच्या रोगनिदानासाठी पूर्णपणे प्रशिक्षित आहे.\n\nचुकीचा सल्ला टाळण्यासाठी कृपया वरील समर्थित पिकांपैकी एका पिकाचे पान निवडा.""")
             st.button("🔄 दुसरे पान तपासा (Try Another Sample)", on_click=reset_sample, use_container_width=True)
         st.stop()
 
-    # जर काहीच ओळखता आले नाही तर लोकल न्यूरल नेटवर्क
     if not sc:
         conf_map = {"potato": cp, "cotton": cc, "soybean": cs}
         if plantdoc_model:
@@ -485,11 +489,9 @@ if uploaded_file is not None and models_ready:
         sc = max(conf_map, key=conf_map.get)
         engine_badge = "Universal Neural Network"
 
-    # Roboflow रोगाची तपासणी
     rf_data = query_roboflow_disease(img_bytes)
     is_rf_healthy = rf_data.get("is_healthy", False) if rf_data else False
 
-    # आउटपुट मॅपिंग
     if sc == "plantdoc" and plantdoc_model:
         if detected_crop_type == "chilli":
             crop_label = "🌶️ मिरची · Chilli / Pepper"
@@ -586,7 +588,7 @@ if uploaded_file is not None and models_ready:
             rf_color = "#10B981" if rf_data["is_healthy"] else "#EF4444"
             st.markdown(f'<div style="background:#F8FAFC; border:1px solid #CBD5E1; border-radius:10px; padding:8px 12px; margin-top:8px; font-size:0.85rem;">🔍 <b>Roboflow व्हिजन तपासणी:</b> <span style="color:{rf_color}; font-weight:700;">{rf_data["label"]}</span> ({rf_data["conf"]}%)</div>', unsafe_allow_html=True)
 
-        # 🔊 Clear Natural Marathi Female Voice Assistant
+        # Clear Natural Marathi Female Voice Assistant
         a_txt = f"नमस्कार शेतकरी मित्रहो, ओळखलेले पीक आहे {c_name}. निदान झालेला रोग किंवा स्थिती आहे {diag}. यावरील रासायनिक उपचार: {inf['chem']}. सेंद्रिय उपाय: {inf['bio']}."
         a_js = json.dumps(a_txt)
         a_html = f"""
@@ -624,7 +626,21 @@ if uploaded_file is not None and models_ready:
         """
         components.html(a_html, height=58)
 
-    st.markdown('<div class="w-box"><b>🌤️ प्रादेशिक हवामान जोखीम:</b> स्थानिक तापमान: <b>२८°C</b> | हवेतील आर्द्रता: <b>७६%</b> (दमट वातावरण)<br><b>सल्ला:</b> दमट हवेमुळे बुरशीजन्य रोग वेगाने पसरू शकतात; सकाळी फवारणी करावी.</div>', unsafe_allow_html=True)
+    # Weather Advisory
+    st.markdown("""
+    <div class="w-box">
+        <b>🌤️ फवारणी हवामान सल्ला व खबरदारी:</b><br>
+        • <b>योग्य वेळ:</b> फवारणी नेहमी सकाळी ९ वाजेपूर्वी किंवा संध्याकाळी ४ नंतर करावी. दुपारच्या कडक उन्हात फवारणी टाळा.<br>
+        • <b>पाऊस व धुके खबरदारी:</b> ढगाळ किंवा दमट हवामानात औषधाचे शोषण वाढवण्यासाठी औषधात <b>सिलिकॉनयुक्त स्टिकर (Spreader)</b> मिसळणे फायदेशीर ठरते.
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Tank & Dosage Calculator
+    st.markdown('<div class="k-card"><b>🧮 फवारणी डोस गणक (Dosage & Tank Calculator)</b>', unsafe_allow_html=True)
+    tank_type = st.radio("तुमचा फवारणी पंप/टाकी निवडा:", ("🎒 १५-१६ लिटर पाठीवरचा बॅटरी पंप", "🚜 २०० लिटर ट्रॅक्टर ड्रम / टाकी"), horizontal=True)
+    dose_text = inf.get('dose_15L', 'शिफारस प्रमाण वापरावे') if "१५" in tank_type else inf.get('dose_200L', 'शिफारस प्रमाण वापरावे')
+    st.markdown(f'<div class="calc-box"><b>💧 या टाकीसाठी अचूक प्रमाण:</b><br><span style="font-size:1.05rem; font-weight:700; color:#1E3A8A;">{dose_text}</span></div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
     with st.expander("📊 संभाव्यता विवरण (Probabilities)", expanded=False):
         if is_plantdoc_out:
@@ -641,7 +657,13 @@ if uploaded_file is not None and models_ready:
 
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown(f'<div class="t-chem"><b style="color:#B45309;">🧪 रासायनिक उपचार:</b><br>{inf["chem"]}</div>', unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="t-chem">
+            <b style="color:#B45309;">🧪 रासायनिक उपचार:</b><br>{inf["chem"]}<br><br>
+            <b>🏷️ बाजारातील लोकप्रिय ब्रँड:</b> {inf.get('brands', 'स्थानिक कृषी केंद्रात उपलब्ध ब्रँड')}<br>
+            <b>💰 अंदाजे खर्च:</b> {inf.get('cost', '₹ ४० - ₹ ६०')}
+        </div>
+        """, unsafe_allow_html=True)
     with c2:
         st.markdown(f'<div class="t-bio"><b style="color:#047857;">🌿 सेंद्रिय उपाय:</b><br>{inf["bio"]}</div>', unsafe_allow_html=True)
 
@@ -670,7 +692,6 @@ if uploaded_file is not None and models_ready:
 
     st.markdown(f'<div class="k-card"><b>📅 पुढील फवारणी वेळापत्रक:</b><div class="s-box"><b>दिवस १:</b> वरील शिफारसीत घटकांची फवारणी करा.</div><div class="s-box"><b>दिवस ८:</b> {inf["d7"]}</div><div class="s-box"><b>दिवस १५:</b> {inf["d15"]}</div></div>', unsafe_allow_html=True)
 
-    # 📄 Attractive Professional Digital Report Format
     rf_line = f"• व्हिजन तपासणी    : {rf_data['label']} ({rf_data['conf']}%)" if rf_data else "• व्हिजन तपासणी    : पूर्ण (Verified)"
     
     rep = f"""================================================================================
@@ -692,7 +713,11 @@ if uploaded_file is not None and models_ready:
 [२] शिफारसीत फवारणी व उपचार नियोजन (Treatment Plan)
 --------------------------------------------------------------------------------
 🧪 रासायनिक उपाय (Chemical Treatment):
-   └─ {inf['chem']}
+   └─ औषध घटक : {inf['chem']}
+   └─ ब्रँड नावे  : {inf.get('brands', 'स्थानिक ब्रँड')}
+   └─ १५L पंप डोस : {inf.get('dose_15L', 'प्रमाणानुसार')}
+   └─ २००L ड्रम  : {inf.get('dose_200L', 'प्रमाणानुसार')}
+   └─ अंदाजे खर्च: {inf.get('cost', '₹ ४० - ₹ ६०')}
 
 🌿 सेंद्रिय व जैविक उपाय (Organic/Biological Treatment):
    └─ {inf['bio']}
@@ -705,14 +730,26 @@ if uploaded_file is not None and models_ready:
 📅 दिवस १५ : {inf['d15']}
 
 ================================================================================
-⚠️ सूचना: हा अहवाल सखोल कॉम्प्युटर व्हिजन आणि AI विश्लेषणावर आधारित आहे.
-फवारणी करताना योग्य सुरक्षा नियमांचे पालन करावे आणि आवश्यकतेनुसार स्थानिक
-कृषी तज्ज्ञांचा सल्ला घ्यावा.
+⚠️ सूचना: हा अहवाल AI विश्लेषणावर आधारित आहे. फवारणी करताना सुरक्षा नियमांचे
+पालन करावे आणि आवश्यकतेनुसार स्थानिक कृषी तज्ज्ञांचा सल्ला घ्यावा.
 ================================================================================
 """
+
+    wa_msg = f"""*🌿 कृषी-AI : पीक रोग निदान अहवाल*
+🌾 *पीक:* {c_name}
+🩺 *निदान:* {diag}
+📊 *विश्वासार्हता:* {f_conf:.1f}% ({s_txt})
+
+🧪 *शिफारस औषध:* {inf['chem']}
+🏷️ *ब्रँड नावे:* {inf.get('brands', 'उपलब्ध ब्रँड')}
+💧 *१५ लिटर पंप डोस:* {inf.get('dose_15L', 'योग्य प्रमाण')}
+🌿 *सेंद्रिय उपाय:* {inf['bio']}"""
+
+    wa_url = f"https://api.whatsapp.com/send?text={urllib.parse.quote(wa_msg)}"
 
     d1, d2 = st.columns(2)
     with d1:
         st.download_button(label="⬇️ Download Professional Report", data=rep.encode("utf-8-sig"), file_name=f"krushi_{sc}_report.txt", mime="text/plain; charset=utf-8", use_container_width=True)
+        st.markdown(f'<a href="{wa_url}" target="_blank" class="k-wa-btn">📲 कृषी केंद्राला WhatsApp वर पाठवा</a>', unsafe_allow_html=True)
     with d2:
         st.button("🔄 Try Another Sample", on_click=reset_sample, use_container_width=True)
