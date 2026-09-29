@@ -645,7 +645,7 @@ if uploaded_file is not None and models_ready:
         c_classes = POTATO_CLASSES
         c_preds = pp
 
-                if ip == 2 or is_rf_healthy:
+        if ip == 2 or is_rf_healthy:
             diag = POTATO_CLASSES[2]
             f_conf = float(pp[2] * 100) if ip == 2 else 98.2
         else:
