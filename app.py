@@ -438,16 +438,16 @@ if uploaded_file is not None and models_ready:
     img = Image.open(uploaded_file).convert('RGB')
     resized = img.resize((224, 224))
     arr = np.array(resized, dtype=np.float32)
-        # 🌿 LEAF HEALTH & CHLOROPHYLL GATEKEEPER
-        eval_arr = np.array(img.convert('RGB'), dtype=np.float32)
-        r_c, g_c, b_c = eval_arr[:, :, 0], eval_arr[:, :, 1], eval_arr[:, :, 2]
-        plant_mask = (2.0 * g_c - r_c - b_c) > 10.0
-        necrotic_spots = plant_mask & (r_c > g_c * 1.1) & (r_c > 60)
-        total_p = np.sum(plant_mask)
-        total_d = np.sum(necrotic_spots)
-        force_healthy = False
-        if total_p > 300 and (total_d / max(total_p, 1)) < 0.01:
-            force_healthy = True
+    # 🌿 LEAF HEALTH & CHLOROPHYLL GATEKEEPER
+    eval_arr = np.array(img.convert('RGB'), dtype=np.float32)
+    r_c, g_c, b_c = eval_arr[:, :, 0], eval_arr[:, :, 1], eval_arr[:, :, 2]
+    plant_mask = (2.0 * g_c - r_c - b_c) > 10.0
+    necrotic_spots = plant_mask & (r_c > g_c * 1.1) & (r_c > 60)
+    total_p = np.sum(plant_mask)
+    total_d = np.sum(necrotic_spots)
+    force_healthy = False
+    if total_p > 300 and (total_d / max(total_p, 1)) < 0.01:
+        force_healthy = True
             
     img_byte_arr = io.BytesIO()
     img.save(img_byte_arr, format='JPEG')
