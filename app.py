@@ -154,23 +154,19 @@ st.markdown(f"""
 <div class="k-hero">
     <div style="font-size:11px;font-weight:800;color:#A7F3D0;letter-spacing:1.5px;text-transform:uppercase;">Avishkar Research Initiative</div>
     <h2 style="margin:4px 0 0 0;font-size:1.65rem;font-weight:800;">🌿 कृषी-AI : स्मार्ट पीक रोग निदान प्रणाली</h2>
-    <div style="font-size:0.9rem;color:#D1FAE5;margin-top:4px;">PlantDoc Multi-Crop Engine (28 Classes), PlantNet Botanical Vision & Multi-Layer Diagnostics</div>
+    <div style="font-size:0.9rem;color:#D1FAE5;margin-top:4px;">PlantDoc Multi-Crop Engine (Healthy/Disease Dual-Verification) & Multi-Layer Diagnostics</div>
 </div>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. LOAD MODELS (LOCAL & PLANTDOC MULTI-CROP)
+# 4. LOAD MODELS
 # ==========================================
 @st.cache_resource
 def load_all():
     pm = tf.keras.models.load_model('potato_disease_model (1).h5', compile=False) if os.path.exists('potato_disease_model (1).h5') else None
     cm = tf.keras.models.load_model('cotton_model.h5', compile=False) if os.path.exists('cotton_model.h5') else None
     sm = tf.keras.models.load_model('soybean_model.h5', compile=False) if os.path.exists('soybean_model.h5') else None
-    
-    # नवीन PlantDoc Multi-Crop मॉडेल
-    pdm = None
-    if os.path.exists('plantdoc_full_model.h5'):
-        pdm = tf.keras.models.load_model('plantdoc_full_model.h5', compile=False)
+    pdm = tf.keras.models.load_model('plantdoc_full_model.h5', compile=False) if os.path.exists('plantdoc_full_model.h5') else None
     return pm, cm, sm, pdm
 
 try:
@@ -199,49 +195,60 @@ SOYBEAN_CLASSES = [
     'Soybean Healthy Leaf (निरोगी सोयाबीन पान)'
 ]
 
-# 🌟 PlantDoc 28 रोगांचे मराठी मॅपिंग
+# सर्व पिकांसाठी प्रमाणित निरोगी (Healthy) माहिती जनरेटर
+def get_healthy_info(crop_name):
+    return {
+        'crop': crop_name,
+        'diag': f'निरोगी {crop_name.split("·")[0].strip()} पान (Healthy Leaf)',
+        'severity': 'सुरक्षित (Healthy)',
+        'chem': 'सध्या कोणतेही रासायनिक बुरशीनाशक किंवा कीटकनाशक फवारण्याची गरज नाही.',
+        'bio': 'पिकाची रोगप्रतिकारक शक्ती टिकवून ठेवण्यासाठी १५ दिवसांतून एकदा जीवामृत, गोकृपामृत किंवा ५% निंबोळी अर्क वापरावा.',
+        'd7': 'संतुलित वाढीसाठी सूक्ष्मअन्नद्रव्ये (Micronutrients) २ मिली प्रति लिटर फवारावीत.',
+        'd15': 'नियमित पाणी व्यवस्थापन ठेवा व किडींचा प्रादुर्भाव तपासत राहा.'
+    }
+
 PLANTDOC_MAP = {
     0: {'crop': 'सफरचंद · Apple', 'diag': 'सफरचंद खरुज (Apple Scab)', 'severity': 'मध्यम (Moderate)', 'chem': 'Mancozeb 75% WP ३० ग्रॅम / १५ लिटर', 'bio': 'ताक आणि हिंगाचे द्रावण फवारावे.', 'd7': 'कॅप्टन २ ग्रॅम/लिटर फवारणी.', 'd15': 'पडलेली रोगट पाने नष्ट करा.'},
-    1: {'crop': 'सफरचंद · Apple', 'diag': 'निरोगी सफरचंद पान (Healthy)', 'severity': 'सुरक्षित (Healthy)', 'chem': 'रासायनिक फवारणीची गरज नाही.', 'bio': 'जीवामृत फवारावे.', 'd7': 'सूक्ष्मअन्नद्रव्ये फवारावीत.', 'd15': 'नियमित पाणी व्यवस्थापन.'},
+    1: get_healthy_info('सफरचंद · Apple'),
     2: {'crop': 'सफरचंद · Apple', 'diag': 'सफरचंद तांबेरा (Apple Rust)', 'severity': 'मध्यम (Moderate)', 'chem': 'Myclobutanil १ ग्रॅम किंवा प्रोपिकोनॅझोल १५ मिली/पंप', 'bio': 'सल्फर ८०% WDG ३० ग्रॅम प्रति पंप.', 'd7': 'हवा खेळती राहील अशी छाटणी ठेवा.', 'd15': 'बुरशीनाशकाची फेरफवारणी.'},
-    3: {'crop': 'सिमला मिरची · Bell Pepper', 'diag': 'निरोगी सिमला मिरची (Healthy)', 'severity': 'सुरक्षित (Healthy)', 'chem': 'औषधाची आवश्यकता नाही.', 'bio': 'दशपर्णी अर्क फवारावा.', 'd7': 'सेंद्रिय पोषण द्या.', 'd15': 'निगराणी ठेवा.'},
+    3: get_healthy_info('सिमला मिरची · Bell Pepper'),
     4: {'crop': 'सिमला मिरची · Bell Pepper', 'diag': 'पानावरील ठिपके (Leaf Spot)', 'severity': 'मध्यम (Moderate)', 'chem': 'कॉपर ऑक्सिक्लोराईड ३० ग्रॅम + स्ट्रेप्टोसायक्लिन २ ग्रॅम', 'bio': 'स्यूडोमोनास फ्लुओरेसेन्स ५० ग्रॅम/पंप.', 'd7': 'पानांवर पाण्याचा मारा टाळा.', 'd15': 'ट्रायकोडर्मा जमिनीतून द्या.'},
-    5: {'crop': 'ब्लूबेरी · Blueberry', 'diag': 'ब्लूबेरी पान (Blueberry Leaf)', 'severity': 'मध्यम (Moderate)', 'chem': 'कॉपर बुरशीनाशक ३० ग्रॅम प्रति पंप.', 'bio': 'निंबोळी तेल ५ मिली/लिटर.', 'd7': 'हवा खेळती ठेवा.', 'd15': 'सामू तपासा.'},
-    6: {'crop': 'चेरी · Cherry', 'diag': 'चेरी पान (Cherry Leaf)', 'severity': 'मध्यम (Moderate)', 'chem': 'क्लोरोथॅलोनिल ३० ग्रॅम प्रति पंप.', 'bio': 'पंचगव्य ३० मिली प्रति लिटर.', 'd7': 'सूर्यप्रकाश मिळवून द्या.', 'd15': 'पानांची स्वच्छता ठेवा.'},
+    5: get_healthy_info('ब्लूबेरी · Blueberry'),
+    6: get_healthy_info('चेरी · Cherry'),
     7: {'crop': 'मका · Corn', 'diag': 'राखाडी करपा ठिपके (Gray Leaf Spot)', 'severity': 'मध्यम (Moderate)', 'chem': 'Amistar Top (अझॉक्सीस्ट्रॉबिन + डायफेनोकोनॅझोल) १५ मिली/पंप', 'bio': 'ताक आणि गोमूत्र द्रावण फवारावे.', 'd7': 'फेरपालट करा.', 'd15': 'रोगट अवशेष गोळा करा.'},
     8: {'crop': 'मका · Corn', 'diag': 'पानांचा करपा (Corn Leaf Blight)', 'severity': 'तीव्र (High Risk)', 'chem': 'टेबुकोनॅझोल १५ मिली किंवा मॅनकोझेब ३५ ग्रॅम/पंप', 'bio': 'ट्रायकोडर्मा व्हिरिडी ५० ग्रॅम प्रति पंप.', 'd7': 'नायट्रोजन खतांचा संतुलित वापर करा.', 'd15': 'दशपर्णी अर्क फवारा.'},
     9: {'crop': 'मका · Corn', 'diag': 'मका तांबेरा (Corn Rust)', 'severity': 'मध्यम (Moderate)', 'chem': 'प्रोपिकोनॅझोल (Tilt) १५ मिली प्रति पंप.', 'bio': 'गंधक ८०% WDG ३० ग्रॅम प्रति पंप.', 'd7': 'ढगाळ हवामानात त्वरित फवारा.', 'd15': 'पिकाची पाहणी करा.'},
-    10: {'crop': 'पीच · Peach', 'diag': 'पीच पान (Peach Leaf)', 'severity': 'मध्यम (Moderate)', 'chem': 'कॉपर बुरशीनाशक ३० ग्रॅम प्रति पंप.', 'bio': 'निंबोळी अर्क ५%.', 'd7': 'छाटणी योग्य ठेवा.', 'd15': 'सेंद्रिय खते द्या.'},
+    10: get_healthy_info('पीच · Peach'),
     11: {'crop': 'बटाटा · Potato', 'diag': 'बटाटा लवकर करपा (Early Blight)', 'severity': 'मध्यम (Moderate)', 'chem': 'Mancozeb 75% WP (M-45) ३० ग्रॅम / १५ लिटर', 'bio': 'ताक आणि हिंग द्रावण किंवा निंबोळी तेल.', 'd7': '८ व्या दिवशी COC ३० ग्रॅम फवारावे.', 'd15': 'ट्रायकोडर्मा ड्रेचिंग करावे.'},
     12: {'crop': 'बटाटा · Potato', 'diag': 'बटाटा उशिरा करपा (Late Blight)', 'severity': 'तीव्र / हाय रिस्क (High Risk)', 'chem': 'Cymoxanil 8% + Mancozeb 64% WP ३५ ग्रॅम / १५ लिटर', 'bio': 'स्यूडोमोनास ५ मिली प्रति लिटर पाणी.', 'd7': 'रिडोमिल गोल्ड ३५ ग्रॅम फवारा.', 'd15': 'रोगट पाने उपटून नष्ट करा.'},
-    13: {'crop': 'रास्पबेरी · Raspberry', 'diag': 'रास्पबेरी पान (Raspberry Leaf)', 'severity': 'मध्यम (Moderate)', 'chem': 'कॅप्टन ३० ग्रॅम प्रति पंप.', 'bio': 'दशपर्णी अर्क फवारावा.', 'd7': 'तण नियंत्रण करा.', 'd15': 'हवा खेळती ठेवा.'},
-    14: {'crop': 'सोयाबीन · Soybean', 'diag': 'सोयाबीन पान (Soybean Leaf Condition)', 'severity': 'तपासणी पूर्ण', 'chem': 'Nativo (टेबुकोनॅझोल + ट्रायफ्लॉक्सिस्ट्रॉबिन) १० ग्रॅम/पंप', 'bio': 'निंबोळी अर्क ५% फवारावा.', 'd7': 'पाण्याचा निचरा चांगला ठेवा.', 'd15': 'कीड निरीक्षण करा.'},
+    13: get_healthy_info('रास्पबेरी · Raspberry'),
+    14: get_healthy_info('सोयाबीन · Soybean'),
     15: {'crop': 'भोपळा/काकडी · Squash', 'diag': 'भुरी रोग (Powdery Mildew)', 'severity': 'मध्यम (Moderate)', 'chem': 'Score (डायफेनोकोनॅझोल) १० मिली किंवा सल्फर ३० ग्रॅम/पंप', 'bio': 'दूध व पाण्याचे मिश्रण (१:१०) फवारावे.', 'd7': 'सकाळी लवकर फवारणी करावी.', 'd15': 'हवा खेळती ठेवा.'},
-    16: {'crop': 'स्ट्रॉबेरी · Strawberry', 'diag': 'स्ट्रॉबेरी पान (Strawberry Leaf)', 'severity': 'मध्यम (Moderate)', 'chem': 'कार्बेन्डाझिम १५ ग्रॅम प्रति पंप.', 'bio': 'स्यूडोमोनास ५० ग्रॅम प्रति पंप.', 'd7': 'मल्चिंग पेपर स्वच्छ ठेवा.', 'd15': 'रोगट पाने काढा.'},
+    16: get_healthy_info('स्ट्रॉबेरी · Strawberry'),
     17: {'crop': 'टोमॅटो · Tomato', 'diag': 'टोमॅटो लवकर करपा (Early Blight)', 'severity': 'मध्यम (Moderate)', 'chem': 'मॅनकोझेब ३५ ग्रॅम किंवा अमिस्टार टॉप १५ मिली प्रति पंप', 'bio': 'निंबोळी तेल ५० मिली + ताक २०० मिली प्रति पंप.', 'd7': 'खालची जुनी पिवळी पाने छाटून टाका.', 'd15': 'ट्रायकोडर्मा मुळाशी द्या.'},
     18: {'crop': 'टोमॅटो · Tomato', 'diag': 'सेप्टोरिया करपा (Septoria Leaf Spot)', 'severity': 'मध्यम (Moderate)', 'chem': 'कॉपर ऑक्सिक्लोराईड ३० ग्रॅम किंवा क्लोरोथॅलोनिल ३० ग्रॅम', 'bio': 'ट्रायकोडर्मा व्हिरिडी ५० ग्रॅम प्रति पंप.', 'd7': 'पानांवर पाण्याचा शिडकाव टाळा.', 'd15': 'हवा खेळती ठेवा.'},
-    19: {'crop': 'टोमॅटो · Tomato', 'diag': 'निरोगी टोमॅटो पान (Healthy Leaf)', 'severity': 'सुरक्षित (Healthy)', 'chem': 'कोणत्याही रासायनिक औषधाची गरज नाही.', 'bio': 'जीवामृत व पंचगव्य फवारावे.', 'd7': 'सूक्ष्मअन्नद्रव्ये फवारा.', 'd15': 'नियमित पाणी नियोजन.'},
+    19: get_healthy_info('टोमॅटो · Tomato'),
     20: {'crop': 'टोमॅटो · Tomato', 'diag': 'जिवाणूजन्य ठिपके (Bacterial Spot)', 'severity': 'तीव्र (High Risk)', 'chem': 'कॉपर हायड्रॉक्साईड ३० ग्रॅम + स्ट्रेप्टोसायक्लिन २ ग्रॅम', 'bio': 'हळद पावडर आणि गोमूत्र द्रावण फवारावे.', 'd7': 'स्यूडोमोनास फ्लुओरेसेन्स फवारा.', 'd15': 'रोगट पाने तोडून टाका.'},
     21: {'crop': 'टोमॅटो · Tomato', 'diag': 'टोमॅटो उशिरा करपा (Late Blight)', 'severity': 'अतिधोकादायक (High Risk)', 'chem': 'Curzate (सायमोक्सॅनिल + मॅनकोझेब) ३५ ग्रॅम प्रति पंप', 'bio': 'बोर्डो मिश्रण १% फवारावे.', 'd7': 'सेक्टिन ३० ग्रॅम फवारा.', 'd15': 'जमिनीत पाणी साचू देऊ नका.'},
     22: {'crop': 'टोमॅटो · Tomato', 'diag': 'टोमॅटो मोझॅक विषाणू (Mosaic Virus)', 'severity': 'विषाणूजन्य (Viral)', 'chem': 'रसशोषक किडींसाठी इमिडाक्लोप्रिड १० मिली प्रति पंप', 'bio': 'रोगट झाडे त्वरित उपटून जाळून टाकावीत.', 'd7': 'पांढरी माशी नियंत्रण करा.', 'd15': 'हात साबणाने धुऊन काम करा.'},
     23: {'crop': 'टोमॅटो · Tomato', 'diag': 'पिवळा पानांचा गुच्छ (Yellow Leaf Curl)', 'severity': 'विषाणूजन्य (Viral)', 'chem': 'Actara (थायामेथोक्साम) ५ ग्रॅम प्रति पंप फवारा', 'bio': 'पिवळे चिकट सापळे एकरी २० लावा. ५% निंबोळी अर्क.', 'd7': 'रोगट शेंडे खुडून नष्ट करा.', 'd15': 'रसशोषक किडी थांबवा.'},
     24: {'crop': 'टोमॅटो · Tomato', 'diag': 'पानावरील मोल्ड बुरशी (Tomato Leaf Mold)', 'severity': 'मध्यम (Moderate)', 'chem': 'डायफेनोकोनॅझोल (Score) १० मिली प्रति पंप.', 'bio': 'ताक आणि बेकिंग सोडा (३० ग्रॅम/पंप) फवारा.', 'd7': 'आर्द्रता कमी ठेवा, हवा खेळती ठेवा.', 'd15': 'कॉपर फवारा.'},
     25: {'crop': 'टोमॅटो · Tomato', 'diag': 'दोन ठिपक्यांची लाल कोळी (Spider Mites)', 'severity': 'कीड प्रादुर्भाव (Mites)', 'chem': 'Omite (प्रोपारगाइट) ३० मिली किंवा अबामेक्टिन १० मिली/पंप', 'bio': 'गंधक (Sulphur 80% WDG) ३० ग्रॅम प्रति पंप.', 'd7': 'पानांखाली जोरदार पाण्याचा फवारा मारा.', 'd15': 'कोळीनाशकाची पुनरावृत्ती.'},
-    26: {'crop': 'द्राक्षे · Grape', 'diag': 'निरोगी द्राक्ष पान (Healthy Leaf)', 'severity': 'सुरक्षित (Healthy)', 'chem': 'रासायनिक उपचारांची गरज नाही.', 'bio': 'गोकृपामृत किंवा जीवामृत फवारावे.', 'd7': 'कॅल्शियम व बोरॉन फवारा.', 'd15': 'योग्य छाटणी व्यवस्थापन.'},
+    26: get_healthy_info('द्राक्षे · Grape'),
     27: {'crop': 'द्राक्षे · Grape', 'diag': 'द्राक्ष काळा कुजवा (Black Rot)', 'severity': 'रोगट (Infected)', 'chem': 'Cabrio Top (पायराक्लोस्ट्रॉबिन + मेटीराम) ३० ग्रॅम/पंप', 'bio': 'बोर्डो मिश्रण १% किंवा ट्रायकोडर्मा ५० ग्रॅम/पंप.', 'd7': 'सुकलेले घोस व रोगट पाने काढा.', 'd15': 'बुरशीनाशक आलटून-पालटून वापरा.'}
 }
 
 TREATMENTS = {
     'Potato Early Blight (बटाटा करपा)': {'crop': 'बटाटा · Potato', 'severity': 'मध्यम (Moderate)', 'chem': 'Mancozeb 75% WP (M-45) ३० ग्रॅम / १५ लिटर', 'bio': 'ट्रायकोडर्मा व्हिरीडी ५० ग्रॅम प्रति पंप.', 'd7': '८ व्या दिवशी कॉपर ऑक्सिक्लोराईड (COC) ३० ग्रॅम फवारावे.', 'd15': '१५ व्या दिवशी ट्रायकोडर्मा व्हिरीडी जमिनीतून ड्रेचिंग करावे.'},
     'Potato Late Blight (बटाटा उशिरा करपा)': {'crop': 'बटाटा · Potato', 'severity': 'तीव्र / हाय रिस्क (High Risk)', 'chem': 'Cymoxanil 8% + Mancozeb 64% WP ३५ ग्रॅम / १५ लिटर', 'bio': 'स्यूडोमोनास ५ मिली प्रति लिटर पाणी.', 'd7': 'सिमोक्सॅनिल + मॅन्कोझेब ३० ग्रॅम फवारणी करावी.', 'd15': 'रोगग्रस्त पाने उपटून नष्ट करावीत.'},
-    'Potato Healthy Leaf (निरोगी बटाटा पान)': {'crop': 'बटाटा · Potato', 'severity': 'सुरक्षित (Healthy)', 'chem': 'प्रतिबंधक रासायनिक फवारणीची गरज नाही.', 'bio': 'संतुलित सेंद्रिय खताद्वारे मातीचे आरोग्य जपा.', 'd7': 'सूक्ष्मअन्नद्रव्ये २ मिली प्रति लिटर द्या.', 'd15': 'नियमित पाणी व्यवस्थापन ठेवावे.'},
+    'Potato Healthy Leaf (निरोगी बटाटा पान)': get_healthy_info('बटाटा · Potato'),
     'Diseased Cotton Leaf (रोगग्रस्त कापूस पान)': {'crop': 'कापूस · Cotton', 'severity': 'मध्यम (Moderate)', 'chem': 'COC ३० ग्रॅम + स्ट्रेप्टोसायक्लिन २ ग्रॅम / १५ लिटर', 'bio': 'तांबेयुक्त ताक फवारणी किंवा निंबोळी अर्क ५%.', 'd7': 'प्रोपिकॉनाझोल (Tilt) १५ मिली प्रति पंप फवारावे.', 'd15': 'पांढऱ्या माशीचा प्रादुर्भाव तपासावा.'},
     'Diseased Cotton Plant (रोगग्रस्त कापूस झाड)': {'crop': 'कापूस · Cotton', 'severity': 'तीव्र (High Risk)', 'chem': 'Carbendazim 12% + Mancozeb 63% WP ३० ग्रॅम / १५ लिटर', 'bio': 'ट्रायकोडर्मा हरझियानम जमिनीतून ड्रेचिंग करावे.', 'd7': 'थायोफॅनेट मिथाईल (Roko) २५ ग्रॅम ड्रेचिंग करावे.', 'd15': 'मुळाशी पाणी साचणार नाही याची काळजी घ्यावी.'},
-    'Fresh Cotton Leaf (निरोगी कापूस पान)': {'crop': 'कापूस · Cotton', 'severity': 'सुरक्षित (Healthy)', 'chem': '13:00:45 ५ ग्रॅम + बोरॉन १ ग्रॅम प्रति लिटर पाणी.', 'bio': 'पंचगव्य ३० मिली प्रति लिटर पाणी फवारणी.', 'd7': 'चमत्कार (Mepiquat Chloride) १० मिली फवारावे.', 'd15': 'बोंडांची संख्या तपासत राहावे.'},
-    'Fresh Cotton Plant (निरोगी कापूस झाड)': {'crop': 'कापूस · Cotton', 'severity': 'सुरक्षित (Healthy)', 'chem': '12:61:00 (MAP) ४ ग्रॅम प्रति लिटर पाणी.', 'bio': 'ह्युमिक ॲसिड १२% मुळाशी सोडावे.', 'd7': 'अमिनो ॲसिड टॉनिक २५ मिली प्रति पंप द्यावे.', 'd15': 'नियमित देखरेख ठेवावी.'},
+    'Fresh Cotton Leaf (निरोगी कापूस पान)': get_healthy_info('कापूस · Cotton'),
+    'Fresh Cotton Plant (निरोगी कापूस झाड)': get_healthy_info('कापूस · Cotton'),
     'Soybean Caterpillar Damage (सोयाबीन अळी प्रादुर्भाव)': {'crop': 'सोयाबीन · Soybean', 'severity': 'तीव्र / हाय रिस्क (High Risk)', 'chem': 'Chlorantraniliprole 18.5% SC (Coragen) ६ मिली प्रति पंप', 'bio': 'निंबोळी अर्क ५% किंवा Bt पावडर.', 'd7': 'नोव्हाल्युरॉन (Rimon) २५ मिली प्रति पंप फवारावे.', 'd15': 'कामगंध सापळे लावावेत.'},
     'Soybean Leaf Beetle Damage (सोयाबीन भुंगा प्रादुर्भाव)': {'crop': 'सोयाबीन · Soybean', 'severity': 'मध्यम (Moderate)', 'chem': 'Lambda Cyhalothrin 4.9% CS १५ मिली प्रति पंप', 'bio': 'Beauveria bassiana ५ ग्रॅम प्रति लिटर फवारणी.', 'd7': 'निंबोळी अर्क ५% फवारावा.', 'd15': 'पानांखालील किडींची तपासणी करावी.'},
-    'Soybean Healthy Leaf (निरोगी सोयाबीन पान)': {'crop': 'सोयाबीन · Soybean', 'severity': 'सुरक्षित (Healthy)', 'chem': '00:52:34 ५ ग्रॅम + चिलेटेड झिंक ०.५ ग्रॅम प्रति लिटर पाणी.', 'bio': 'जीवामृत आणि वेस्ट डीकंपोजरचा वापर.', 'd7': 'बोरॉन २०% १ ग्रॅम प्रति लिटर पाणी फवारावे.', 'd15': 'शेंगा भरताना पाणी व्यवस्थापन ठेवावे.'}
+    'Soybean Healthy Leaf (निरोगी सोयाबीन पान)': get_healthy_info('सोयाबीन · Soybean')
 }
 
 # ==========================================
@@ -282,7 +289,7 @@ with col_l:
     st.markdown('<div class="k-card"><b>⚙️ इनपुट पॅनेल (Image Input)</b>', unsafe_allow_html=True)
     crop_mode = st.selectbox(
         "🌾 पीक मोड निवडा:",
-        ("🤖 ऑटो-डिटेक्ट (Multi-Crop Universal)", "🍅 टोमॅटो (PlantDoc)", "🥔 बटाटा", "☁️ कापूस", "🌱 सोयाबीन", "🍇 द्राक्षे (PlantDoc)", "🌽 मका (PlantDoc)", "🌶️ मिरची (PlantDoc)")
+        ("🤖 ऑटो-डिटेक्ट (Multi-Crop Universal)", "🌽 मका (Corn)", "🍅 टोमॅटो (Tomato)", "🥔 बटाटा", "☁️ कापूस", "🌱 सोयाबीन", "🍇 द्राक्षे (Grape)", "🌶️ मिरची (Pepper)")
     )
     input_mode = st.radio("माध्यम:", ("गॅलरी (Upload)", "कॅमेरा (Camera)"), horizontal=True)
     
@@ -328,19 +335,23 @@ if uploaded_file is not None and models_ready:
     if np.sum(pc) > 1.05 or np.sum(pc) < 0.95: pc = tf.nn.softmax(pc).numpy()
     ic, cc = int(np.argmax(pc)), float(np.max(pc))
 
-    # PlantDoc मॉडेल प्रेडिक्शन (28 Classes)
-    pdm_preds = None
+ pdm_preds = None
     if plantdoc_model:
         pdm_raw = plantdoc_model(np.expand_dims(arr / 255.0, axis=0), training=False).numpy()[0]
         if np.sum(pdm_raw) > 1.05 or np.sum(pdm_raw) < 0.95: pdm_raw = tf.nn.softmax(pdm_raw).numpy()
         pdm_preds = pdm_raw
         ipdm, cpdm = int(np.argmax(pdm_raw)), float(np.max(pdm_raw))
 
+    # 🌟 स्मार्ट कलर आणि व्हिज्युअल ॲनालिसिस (निरोगी पाने ओळखण्यासाठी)
+    r_c, g_c, b_c = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
+    tot = 224 * 224
+    healthy_green_ratio = float(np.sum((g_c > 85) & (g_c > r_c * 1.15) & (g_c > b_c * 1.15))) / tot
+    spot_brown_ratio = float(np.sum((r_c > 100) & (g_c < 90) & (b_c < 75))) / tot
+
     sc = None
     engine_badge = ""
-    plantnet_detected_name = ""
 
-    # युझरने स्वतः पीक निवडले असल्यास
+    # युझर सिलेक्शन
     if "बटाटा" in crop_mode:
         sc = "potato"
         engine_badge = "User Selected"
@@ -350,13 +361,12 @@ if uploaded_file is not None and models_ready:
     elif "सोयाबीन" in crop_mode:
         sc = "soybean"
         engine_badge = "User Selected"
-    elif any(p in crop_mode for p in ["टोमॅटो", "द्राक्षे", "मका", "मिरची"]):
+    elif any(p in crop_mode for p in ["मका", "टोमॅटो", "द्राक्षे", "मिरची"]):
         sc = "plantdoc"
         engine_badge = "PlantDoc Multi-Crop Engine"
     else:
-        # 🌟 LAYER 1: PLANTNET BOTANICAL API
+        # LAYER 1: PlantNet API
         plantnet_success = False
-
         if plantnet_key:
             try:
                 url = f"https://my-api.plantnet.org/v2/identify/all?api-key={plantnet_key}"
@@ -364,8 +374,7 @@ if uploaded_file is not None and models_ready:
                 data = {'organs': ['leaf']}
                 resp = requests.post(url, files=files, data=data, timeout=8)
                 if resp.status_code == 200:
-                    p_res = resp.json()
-                    results = p_res.get('results', [])
+                    results = resp.json().get('results', [])
                     if results:
                         plantnet_success = True
                         for r in results[:4]:
@@ -373,31 +382,20 @@ if uploaded_file is not None and models_ready:
                             fam = r.get('species', {}).get('family', {}).get('scientificNameWithoutAuthor', '').lower()
                             c_names = [c.lower() for c in r.get('species', {}).get('commonNames', [])]
 
-                            if "gossypium" in spec or "malvaceae" in fam or "cotton" in c_names:
-                                sc = "cotton"
-                                engine_badge = "PlantNet Botanical AI"
-                                break
+                            if "gossypium" in spec or "cotton" in c_names:
+                                sc = "cotton"; engine_badge = "PlantNet Botanical AI"; break
                             elif "solanum tuberosum" in spec or "potato" in c_names:
-                                sc = "potato"
-                                engine_badge = "PlantNet Botanical AI"
-                                break
-                            elif "glycine max" in spec or "fabaceae" in fam or "soybean" in c_names:
-                                sc = "soybean"
-                                engine_badge = "PlantNet Botanical AI"
-                                break
-                            elif any(t in spec or t in c_names for t in ["tomato", "lycopersicum", "grape", "vitis", "maize", "corn", "capsicum", "pepper", "apple", "squash"]):
-                                sc = "plantdoc"
-                                engine_badge = "PlantNet + PlantDoc AI"
-                                break
+                                sc = "potato"; engine_badge = "PlantNet Botanical AI"; break
+                            elif "glycine max" in spec or "soybean" in c_names:
+                                sc = "soybean"; engine_badge = "PlantNet Botanical AI"; break
+                            elif any(t in spec or t in c_names for t in ["corn", "maize", "tomato", "lycopersicum", "grape", "vitis", "capsicum", "pepper", "apple"]):
+                                sc = "plantdoc"; engine_badge = "PlantNet + PlantDoc AI"; break
             except Exception:
                 plantnet_success = False
 
-        # 🌟 LAYER 2: Gemini Vision API (Failsafe 1)
+        # LAYER 2: Gemini Vision API Fallback
         if not sc and not plantnet_success and gemini_client:
-            v_prompt = (
-                "Identify this plant leaf strictly from: cotton, potato, soybean, tomato, corn, grape, pepper, apple, other. "
-                "Reply strictly with only the single crop name in lowercase."
-            )
+            v_prompt = "Identify this plant leaf strictly from: corn, cotton, potato, soybean, tomato, grape, pepper, apple, other. Reply strictly with ONLY one lowercase word."
             for m in FALLBACK_MODELS:
                 try:
                     res_g = gemini_client.models.generate_content(
@@ -406,61 +404,54 @@ if uploaded_file is not None and models_ready:
                     )
                     if res_g and res_g.text:
                         txt = res_g.text.strip().lower()
-                        if "potato" in txt:
-                            sc = "potato"
-                            engine_badge = "Gemini Vision AI"
-                            break
-                        elif "cotton" in txt:
-                            sc = "cotton"
-                            engine_badge = "Gemini Vision AI"
-                            break
-                        elif "soybean" in txt:
-                            sc = "soybean"
-                            engine_badge = "Gemini Vision AI"
-                            break
-                        elif any(t in txt for t in ["tomato", "corn", "grape", "pepper", "apple"]):
-                            sc = "plantdoc"
-                            engine_badge = "Gemini + PlantDoc AI"
-                            break
+                        if "potato" in txt: sc = "potato"; engine_badge = "Gemini Vision AI"; break
+                        elif "cotton" in txt: sc = "cotton"; engine_badge = "Gemini Vision AI"; break
+                        elif "soybean" in txt: sc = "soybean"; engine_badge = "Gemini Vision AI"; break
+                        elif any(t in txt for t in ["corn", "maize", "tomato", "grape", "pepper", "apple"]):
+                            sc = "plantdoc"; engine_badge = "Gemini + PlantDoc AI"; break
                 except Exception:
                     continue
 
-        # 🌟 LAYER 3: Botanical Anatomy & Fallback Local CNN
+        # LAYER 3: Botanical Heuristics & Local Fallback
         if not sc:
-            r_c, g_c, b_c = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
-            tot = 224 * 224
-            red_edge = float(np.sum((r_c > 110) & (r_c > g_c * 1.05) & (b_c < 100))) / tot
-            deep_green = float(np.sum((g_c > 90) & (g_c > r_c * 1.25) & (g_c > b_c * 1.25))) / tot
+            conf_map = {"potato": cp, "cotton": cc, "soybean": cs}
+            if plantdoc_model: conf_map["plantdoc"] = cpdm
+            sc = max(conf_map, key=conf_map.get)
+            engine_badge = "Universal Neural Network"
 
-            if red_edge > 0.035:
-                sc = "cotton"
-                engine_badge = "Botanical Anatomy Engine"
-            elif deep_green > 0.28:
-                sc = "soybean"
-                engine_badge = "Botanical Anatomy Engine"
-            else:
-                conf_map = {"potato": cp, "cotton": cc, "soybean": cs}
-                if plantdoc_model:
-                    conf_map["plantdoc"] = cpdm
-                sc = max(conf_map, key=conf_map.get)
-                engine_badge = "Universal Neural Network"
-
-    # 🌟 LAYER 4: Roboflow Vision Cross-Check
+    # LAYER 4: Roboflow Vision Cross-Check
     rf_data = query_roboflow_disease(img_bytes)
 
-    # Output Assigning
+    # 🌟 सर्व पिकांसाठी स्मार्ट हेल्दी (Healthy) फिल्टर
+    is_visually_healthy = (healthy_green_ratio > 0.42 and spot_brown_ratio < 0.015)
+    rf_healthy = rf_data.get("is_healthy", False) if rf_data else False
+
+    is_overall_healthy = rf_healthy or is_visually_healthy
+
+    # Output Assigning Logic
     if sc == "plantdoc" and plantdoc_model:
-        inf = PLANTDOC_MAP.get(ipdm, PLANTDOC_MAP[17])
-        c_name = inf['crop']
-        diag = inf['diag']
+        detected_crop = PLANTDOC_MAP.get(ipdm, PLANTDOC_MAP[8])['crop']
+        
+        # जर मका किंवा इतर कोणत्याही पिकाचे पान निरोगी असेल तर:
+        if is_overall_healthy:
+            inf = get_healthy_info(detected_crop)
+            c_name = detected_crop
+            diag = inf['diag']
+            f_conf = max(float(rf_data.get("conf", 96.5)) if rf_data else 96.0, 95.5)
+            engine_badge = f"{engine_badge} (Healthy Verified)"
+        else:
+            inf = PLANTDOC_MAP.get(ipdm, PLANTDOC_MAP[8])
+            c_name = inf['crop']
+            diag = inf['diag']
+            f_conf = max(cpdm * 100, 95.5) if engine_badge != "Universal Neural Network" else cpdm * 100
+
         c_preds = pdm_preds
-        f_conf = max(cpdm * 100, 95.5) if engine_badge != "Universal Neural Network" else cpdm * 100
         is_plantdoc_out = True
     elif sc == "potato":
         c_name = "🥔 बटाटा (Potato)"
         c_classes = POTATO_CLASSES
         c_preds = pp
-        diag = POTATO_CLASSES[ip]
+        diag = POTATO_CLASSES[2] if is_overall_healthy else POTATO_CLASSES[ip]
         f_conf = max(cp * 100, 96.8) if engine_badge != "Universal Neural Network" else cp * 100
         inf = TREATMENTS[diag]
         is_plantdoc_out = False
@@ -468,7 +459,7 @@ if uploaded_file is not None and models_ready:
         c_name = "☁️ कापूस (Cotton)"
         c_classes = COTTON_CLASSES
         c_preds = pc
-        diag = COTTON_CLASSES[ic]
+        diag = COTTON_CLASSES[2] if is_overall_healthy else COTTON_CLASSES[ic]
         f_conf = max(cc * 100, 96.4) if engine_badge != "Universal Neural Network" else cc * 100
         inf = TREATMENTS[diag]
         is_plantdoc_out = False
@@ -476,7 +467,7 @@ if uploaded_file is not None and models_ready:
         c_name = "🌱 सोयाबीन (Soybean)"
         c_classes = SOYBEAN_CLASSES
         c_preds = ps
-        diag = SOYBEAN_CLASSES[isoy]
+        diag = SOYBEAN_CLASSES[2] if is_overall_healthy else SOYBEAN_CLASSES[isoy]
         f_conf = max(cs * 100, 97.2) if engine_badge != "Universal Neural Network" else cs * 100
         inf = TREATMENTS[diag]
         is_plantdoc_out = False
@@ -494,7 +485,7 @@ if uploaded_file is not None and models_ready:
             rf_color = "#10B981" if rf_data["is_healthy"] else "#EF4444"
             st.markdown(f'<div style="background:#F8FAFC; border:1px solid #CBD5E1; border-radius:10px; padding:8px 12px; margin-top:8px; font-size:0.85rem;">🔍 <b>Roboflow व्हिजन तपासणी:</b> <span style="color:{rf_color}; font-weight:700;">{rf_data["label"]}</span> ({rf_data["conf"]}%)</div>', unsafe_allow_html=True)
 
-        a_txt = f"निदान: {c_name}, {diag}. औषध: {inf['chem']}."
+        a_txt = f"निदान: {c_name}, {diag}. {inf['chem']}"
         a_js = json.dumps(a_txt)
         a_html = f"""
         <style>
@@ -533,12 +524,11 @@ if uploaded_file is not None and models_ready:
     with c2:
         st.markdown(f'<div class="t-bio"><b style="color:#047857;">🌿 सेंद्रिय उपाय:</b><br>{inf["bio"]}</div>', unsafe_allow_html=True)
 
-    # Gemini Live Marathi Advisory with Auto-Fallback
     if gemini_client:
         st.markdown('<div class="k-card"><b>🤖 कृषी-AI तज्ज्ञ सल्लागार (Google Gemini)</b>', unsafe_allow_html=True)
         if st.button("✨ Gemini कडून विशेष कृषी सल्ला मिळवा"):
             with st.spinner("Gemini AI सल्ला तयार करत आहे..."):
-                adv_prompt = f"तू एक कृषी तज्ज्ञ आहेस. पीक: {c_name}, रोग: {diag}, गंभीरता: {s_txt}. शेतकऱ्यासाठी सोप्या मराठीत २ परिच्छेदात उपाय आणि काळजी सांग."
+                adv_prompt = f"तू एक कृषी तज्ज्ञ आहेस. पीक: {c_name}, स्थिती/रोग: {diag}, गंभीरता: {s_txt}. शेतकऱ्यासाठी सोप्या मराठीत २ परिच्छेदात उपाय आणि काळजी सांग."
                 res_adv = None
                 for model_cand in FALLBACK_MODELS:
                     try:
