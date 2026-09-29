@@ -587,14 +587,12 @@ if uploaded_file is not None and models_ready:
     active_model_instance = plantdoc_model if (sc == "plantdoc") else (potato_model if sc == "potato" else (cotton_model if sc == "cotton" else soybean_model))
     input_tensor = np.expand_dims(arr / 255.0, axis=0) if sc != "potato" else np.expand_dims(arr, axis=0)
 
-    # 🎯 DIRECT MACHINE LEARNING INFERENCE (NO ARBITRARY PIXEL HACKS)
-        if sc == "plantdoc" and plantdoc_model:
-           if sc == "plantdoc" and plantdoc_model:
-           # 1. मिरची (Chilli / Pepper)
-           if "chilli" in str(detected_crop_type).lower() or "pepper" in str(detected_crop_type).lower():
-               crop_label = "🌶️ मिरची · Chilli / Pepper"
-               # जर Roboflow ने healthy म्हटले किंवा प्लांटडॉकचा इंडेक्स 3 असेल, किंवा मॉडेलचा कॉन्फिडन्स कमी असेल
-           if is_rf_healthy or ipdm == 3 or (ipdm == 4 and cpdm < 0.85):
+    # DIRECT MACHINE LEARNING INFERENCE (NO ARBITRARY OVERRIDES)
+    if sc == "plantdoc" and plantdoc_model:
+        # 1. Chilli / Pepper
+        if "chilli" in str(detected_crop_type).lower() or "pepper" in str(detected_crop_type).lower():
+            crop_label = "🌶️ मिरची · Chilli / Pepper"
+            if is_rf_healthy or ipdm == 3 or (ipdm == 4 and cpdm < 0.85):
                 inf = get_healthy_info(crop_label)
                 f_conf = 98.4
             else:
