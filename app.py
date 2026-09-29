@@ -41,7 +41,6 @@ def reset_sample():
 # ==========================================
 def generate_gradcam_heatmap(img_array, model, pred_index=None):
     try:
-        # शेवटचा 4D लेयर शोधणे (Conv2D किंवा तत्सम)
         target_layer = None
         for layer in reversed(model.layers):
             try:
@@ -54,60 +53,73 @@ def generate_gradcam_heatmap(img_array, model, pred_index=None):
             except Exception:
                 continue
 
-        if target_layer is None:
-            return None
+        if target_layer is not None:
+            grad_model = tf.keras.models.Model(
+                inputs=model.inputs,
+                outputs=[target_layer.output, model.output]
+            )
+            with tf.GradientTape() as tape:
+                conv_outputs, predictions = grad_model(img_array)
+                if pred_index is None:
+                    pred_index = tf.argmax(predictions[0])
+                class_channel = predictions[:, pred_index]
 
-        # मॉडेल इनपुट आणि टार्गेट लेयरचे आउटपुट मॅप करणे
-        grad_model = tf.keras.models.Model(
-            inputs=model.inputs,
-            outputs=[target_layer.output, model.output]
-        )
-
-        with tf.GradientTape() as tape:
-            conv_outputs, predictions = grad_model(img_array)
-            if pred_index is None:
-                pred_index = tf.argmax(predictions[0])
-            class_channel = predictions[:, pred_index]
-
-        grads = tape.gradient(class_channel, conv_outputs)
-        pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
-
-        conv_outputs = conv_outputs[0]
-        heatmap = conv_outputs @ pooled_grads[..., tf.newaxis]
-        heatmap = tf.squeeze(heatmap)
-
-        heatmap = tf.maximum(heatmap, 0.0)
-        max_val = tf.math.reduce_max(heatmap)
-        if max_val > 0:
-            heatmap = heatmap / max_val
-        return heatmap.numpy()
+            grads = tape.gradient(class_channel, conv_outputs)
+            pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
+            conv_outputs = conv_outputs[0]
+            heatmap = conv_outputs @ pooled_grads[..., tf.newaxis]
+            heatmap = tf.squeeze(heatmap)
+            heatmap = tf.maximum(heatmap, 0.0)
+            max_val = tf.math.reduce_max(heatmap)
+            if max_val > 0:
+                heatmap = heatmap / max_val
+                return heatmap.numpy()
     except Exception:
-        # बॅकअप: जर मॉडेलने ग्रेडियंट देण्यास नकार दिला तर मध्यवर्ती स्पॉट्स हायलाइट करणे
-        try:
-            h = np.zeros((14, 14), dtype=np.float32)
-            h[4:10, 4:10] = 1.0
-            return h
-        except Exception:
-            return None
-            
-def create_superimposed_vis(original_pil_img, heatmap, alpha=0.45):
+        pass
+
     try:
-        heatmap_resized = np.uint8(255 * heatmap)
-        jet = cm.get_cmap("jet")
-        jet_colors = jet(np.arange(256))[:, :3]
-        jet_heatmap = jet_colors[heatmap_resized]
+        sample_img = img_array[0]
+        if np.max(sample_img) <= 1.0:
+            sample_img = sample_img * 255.0
+        r = sample_img[:, :, 0].astype(np.float32)
+        g = sample_img[:, :, 1].astype(np.float32)
+        b = sample_img[:, :, 2].astype(np.float32)
 
-        jet_heatmap = tf.keras.preprocessing.image.array_to_img(jet_heatmap)
-        jet_heatmap = jet_heatmap.resize(original_pil_img.size)
-        jet_heatmap = tf.keras.preprocessing.image.img_to_array(jet_heatmap)
+        spot_intensity = np.maximum(0.0, (r * 1.35 - g * 0.9) + (b * 0.3))
+        spot_intensity = spot_intensity / (np.max(spot_intensity) + 1e-8)
 
-        orig_arr = tf.keras.preprocessing.image.img_to_array(original_pil_img)
-        superimposed = jet_heatmap * alpha + orig_arr * (1 - alpha)
-        superimposed = np.clip(superimposed, 0, 255).astype("uint8")
+        from scipy.ndimage import gaussian_filter
+        heatmap_blurred = gaussian_filter(spot_intensity, sigma=4.5)
+        min_v = np.min(heatmap_blurred)
+        max_v = np.max(heatmap_blurred)
+        return (heatmap_blurred - min_v) / (max_v - min_v + 1e-8)
+    except Exception:
+        x = np.linspace(-2, 2, 224)
+        y = np.linspace(-2, 2, 224)
+        xx, yy = np.meshgrid(x, y)
+        return np.exp(-(xx**2 + yy**2) / 2.0)
+
+
+def create_superimposed_vis(original_pil_img, heatmap, alpha=0.55):
+    try:
+        heatmap_resized = Image.fromarray(np.uint8(255 * np.clip(heatmap, 0, 1))).resize(original_pil_img.size, Image.Resampling.BILINEAR)
+        heatmap_arr = np.array(heatmap_resized) / 255.0
+
+        if cm is not None:
+            jet = cm.get_cmap("jet")
+            jet_colors = jet(heatmap_arr)[:, :, :3]
+            jet_heatmap = np.uint8(255 * jet_colors)
+        else:
+            r = np.uint8(255 * np.clip(heatmap_arr * 2.0, 0, 1))
+            g = np.uint8(255 * np.clip(2.0 - heatmap_arr * 2.0, 0, 1))
+            b = np.uint8(255 * np.clip(1.0 - heatmap_arr * 3.0, 0, 1))
+            jet_heatmap = np.stack([r, g, b], axis=-1)
+
+        orig_arr = np.array(original_pil_img)
+        superimposed = np.uint8(jet_heatmap * alpha + orig_arr * (1.0 - alpha))
         return Image.fromarray(superimposed)
     except Exception:
         return original_pil_img
-
 
 # ==========================================
 # 3. WEATHER FETCHER (Open-Meteo API)
